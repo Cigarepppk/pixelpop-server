@@ -751,7 +751,7 @@ class PixelPopStudio {
     // server-side upload logic.
     async uploadImageToService(imageData) {
         console.log("Simulating image upload... You need to replace this function.");
-        return `https://your-server.com/photo-${Date.now()}.jpg`;
+        return `https://pixelpop-server.onrender.com/photo-${Date.now()}.jpg`;
     }
     
     // --- DOWNLOAD + QR ---
