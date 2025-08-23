@@ -746,90 +746,71 @@ class PixelPopStudio {
     }
 
     
- // --- UPLOAD IMAGE TO SERVICE ---
-    // This is a placeholder function. You MUST replace this with your real
-    // server-side upload logic.
-    async uploadImageToService(imageData) {
-        console.log("Simulating image upload... You need to replace this function.");
-        return `https://pixelpop-server.onrender.com/photo-${Date.now()}.jpg`;
-    }
-    
-    // --- DOWNLOAD + QR ---
-    async downloadPhotos() {
-        const finalCanvas = document.getElementById('final-canvas');
-        if (!finalCanvas) return;
-
-        const w = finalCanvas.width;
-        const h = finalCanvas.height;
-
-        const tempImage = new Image();
-        tempImage.src = finalCanvas.toDataURL('image/jpeg', 0.9);
-
-        tempImage.onload = async () => {
-            const mirrorCanvas = document.createElement('canvas');
-            mirrorCanvas.width = w;
-            mirrorCanvas.height = h;
-            const ctx = mirrorCanvas.getContext('2d');
-
-            ctx.translate(w, 0);
-            ctx.scale(-1, 1);
-            ctx.drawImage(tempImage, 0, 0, w, h);
-            ctx.restore?.();
-
-            const mirroredImage = mirrorCanvas.toDataURL('image/jpeg', 0.9);
-            const uploadUrl = await this.uploadImageToService(mirroredImage);
-
-            // Download with corrected filename syntax
-            const link = document.createElement('a');
-            link.download = `pixelpop-photos-${Date.now()}.jpg`;
-            link.href = mirroredImage;
-            link.click();
-
-            // Show QR Code with the public URL
-            const qrSection = document.getElementById('qr-section');
-            const qrCanvas = document.getElementById('qr-code');
-            const qrLink = document.getElementById('qr-link');
-
-            if (qrSection && qrCanvas && qrLink) {
-            qrSection.style.display = 'block';
-
-            new QRious({
-                element: qrCanvas,
-                value: mirroredImage,
-                size: 200
-            });
-
-            // Make QR clickable on desktop
-            qrLink.href = mirroredImage;
-        }
-        };
-    }
-
-
-    // --- PRINT + QR ---
-    async printPhotos() {
+// --- UPLOAD IMAGE TO SERVICE ---
+// This is a placeholder function. You MUST replace this with your real
+// server-side upload logic.
+async uploadImageToService(imageData) {
+    console.log("Simulating image upload... You need to replace this function.");
+    return `https://pixelpop-server.onrender.com/photo-${Date.now()}.jpg`;
+}
+// --- DOWNLOAD + QR ---
+async downloadPhotos() {
     const finalCanvas = document.getElementById('final-canvas');
     if (!finalCanvas) return;
-
     const w = finalCanvas.width;
     const h = finalCanvas.height;
-
+    const tempImage = new Image();
+    tempImage.src = finalCanvas.toDataURL('image/jpeg', 0.9);
+    // Correct async/await usage
+    await new Promise(resolve => tempImage.onload = resolve);
+    const mirrorCanvas = document.createElement('canvas');
+    mirrorCanvas.width = w;
+    mirrorCanvas.height = h;
+    const ctx = mirrorCanvas.getContext('2d');
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(tempImage, 0, 0, w, h);
+    ctx.restore?.();
+    const mirroredImage = mirrorCanvas.toDataURL('image/jpeg', 0.9);
+    const uploadUrl = await this.uploadImageToService(mirroredImage);
+    // Download with corrected filename syntax
+    const link = document.createElement('a');
+    link.download = `pixelpop-photos-${Date.now()}.jpg`;
+    link.href = mirroredImage;
+    link.click();
+    // Show QR Code with the public URL
+    const qrSection = document.getElementById('qr-section');
+    const qrCanvas = document.getElementById('qr-code');
+    const qrLink = document.getElementById('qr-link');
+    if (qrSection && qrCanvas && qrLink && uploadUrl) {
+        qrSection.style.display = 'block';
+        new QRious({
+            element: qrCanvas,
+            value: uploadUrl,
+            size: 200
+        });
+        qrLink.href = uploadUrl;
+    }
+}
+// --- PRINT + QR ---
+async printPhotos() {
+    const finalCanvas = document.getElementById('final-canvas');
+    if (!finalCanvas) return;
+    const w = finalCanvas.width;
+    const h = finalCanvas.height;
     // Create a new canvas to create the mirrored image for printing
     const mirrorCanvas = document.createElement('canvas');
     mirrorCanvas.width = w;
     mirrorCanvas.height = h;
     const ctx = mirrorCanvas.getContext('2d');
-
     // Apply the mirroring transformation
     ctx.translate(w, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(finalCanvas, 0, 0, w, h);
     ctx.restore?.();
-
     // Get the mirrored image data
     const mirroredImageData = mirrorCanvas.toDataURL('image/jpeg', 0.9);
     const uploadUrl = await this.uploadImageToService(mirroredImageData);
-
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
         <html>
@@ -847,22 +828,17 @@ class PixelPopStudio {
     `);
     printWindow.document.close();
     printWindow.print();
-
     // Show QR Code with the public URL
     const qrSection = document.getElementById('qr-section');
     const qrCanvas = document.getElementById('qr-code');
     const qrLink = document.getElementById('qr-link');
-
     if (qrSection && qrCanvas && qrLink && uploadUrl) {
         qrSection.style.display = 'block';
-
         new QRious({
             element: qrCanvas,
-            value: uploadUrl, // Correctly using the public URL
+            value: uploadUrl,
             size: 200
         });
-
-        // Make QR clickable on desktop
         qrLink.href = uploadUrl;
     }
 }
