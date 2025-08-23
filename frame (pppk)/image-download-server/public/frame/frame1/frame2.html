@@ -1,0 +1,935 @@
+
+<!--
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Frame App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #6a1b9a;
+            --background-color: #f3e5f5;
+            --card-background: transparent;
+            --text-color: #333333;
+            --border-radius: 16px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: var(--card-background);
+            border-radius: var(--border-radius);
+            box-shadow: none;
+            padding: 30px;
+            text-align: center;
+            max-width: 90%;
+            width: 700px;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+
+        .upload-area {
+            margin-bottom: 20px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .upload-btn {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: inline-block;
+            box-shadow: 0 4px 15px rgba(106, 27, 154, 0.3);
+        }
+
+        .upload-btn:hover {
+            background-color: #7b1fa2;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(106, 27, 154, 0.4);
+        }
+
+        .frame-selector {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .frame-thumb {
+            width: 80px;
+            height: 120px;
+            object-fit: contain;
+            cursor: pointer;
+            border-radius: 8px;
+            border: 3px solid transparent;
+            transition: all 0.2s ease;
+            background: transparent;
+        }
+
+        .frame-thumb:hover {
+            transform: scale(1.05);
+        }
+
+        .frame-thumb.selected {
+            border-color: var(--primary-color);
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(106, 27, 154, 0.5);
+        }
+
+        .photo-frame-container {
+            position: relative;
+            width: 100px;
+            height: 400px;
+            margin: 0 auto;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            background-color: transparent;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: none;
+        }
+
+        .photo-inner-container {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .user-photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .frame-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 2px solid var(--primary-color);
+            border-radius: 10px;
+            padding: 15px 25px;
+            font-size: 1.1em;
+            text-align: center;
+            z-index: 3;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Photo Frame Creator</h1>
+        <p>Upload a photo and choose a frame to create your masterpiece!</p>
+
+        <div class="upload-area">
+            <label for="fileInput" class="upload-btn">Choose Photo</label>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+
+        <div class="frame-selector">
+            <img src="../image/cas.png" alt="CAS Frame" class="frame-thumb" data-frame="../image/cas.png">
+            <img src="../image/blackpink.png" alt="Blackpink Frame" class="frame-thumb" data-frame="../image/blackpink.png">
+            <img src="../image/billie.png" alt="Billie Eilish Frame" class="frame-thumb" data-frame="../image/billie.png">
+            <img src="../image/htooeainthin.png" alt="Htoo Eain Thin Frame" class="frame-thumb" data-frame="../image/htooeainthin.png">
+            <img src="../image/theweekend.png" alt="The Weekend Frame" class="frame-thumb" data-frame="../image/theweekend.png">
+        </div>
+
+        <div class="photo-frame-container">
+            <div class="photo-inner-container" id="photoInnerContainer">
+                <img id="userPhoto" class="user-photo" src="" alt="Your uploaded photo">
+            </div>
+            <img id="frameImage" class="frame-image" src="" alt="Selected frame">
+            <div id="initialMessage" class="message-box">Upload a photo to begin!</div>
+        </div>
+
+        <button id="downloadBtn" style="margin-top:20px;display:none;" class="upload-btn">Download Image</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('fileInput');
+            const userPhoto = document.getElementById('userPhoto');
+            const frameImage = document.getElementById('frameImage');
+            const frameThumbs = document.querySelectorAll('.frame-thumb');
+            const messageBox = document.getElementById('initialMessage');
+            const downloadBtn = document.getElementById('downloadBtn');
+
+            let selectedFrameSrc = '';
+            let userPhotoSrc = '';
+
+            const showMessage = (text) => {
+                messageBox.textContent = text;
+                messageBox.style.display = 'block';
+                setTimeout(() => { messageBox.style.display = 'none'; }, 3000);
+            };
+
+            function checkDownloadReady() {
+                if (userPhotoSrc && selectedFrameSrc) downloadBtn.style.display = 'inline-block';
+                else downloadBtn.style.display = 'none';
+            }
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        userPhotoSrc = e.target.result;
+                        userPhoto.src = userPhotoSrc;
+                        userPhoto.style.opacity = 1;
+                        checkDownloadReady();
+                        if (!selectedFrameSrc) showMessage("Now choose a frame!");
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            frameThumbs.forEach(thumb => {
+                thumb.addEventListener('click', () => {
+                    frameThumbs.forEach(t => t.classList.remove('selected'));
+                    thumb.classList.add('selected');
+
+                    selectedFrameSrc = thumb.getAttribute('data-frame');
+                    frameImage.src = selectedFrameSrc;
+                    frameImage.style.opacity = 1;
+                    checkDownloadReady();
+
+                    if (userPhotoSrc) showMessage("Frame applied successfully!");
+                    else showMessage("Photo uploaded successfully, now choose a frame!");
+                });
+            });
+
+            downloadBtn.addEventListener('click', () => {
+                if (!userPhotoSrc || !selectedFrameSrc) return;
+
+                const imgPhoto = new Image();
+                const imgFrame = new Image();
+                imgPhoto.crossOrigin = "anonymous";
+                imgFrame.crossOrigin = "anonymous";
+
+                let loaded = 0;
+                function checkLoaded() {
+                    loaded++;
+                    if (loaded === 2) {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = imgPhoto.naturalWidth;
+                        canvas.height = imgPhoto.naturalHeight;
+                        const ctx = canvas.getContext('2d');
+
+                        ctx.drawImage(imgPhoto, 0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(imgFrame, 0, 0, canvas.width, canvas.height);
+
+                        canvas.toBlob(blob => {
+                            const link = document.createElement('a');
+                            link.download = "framed-image.png";
+                            link.href = URL.createObjectURL(blob);
+                            link.click();
+                            URL.revokeObjectURL(link.href);
+                            showMessage("Image downloaded!");
+                        }, 'image/png');
+                    }
+                }
+
+                imgPhoto.onload = checkLoaded;
+                imgFrame.onload = checkLoaded;
+                imgPhoto.src = userPhotoSrc;
+                imgFrame.src = selectedFrameSrc;
+            });
+
+            showMessage("Upload a photo to begin!");
+        });
+    </script>
+</body>
+
+</html>-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PixelPop Studio</title>
+    <link rel="icon" href="../image/image1/logo.PNG">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Header -->
+    <header class="header">
+        <nav class="nav-container">
+            <div class="logo">
+                <img src="../image/image1/logo.PNG" alt="PixelPop Studio">
+                <span>PixelPop Studio</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#" data-page="home" class="nav-link active">Home</a></li>
+                <li><a href="#" data-page="about" class="nav-link">About</a></li>
+                <li><a href="#" data-page="layout" class="nav-link">Photo Booth</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-content">
+    <!-- Home Page -->
+    <section id="home-page" class="page active">
+        <div class="hero-section">
+
+            <!-- Left Gallery -->
+            <div class="gallery-grid-left">
+                <div class="gallery-item"><img src="../image/image1/couple.jpg" alt="Gallery Image 1"></div>
+                <div class="gallery-item"><img src="../image/image1/bp.jpg" alt="Gallery Image 2"></div>
+            </div>
+
+            <!-- Hero Content (center) -->
+            <div class="hero-content">
+                <h1 class="hero-title">Capture the Fun with PixelPop!</h1>
+                <p class="hero-subtitle">Your ultimate virtual photo booth experience – anywhere, anytime.</p>
+                <button class="cta-button" data-page="layout">
+                    <i class="fas fa-camera"></i>
+                    Start Capturing
+                </button>
+            </div>
+
+            <!-- Right Gallery -->
+            <div class="gallery-grid-right">
+                <div class="gallery-item"><img src="../image/image1/friend.png" alt="Gallery Image 3"></div>
+                <div class="gallery-item"><img src="../image/image1/friend2.jpg" alt="Gallery Image 4"></div>
+            </div>
+        </div>
+
+        <div class="features-section">
+            <h2>Why Choose PixelPop Studio?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <i class="fas fa-magic"></i>
+                    <h3>Professional Filters</h3>
+                    <p>Apply stunning filters to enhance your photos</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-th-large"></i>
+                    <h3>Multiple Layouts</h3>
+                    <p>Choose from 4 unique photo layout options</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-download"></i>
+                    <h3>Instant Download</h3>
+                    <p>Download and print your photos immediately</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+
+    
+
+
+
+               <!-- <div class="hero-content">
+                    <h1 class="hero-title">Welcome to PixelPop Studio</h1>
+                    <p class="hero-subtitle">Create magical moments with our professional photobooth experience</p>
+                    <button class="cta-button" data-page="layout">
+                        <i class="fas fa-camera"></i>
+                        Start Capturing
+                    </button>
+                </div>
+                <div class="hero-gallery">
+                    <div class="gallery-grid">
+                        <div class="gallery-item">
+                            <img src="images/sample1.svg" alt="Sample Photo 1">
+                        </div>
+                        <div class="gallery-item">
+                            <img src="images/sample2.svg" alt="Sample Photo 2">
+                        </div>
+                        <div class="gallery-item">
+                            <img src="images/sample3.svg" alt="Sample Photo 3">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="features-section">
+                <h2>Why Choose PixelPop Studio?</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <i class="fas fa-magic"></i>
+                        <h3>Professional Filters</h3>
+                        <p>Apply stunning filters to enhance your photos</p>
+                    </div>
+                    <div class="feature-card">
+                        <i class="fas fa-th-large"></i>
+                        <h3>Multiple Layouts</h3>
+                        <p>Choose from 4 unique photo layout options</p>
+                    </div>
+                    <div class="feature-card">
+                        <i class="fas fa-download"></i>
+                        <h3>Instant Download</h3>
+                        <p>Download and print your photos immediately</p>
+                    </div>
+                </div>
+            </div>-->
+        
+
+        <!-- About Page -->
+         <!-- <section class="about-container">
+            <h1>About PixelPop Studio</h1>
+            <span>Your premier destination for digital photobooth experiences</span>
+        </section>
+
+        <section class="what-container">
+            <h2>What We Offer</h2>
+            <span>PixelPop Studio is a state-of-the-art web-based photobooth application designed to bring professional photography experiences to your fingertips. Our platform combines cutting-edge web technologies with intuitive design to create memorable photo sessions.</span>
+        </section>
+
+        <section class="how-container">
+            <h2>How to Use PixelPop Studio</h2>
+            <ol class="steps">
+                <li><h3><span class="badge">1</span>  Navigate to Photo Booth</h3>
+                    <span class="jen">Click on "Photo Booth" in the navigation menu or use the "Start Capturing" button on the home page.</span>
+                </li>
+                <li><h3><span class="badge">2</span>  Choose Your Photos</h3>
+                    <span class="jen">Select from 4 different photo layouts including single, collage, strip, and grid options.</span>
+                </li>
+                <li><h3><span class="badge">3</span>  Customize Your Photos</h3>
+                    <span class="jen">Pick from various borders and apply creative filters to enhance your photos.</span>
+                </li>
+                <li><h3><space class="badge">4</space>  Set Timer & Capture</h3>
+                    <span class="jen">Use the timer feature to get ready for your shot, then capture your perfect moment.</span>
+                </li>
+                <li><h3><span class="badge">5</span>  Download & Print</h3>
+                    <span class="jen">Save your completed photo session and print or share your memories.</span>
+                </li>
+            </ol>
+        </section>
+
+        <section class="feature-container">
+            <h2>Features</h2>
+            <ul class="features">
+                <li>Real-time camera preview</li>
+                <li>Multiple photo layouts</li>
+                <li>Professional filters and effects</li>
+                <li>Customizable borders</li>
+                <li>Timer functionality</li>
+                <li>High-quality downloads</li>
+                <li>Mobile-responsive design</li>
+            </ul>
+        </section>-->
+
+
+       <section id="about-page" class="page">
+            <div class="about-container">
+                <div class="about-header">
+                    <h1>About PixelPop Studio</h1>
+                    <p class="about-intro">Your premier destination for digital photobooth experiences</p>
+                </div>
+                
+                <div class="about-content">
+                    <div class="about-section">
+                        <h2>What We Offer</h2>
+                        <p>PixelPop Studio is a state-of-the-art web-based photobooth application designed to bring professional photography experiences to your fingertips. Our platform combines cutting-edge web technologies with intuitive design to create memorable photo sessions.</p>
+                    </div>
+
+                    <div class="about-section">
+                        <h2>How to Use PixelPop Studio</h2>
+                        <div class="instructions">
+                            <div class="instruction-step">
+                                <div class="step-number">1</div>
+                                <div class="step-content">
+                                    <h3>Navigate to Photo Booth</h3>
+                                    <p>Click on "Photo Booth" in the navigation menu or use the "Start Capturing" button on the home page.</p>
+                                </div>
+                            </div>
+                            <div class="instruction-step">
+                                <div class="step-number">2</div>
+                                <div class="step-content">
+                                    <h3>Choose Your Layout</h3>
+                                    <p>Select from 4 different photo layouts including single, collage, strip, and grid options.</p>
+                                </div>
+                            </div>
+                            <div class="instruction-step">
+                                <div class="step-number">3</div>
+                                <div class="step-content">
+                                    <h3>Customize Your Photos</h3>
+                                    <p>Pick from various borders and apply creative filters to enhance your photos.</p>
+                                </div>
+                            </div>
+                            <div class="instruction-step">
+                                <div class="step-number">4</div>
+                                <div class="step-content">
+                                    <h3>Set Timer & Capture</h3>
+                                    <p>Use the timer feature to get ready for your shot, then capture your perfect moment.</p>
+                                </div>
+                            </div>
+                            <div class="instruction-step">
+                                <div class="step-number">5</div>
+                                <div class="step-content">
+                                    <h3>Download & Print</h3>
+                                    <p>Save your completed photo session and print or share your memories.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="about-section">
+                        <h2>Features</h2>
+                        <ul class="features-list">
+                            <li><i class="fas fa-check"></i> Real-time camera preview</li>
+                            <li><i class="fas fa-check"></i> Multiple photo layouts</li>
+                            <li><i class="fas fa-check"></i> Professional filters and effects</li>
+                            <li><i class="fas fa-check"></i> Customizable borders</li>
+                            <li><i class="fas fa-check"></i> Timer functionality</li>
+                            <li><i class="fas fa-check"></i> High-quality downloads</li>
+                            <li><i class="fas fa-check"></i> Mobile-responsive design</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Layout/Photo Booth Page -->
+        <section id="layout-page" class="page">
+            <div class="photobooth-container">
+                <div class="photobooth-header">
+                    <h1>Photo Booth Studio</h1>
+                    <p>Create your perfect photo experience</p>
+                </div>
+
+                <!-- Layout Selection -->
+                <div class="layout-selection">
+                    <h3>Choose Your Layout</h3>
+                    <div class="layout-grid">
+                        <div class="layout-option active" data-layout="single">
+                            <div class="layout-preview">
+                                <div class="preview-single"></div>
+                            </div>
+                            <span>Single</span>
+                        </div>
+                        <div class="layout-option" data-layout="twostrip">
+                            <div class="layout-preview">
+                                <div class="preview-twostrip">
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                </div>
+                            </div>
+                            <span>TwoStrip</span>
+                        </div>
+                        <div class="layout-option" data-layout="threestrip">
+                            <div class="layout-preview">
+                                <div class="preview-threestrip">
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                </div>
+                            </div>
+                            <span>ThreeStrip</span>
+                        </div>
+                        <div class="layout-option" data-layout="fourstrip">
+                            <div class="layout-preview">
+                                <div class="preview-fourstrip">
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                </div>
+                            </div>
+                            <span>FourStrip</span>
+                        </div>
+                        <!--<div class="layout-option" data-layout="strip">
+                            <div class="layout-preview">
+                                <div class="preview-strip">
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                </div>
+                            </div>
+                            <span>Strip</span>
+                        </div>
+                        <div class="layout-option" data-layout="collage">
+                            <div class="layout-preview">
+                                <div class="preview-collage">
+                                    <div class="collage-item large"></div>
+                                    <div class="collage-item small"></div>
+                                    <div class="collage-item small"></div>
+                                </div>
+                            </div>
+                            <span>Collage</span>
+                        </div>
+                        <div class="layout-option" data-layout="grid">
+                            <div class="layout-preview">
+                                <div class="preview-grid">
+                                    <div class="grid-item"></div>
+                                    <div class="grid-item"></div>
+                                    <div class="grid-item"></div>
+                                    <div class="grid-item"></div>
+                                </div>
+                            </div>
+                            <span>Grid</span>
+                        </div>-->
+                    </div>
+                </div>
+
+                <!-- Camera and Controls -->
+                <div class="camera-section">
+                    <div class="camera-container">
+                        <video id="camera-feed" autoplay playsinline></video>
+                        <canvas id="photo-canvas" style="display: none;"></canvas>
+                        <div class="camera-overlay">
+                            <div class="timer-display" id="timer-display" style="display: none;">3</div>
+                            <div class="capture-button-container">
+                                <button id="capture-btn" class="capture-button">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Border Selection -->
+                    <div class="border-selection">
+                        <h4>Choose Border</h4>
+                        <div class="border-options">
+                            <div class="border-option active" data-border="none">
+                                <div class="border-preview no-border"></div>
+                                <span>None</span>
+                            </div>
+                            <div class="border-option" data-border="classic">
+                                <div class="border-preview classic-border"></div>
+                                <span>Classic</span>
+                            </div>
+                            <div class="border-option" data-border="modern">
+                                <div class="border-preview modern-border"></div>
+                                <span>Modern</span>
+                            </div>
+                            <div class="border-option" data-border="vintage">
+                                <div class="border-preview vintage-border"></div>
+                                <span>Vintage</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Selection -->
+                    <div class="filter-selection">
+                        <h4>Apply Filters</h4>
+                        <div class="filter-options">
+                            <div class="filter-option active" data-filter="none">
+                                <div class="filter-preview normal"></div>
+                                <span>Normal</span>
+                            </div>
+                            <div class="filter-option" data-filter="sepia">
+                                <div class="filter-preview sepia"></div>
+                                <span>Sepia</span>
+                            </div>
+                            <div class="filter-option" data-filter="grayscale">
+                                <div class="filter-preview grayscale"></div>
+                                <span>B&W</span>
+                            </div>
+                            <div class="filter-option" data-filter="vintage">
+                                <div class="filter-preview vintage"></div>
+                                <span>Vintage</span>
+                            </div>
+                            <div class="filter-option" data-filter="bright">
+                                <div class="filter-preview bright"></div>
+                                <span>Bright</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timer and Controls -->
+                    <div class="photo-controls">
+                        <div class="timer-controls">
+                            <label for="timer-select">Timer:</label>
+                            <select id="timer-select">
+                                <option value="0">No Timer</option>
+                                <option value="3" selected>3 seconds</option>
+                                <option value="5">5 seconds</option>
+                                <option value="10">10 seconds</option>
+                            </select>
+                        </div>
+                        <button id="start-session" class="primary-button">
+                            <i class="fas fa-play"></i>
+                            Start Session
+                        </button>
+                        <button id="reset-session" class="secondary-button">
+                            <i class="fas fa-redo"></i>
+                            Reset
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Photo Results -->
+                <div class="photo-results" id="photo-results" style="display: none;">
+          <h3>Your Photos</h3>
+          <div class="results-container">
+            <canvas id="final-canvas"></canvas>
+            <div class="download-controls">
+              <button id="download-btn" class="primary-button">
+                <i class="fas fa-download"></i>
+                Download Photos
+              </button>
+              <button id="print-btn" class="secondary-button">
+                <i class="fas fa-print"></i>
+                Print Photos
+              </button>
+              <button id="new-session" class="secondary-button">
+                <i class="fas fa-plus"></i>
+                New Session
+              </button>
+              <!-- QR Code Section -->
+             <div id="qr-section" style="margin-top:20px; display:none; text-align:center;">
+                <a id="qr-link" target="_blank">
+                 <canvas id="qr-code"></canvas>
+                </a>
+                <p>Scan or click QR code to download on your phone</p>
+            </div>
+            </div>
+          </div>
+        </div>
+      
+      <section>
+    <div class="container">
+        <h1>Photo Frame Creator</h1>
+        <p>Upload a photo and choose a frame to create your masterpiece!</p>
+
+        <div class="upload-area">
+            <label for="fileInput" class="upload-btn">Choose Photo</label>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+
+        <div class="frame-selector">
+            <img src="../image/cas.png" alt="CAS Frame" class="frame-thumb" data-frame="../image/cas.png">
+            <img src="../image/blackpink.png" alt="Blackpink Frame" class="frame-thumb" data-frame="../image/blackpink.png">
+            <img src="../image/billie.png" alt="Billie Eilish Frame" class="frame-thumb" data-frame="../image/billie.png">
+            <img src="../image/htooeainthin.png" alt="Htoo Eain Thin Frame" class="frame-thumb" data-frame="../image/htooeainthin.png">
+            <img src="../image/theweekend.png" alt="The Weekend Frame" class="frame-thumb" data-frame="../image/theweekend.png">
+        </div>
+
+        <div class="photo-frame-container">
+            <div class="photo-inner-container" id="photoInnerContainer">
+                <img id="userPhoto" class="user-photo" src="" alt="Your uploaded photo">
+            </div>
+            <img id="frameImage" class="frame-image" src="" alt="Selected frame">
+            <div id="initialMessage" class="message-box">Upload a photo to begin!</div>
+        </div>
+
+        <button id="downloadBtn" style="margin-top:20px;display:none;" class="upload-btn">Download Image</button>
+    </div>
+</section>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2025 PixelPop Studio. All rights reserved.</p>
+            <div class="social-links">
+                <a href="#"><i class="fab fa-facebook"></i></a>
+                <a href="#"><i class="fab fa-instagram"></i></a>
+                <a href="#"><i class="fab fa-twitter"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>Initializing camera...</p>
+    </div>
+
+    <!-- Error Modal -->
+    <div class="error-modal" id="error-modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Camera Access Required</h3>
+            <p id="error-message">Please allow camera access to use the photobooth feature.</p>
+            <button class="primary-button" onclick="closeErrorModal()">OK</button>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+
+
+    <script src="script.js"></script>
+
+
+
+
+
+
+
+   <!-- <style>
+        :root {
+            --primary-color: #6a1b9a;
+            --background-color: #f3e5f5;
+            --card-background: transparent;
+            --text-color: #333333;
+            --border-radius: 16px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        
+    </style>
+</head>
+
+<body>-->
+
+   <!-- <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('fileInput');
+            const userPhoto = document.getElementById('userPhoto');
+            const frameImage = document.getElementById('frameImage');
+            const frameThumbs = document.querySelectorAll('.frame-thumb');
+            const messageBox = document.getElementById('initialMessage');
+            const downloadBtn = document.getElementById('downloadBtn');
+
+            let selectedFrameSrc = '';
+            let userPhotoSrc = '';
+
+            const showMessage = (text) => {
+                messageBox.textContent = text;
+                messageBox.style.display = 'block';
+                setTimeout(() => { messageBox.style.display = 'none'; }, 3000);
+            };
+
+            function checkDownloadReady() {
+                if (userPhotoSrc && selectedFrameSrc) downloadBtn.style.display = 'inline-block';
+                else downloadBtn.style.display = 'none';
+            }
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        userPhotoSrc = e.target.result;
+                        userPhoto.src = userPhotoSrc;
+                        userPhoto.style.opacity = 1;
+                        checkDownloadReady();
+                        if (!selectedFrameSrc) showMessage("Now choose a frame!");
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            frameThumbs.forEach(thumb => {
+                thumb.addEventListener('click', () => {
+                    frameThumbs.forEach(t => t.classList.remove('selected'));
+                    thumb.classList.add('selected');
+
+                    selectedFrameSrc = thumb.getAttribute('data-frame');
+                    frameImage.src = selectedFrameSrc;
+                    frameImage.style.opacity = 1;
+                    checkDownloadReady();
+
+                    if (userPhotoSrc) showMessage("Frame applied successfully!");
+                    else showMessage("Photo uploaded successfully, now choose a frame!");
+                });
+            });
+
+            downloadBtn.addEventListener('click', () => {
+                if (!userPhotoSrc || !selectedFrameSrc) return;
+
+                const imgPhoto = new Image();
+                const imgFrame = new Image();
+                imgPhoto.crossOrigin = "anonymous";
+                imgFrame.crossOrigin = "anonymous";
+
+                let loaded = 0;
+                function checkLoaded() {
+                    loaded++;
+                    if (loaded === 2) {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = imgPhoto.naturalWidth;
+                        canvas.height = imgPhoto.naturalHeight;
+                        const ctx = canvas.getContext('2d');
+
+                        ctx.drawImage(imgPhoto, 0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(imgFrame, 0, 0, canvas.width, canvas.height);
+
+                        canvas.toBlob(blob => {
+                            const link = document.createElement('a');
+                            link.download = "framed-image.png";
+                            link.href = URL.createObjectURL(blob);
+                            link.click();
+                            URL.revokeObjectURL(link.href);
+                            showMessage("Image downloaded!");
+                        }, 'image/png');
+                    }
+                }
+
+                imgPhoto.onload = checkLoaded;
+                imgFrame.onload = checkLoaded;
+                imgPhoto.src = userPhotoSrc;
+                imgFrame.src = selectedFrameSrc;
+            });
+
+            showMessage("Upload a photo to begin!");
+        });
+    </script>-->
+</body>
+</html>
