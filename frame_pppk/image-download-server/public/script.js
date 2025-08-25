@@ -879,7 +879,118 @@ async uploadImageToService(imageData) {
     console.log("Simulating image upload... You need to replace this function.");
     return `https://pixelpop-server.onrender.com/photo-${Date.now()}.jpg`;
 }
+
+// --- DOWNLOAD + QR ---
 async downloadPhotos() {
+    const finalCanvas = document.getElementById('final-canvas');
+    if (!finalCanvas) return;
+
+    // --- SCALE FOR HD OUTPUT ---
+    const scale = 2; // increase for sharper output (2x = HD, 3x = 4K-ish)
+    const w = finalCanvas.width * scale;
+    const h = finalCanvas.height * scale;
+
+    const mirrorCanvas = document.createElement('canvas');
+    mirrorCanvas.width = w;
+    mirrorCanvas.height = h;
+    const ctx = mirrorCanvas.getContext('2d');
+
+    // Scale the context for HD
+    ctx.scale(scale, scale);
+    ctx.translate(finalCanvas.width, 0);
+    ctx.scale(-1, 1);
+
+    ctx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
+    ctx.restore?.();
+
+    // --- EXPORT HD IMAGE ---
+    mirrorCanvas.toBlob(async (blob) => {
+        // Download
+        const link = document.createElement('a');
+        link.download = `pixelpop-photos-${Date.now()}.jpg`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+
+        // Upload to your service
+        const mirroredImage = mirrorCanvas.toDataURL('image/jpeg', 1.0);
+        const uploadUrl = await this.uploadImageToService(mirroredImage);
+
+        // Show QR code
+        const qrSection = document.getElementById('qr-section');
+        const qrCanvas = document.getElementById('qr-code');
+        const qrLink = document.getElementById('qr-link');
+        if (qrSection && qrCanvas && qrLink && uploadUrl) {
+            qrSection.style.display = 'block';
+            new QRious({
+                element: qrCanvas,
+                value: uploadUrl,
+                size: 200
+            });
+            qrLink.href = uploadUrl;
+        }
+    }, 'image/jpeg', 1.0); // best quality
+}
+
+// --- PRINT + QR ---
+async printPhotos() {
+    const finalCanvas = document.getElementById('final-canvas');
+    if (!finalCanvas) return;
+
+    // --- SCALE FOR HD OUTPUT ---
+    const scale = 2;
+    const w = finalCanvas.width * scale;
+    const h = finalCanvas.height * scale;
+
+    const mirrorCanvas = document.createElement('canvas');
+    mirrorCanvas.width = w;
+    mirrorCanvas.height = h;
+    const ctx = mirrorCanvas.getContext('2d');
+
+    ctx.scale(scale, scale);
+    ctx.translate(finalCanvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
+    ctx.restore?.();
+
+    // Get HD image data
+    const mirroredImageData = mirrorCanvas.toDataURL('image/jpeg', 1.0);
+    const uploadUrl = await this.uploadImageToService(mirroredImageData);
+
+    // Open print window
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>PixelPop Studio Photos</title>
+                <style>
+                    body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+                    img { max-width: 100%; height: 100%; }
+                </style>
+            </head>
+            <body>
+                <img src="${mirroredImageData}" />
+            </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+
+    // Show QR code
+    const qrSection = document.getElementById('qr-section');
+    const qrCanvas = document.getElementById('qr-code');
+    const qrLink = document.getElementById('qr-link');
+    if (qrSection && qrCanvas && qrLink && uploadUrl) {
+        qrSection.style.display = 'block';
+        new QRious({
+            element: qrCanvas,
+            value: uploadUrl,
+            size: 200
+        });
+        qrLink.href = uploadUrl;
+    }
+}
+
+/*async downloadPhotos() {
     const finalCanvas = document.getElementById('final-canvas');
     if (!finalCanvas) return;
     const w = finalCanvas.width;
@@ -943,7 +1054,7 @@ async printPhotos() {
                 <title>PixelPop Studio Photos</title>
                 <style>
                     body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-                    img { max-width: 100%; height: auto; }
+                    img { max-width: 100%; height: 100%; }
                 </style>
             </head>
             <body>
@@ -966,7 +1077,7 @@ async printPhotos() {
         });
         qrLink.href = uploadUrl;
     }
-}
+}*/
 
     // --- ERROR HANDLING ---
     showError(message) {
@@ -1045,7 +1156,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
 
-            downloadBtn.addEventListener('click', () => {
+          /*  downloadBtn.addEventListener('click', () => {
                 if (!userPhotoSrc || !selectedFrameSrc) return;
 
                 const imgPhoto = new Image();
@@ -1083,4 +1194,51 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             showMessage("Upload a photo to begin!");
-        });
+        });*/
+        downloadBtn.addEventListener('click', () => {
+    if (!userPhotoSrc || !selectedFrameSrc) return;
+
+    const imgPhoto = new Image();
+    const imgFrame = new Image();
+    imgPhoto.crossOrigin = "anonymous";
+    imgFrame.crossOrigin = "anonymous";
+
+    let loaded = 0;
+    function checkLoaded() {
+        loaded++;
+        if (loaded === 2) {
+            // --- FIXED HD SIZE ---
+            const HD_WIDTH = 1920;   // Full HD width
+            const HD_HEIGHT = 1080;  // Full HD height
+
+            const canvas = document.createElement('canvas');
+            canvas.width = HD_WIDTH;
+            canvas.height = HD_HEIGHT;
+            const ctx = canvas.getContext('2d');
+
+            // Draw photo scaled to HD
+            ctx.drawImage(imgPhoto, 0, 0, HD_WIDTH, HD_HEIGHT);
+
+            // Draw frame scaled to HD
+            ctx.drawImage(imgFrame, 0, 0, HD_WIDTH, HD_HEIGHT);
+
+            // Save as high-quality image
+            canvas.toBlob(blob => {
+                const link = document.createElement('a');
+                link.download = `framed-image-${Date.now()}.jpg`;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+                URL.revokeObjectURL(link.href);
+                showMessage("Image downloaded in HD!");
+            }, 'image/jpeg', 1.0); // best quality
+        }
+    }
+
+    imgPhoto.onload = checkLoaded;
+    imgFrame.onload = checkLoaded;
+    imgPhoto.src = userPhotoSrc;
+    imgFrame.src = selectedFrameSrc;
+});
+
+showMessage("Upload a photo to begin!");
+});
