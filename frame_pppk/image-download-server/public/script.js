@@ -1156,7 +1156,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
 
-          /*  downloadBtn.addEventListener('click', () => {
+         /*  downloadBtn.addEventListener('click', () => {
                 if (!userPhotoSrc || !selectedFrameSrc) return;
 
                 const imgPhoto = new Image();
@@ -1194,9 +1194,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             showMessage("Upload a photo to begin!");
-        });*/
+        });
+        */
+
+      
+      
         downloadBtn.addEventListener('click', () => {
-    if (!userPhotoSrc || !selectedFrameSrc) return;
+           if (!userPhotoSrc || !selectedFrameSrc) return;
 
     const imgPhoto = new Image();
     const imgFrame = new Image();
@@ -1207,30 +1211,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function checkLoaded() {
         loaded++;
         if (loaded === 2) {
-            // --- FIXED HD SIZE ---
-            const HD_WIDTH = 1920;   // Full HD width
-            const HD_HEIGHT = 1080;  // Full HD height
-
+            // ✅ Keep original resolution
             const canvas = document.createElement('canvas');
-            canvas.width = HD_WIDTH;
-            canvas.height = HD_HEIGHT;
+            canvas.width = imgPhoto.naturalWidth;
+            canvas.height = imgPhoto.naturalHeight;
             const ctx = canvas.getContext('2d');
 
-            // Draw photo scaled to HD
-            ctx.drawImage(imgPhoto, 0, 0, HD_WIDTH, HD_HEIGHT);
+            // Draw original image and frame
+            ctx.drawImage(imgPhoto, 0, 0, canvas.width, canvas.height);
+            ctx.drawImage(imgFrame, 0, 0, canvas.width, canvas.height);
 
-            // Draw frame scaled to HD
-            ctx.drawImage(imgFrame, 0, 0, HD_WIDTH, HD_HEIGHT);
-
-            // Save as high-quality image
+            // ✅ Export at best quality
             canvas.toBlob(blob => {
                 const link = document.createElement('a');
                 link.download = `framed-image-${Date.now()}.jpg`;
                 link.href = URL.createObjectURL(blob);
                 link.click();
                 URL.revokeObjectURL(link.href);
-                showMessage("Image downloaded in HD!");
-            }, 'image/jpeg', 1.0); // best quality
+                showMessage("Image downloaded in original HD quality!");
+            }, 'image/jpeg', 1.0); // full quality
         }
     }
 
@@ -1242,3 +1241,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
 showMessage("Upload a photo to begin!");
 });
+
