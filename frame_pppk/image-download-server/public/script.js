@@ -1104,57 +1104,82 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 //frame section
 
- document.addEventListener('DOMContentLoaded', () => {
-            const fileInput = document.getElementById('fileInput');
-            const userPhoto = document.getElementById('userPhoto');
-            const frameImage = document.getElementById('frameImage');
-            const frameThumbs = document.querySelectorAll('.frame-thumb');
-            const messageBox = document.getElementById('initialMessage');
-            const downloadBtn = document.getElementById('downloadBtn');
+document.addEventListener('DOMContentLoaded', () => {
+    const fileInput = document.getElementById('fileInput');
+    const userPhoto = document.getElementById('userPhoto');
+    const frameImage = document.getElementById('frameImage');
+    const messageBox = document.getElementById('initialMessage');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const frameSearch = document.getElementById('frameSearch');
 
-            let selectedFrameSrc = '';
-            let userPhotoSrc = '';
+    // CHANGE: Select the parent containers instead of just the images
+    const frameItems = document.querySelectorAll('.frame-item');
 
-            const showMessage = (text) => {
-                messageBox.textContent = text;
-                messageBox.style.display = 'block';
-                setTimeout(() => { messageBox.style.display = 'none'; }, 3000);
+    let selectedFrameSrc = '';
+    let userPhotoSrc = '';
+
+    const showMessage = (text) => {
+        messageBox.textContent = text;
+        messageBox.style.display = 'block';
+        setTimeout(() => { messageBox.style.display = 'none'; }, 3000);
+    };
+
+    function checkDownloadReady() {
+        if (userPhotoSrc && selectedFrameSrc) downloadBtn.style.display = 'inline-block';
+        else downloadBtn.style.display = 'none';
+    }
+
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                userPhotoSrc = e.target.result;
+                userPhoto.src = userPhotoSrc;
+                userPhoto.style.opacity = 1;
+                checkDownloadReady();
+                if (!selectedFrameSrc) showMessage("Now choose a frame!");
             };
+            reader.readAsDataURL(file);
+        }
+    });
+    
+    // CHANGE: Loop through the new frameItems and add the click listener
+    frameItems.forEach(item => {
+        item.addEventListener('click', () => {
+            frameItems.forEach(t => t.classList.remove('selected'));
+            item.classList.add('selected');
 
-            function checkDownloadReady() {
-                if (userPhotoSrc && selectedFrameSrc) downloadBtn.style.display = 'inline-block';
-                else downloadBtn.style.display = 'none';
+            // Find the image inside the clicked item
+            const thumb = item.querySelector('.frame-thumb');
+            selectedFrameSrc = thumb.getAttribute('data-frame');
+            frameImage.src = selectedFrameSrc;
+            frameImage.style.opacity = 1;
+            checkDownloadReady();
+
+            if (userPhotoSrc) showMessage("Frame applied successfully!");
+            else showMessage("Photo uploaded successfully, now choose a frame!");
+        });
+    });
+
+    // CHANGE: Update the search functionality to target frame-item containers
+    frameSearch.addEventListener('keyup', (event) => {
+        const searchTerm = event.target.value.toLowerCase();
+        
+        frameItems.forEach(item => {
+            // Find the alt text from the image inside the item
+            const frameAltText = item.querySelector('.frame-thumb').alt.toLowerCase();
+            
+            if (frameAltText.includes(searchTerm)) {
+                // Show the whole frame item
+                item.style.display = 'flex';
+            } else {
+                // Hide the whole frame item
+                item.style.display = 'none';
             }
+        });
+    });
 
-            fileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        userPhotoSrc = e.target.result;
-                        userPhoto.src = userPhotoSrc;
-                        userPhoto.style.opacity = 1;
-                        checkDownloadReady();
-                        if (!selectedFrameSrc) showMessage("Now choose a frame!");
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-
-            frameThumbs.forEach(thumb => {
-                thumb.addEventListener('click', () => {
-                    frameThumbs.forEach(t => t.classList.remove('selected'));
-                    thumb.classList.add('selected');
-
-                    selectedFrameSrc = thumb.getAttribute('data-frame');
-                    frameImage.src = selectedFrameSrc;
-                    frameImage.style.opacity = 1;
-                    checkDownloadReady();
-
-                    if (userPhotoSrc) showMessage("Frame applied successfully!");
-                    else showMessage("Photo uploaded successfully, now choose a frame!");
-                });
-            });
 
          /*  downloadBtn.addEventListener('click', () => {
                 if (!userPhotoSrc || !selectedFrameSrc) return;
