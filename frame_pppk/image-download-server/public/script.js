@@ -380,7 +380,7 @@ class PixelPopStudio {
             case 'modern':
                 ctx.strokeStyle = '#ff69b4';
                 ctx.lineWidth = 15;
-                ctx.strokeRect(7.5, 7.5, canvas.width - 15, canvas.height - 15);
+                ctx.strokeRect(7.5,7.5, canvas.width - 15, canvas.height - 15);
                 break;
                 
             case 'vintage':
@@ -404,7 +404,7 @@ class PixelPopStudio {
     }
 
     // Check if session is complete
-    checkSessionComplete() {
+    /*checkSessionComplete() {
         const requiredPhotos = this.getRequiredPhotoCount();
         if (this.capturedPhotos.length >= requiredPhotos) {
             this.completeSession();
@@ -515,22 +515,43 @@ class PixelPopStudio {
     }
 
     createSingleLayout(ctx, canvas) {
-        canvas.width = 600;
-        canvas.height = 800;
+        canvas.width = 300;
+        canvas.height = 200;
+
+        const margin = 20;
+        const photoHeight = 160; 
+
+         // Background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        this.capturedPhotos.forEach((photo, index) => {
+            const img = new Image();
+            img.onload = () => {
+                const y = margin + (index * (photoHeight + margin));
+                ctx.drawImage(img, margin, y, canvas.width - (margin * 2), photoHeight);
+
+                if (index === this.capturedPhotos.length - 1) {
+                    this.addLayoutTitle(ctx, canvas, 'PixelPop Studio');
+                }
+            };
+            img.src = photo;
+        });
+    }
         
         // Background
-        ctx.fillStyle = '#ffffff';
+        /*ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
         if (this.capturedPhotos.length > 0) {
             const img = new Image();
             img.onload = () => {
-                ctx.drawImage(img, 50, 50, 500, 375);
+                ctx.drawImage(img, margin, 50, canvas.width - (margin * 2), photoHeight);
                 this.addLayoutTitle(ctx, canvas, 'PixelPop Studio');
             };
             img.src = this.capturedPhotos[0];
         }
-    }
+    }*/
 
     /*createStripLayout(ctx, canvas) {
         canvas.width = 300;
@@ -618,10 +639,10 @@ class PixelPopStudio {
     }*/
     createTwoStripLayout(ctx, canvas) {
     canvas.width = 300;
-    canvas.height = 450; // shorter height for 2 strips
+    canvas.height = 380; // shorter height for 2 strips
 
-    const margin = 30;
-    const photoHeight = 150; // each photo height
+    const margin = 20;
+    const photoHeight = 160; // each photo height
 
     // Background
     ctx.fillStyle = '#ffffff';
@@ -644,11 +665,11 @@ class PixelPopStudio {
 
     createThreeStripLayout(ctx, canvas) {
     canvas.width = 300;
-    canvas.height = 600;
+    canvas.height = 560;
 
     // Adjust height based on strip count
-    const margin = 30;
-    const photoHeight = 150; // Default for 4 strips
+    const margin = 20;
+    const photoHeight = 160; // Default for 4 strips
     /*const heights = { 4: 800, 3: 620, 2: 420 };*/
 
     /*canvas.height = heights[stripCount] || heights[4];*/
