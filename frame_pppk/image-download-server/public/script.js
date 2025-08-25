@@ -24,7 +24,7 @@ class PixelPopStudio {
         this.setupMobileMenu();
     }
 
-    // Navigation Setup
+    // This method handles the navigation links and CTA button
     setupNavigation() {
         const navLinks = document.querySelectorAll('.nav-link');
         const ctaButton = document.querySelector('.cta-button');
@@ -45,6 +45,7 @@ class PixelPopStudio {
         }
     }
 
+    // This method handles the logic for showing/hiding pages
     navigateToPage(page) {
         // Hide all pages
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -72,9 +73,19 @@ class PixelPopStudio {
         } else if (this.stream) {
             this.stopCamera();
         }
+
+        // Close mobile menu after navigation
+        const navMenu = document.querySelector('.nav-menu');
+        const hamburger = document.querySelector('.hamburger');
+        if (navMenu.classList.contains('active')) {
+            navMenu.classList.remove('active');
+            if (hamburger) {
+                hamburger.classList.remove('active');
+            }
+        }
     }
 
-    // Mobile Menu Setup
+    // This method handles the mobile menu toggle functionality
     setupMobileMenu() {
         const hamburger = document.querySelector('.hamburger');
         const navMenu = document.querySelector('.nav-menu');
@@ -82,6 +93,7 @@ class PixelPopStudio {
         if (hamburger) {
             hamburger.addEventListener('click', () => {
                 navMenu.classList.toggle('active');
+                hamburger.classList.toggle('active');
             });
         }
     }
