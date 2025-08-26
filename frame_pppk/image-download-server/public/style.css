@@ -458,12 +458,18 @@ body {
     margin-top:0.5rem white;
     font-family:Arial, Helvetica, sans-serif;
 }*/
-
+body {
+    /* Your existing body styles */
+    min-height: 100vh; /* Ensures the body fills the viewport height */
+    display: flex;
+    flex-direction: column;
+}
 /* About Page Styles */
 .about-container {
     max-width: 800px;
     margin: 0 auto;
     text-align: center;
+    justify-content: center; /* Centers content vertically */
 }
 
 .about-header {
@@ -475,6 +481,7 @@ body {
     font-size: 2.5rem;
     color: var(--primary-pink);
     margin-bottom: 1rem;
+    text-align: center;
 }
 
 .about-intro {
@@ -493,7 +500,15 @@ body {
 .about-section h2 {
     color: var(--primary-pink);
     margin-bottom: 1rem;
+    text-align: center;
 }
+
+.about-section p {
+    color: var(--dark-gray);
+    line-height: 1.6;
+    text-align:left;
+}
+
 
 .instructions {
     margin-top: 1.5rem;
@@ -503,7 +518,6 @@ body {
     display: flex;
     gap: 1rem;
     margin-bottom: 2rem;
-    align-items: flex-start;
 }
 
 .step-number {
@@ -522,6 +536,12 @@ body {
 .step-content h3 {
     color: var(--dark-gray);
     margin-bottom: 0.5rem;
+    justify-content: left;
+    text-align: left;
+}
+.step-content p {
+    color: var(--gray);
+    text-align: left;
 }
 
 .features-list {
@@ -544,6 +564,9 @@ body {
 .photobooth-container {
     max-width: 1200px;
     margin: 0 auto;
+    justify-content: center;
+    text-align: center;
+    align-items: center;
 }
 
 .photobooth-header {
@@ -1149,15 +1172,15 @@ body {
 }
 
 .container {
-            background-color: var(--card-background);
-            border-radius: var(--border-radius);
-            box-shadow: none;
-            padding: 30px;
-            text-align: center;
-            max-width: 90%;
-            width: 700px;
-            margin: 0 auto;
-        }
+    background-color: var(--card-background);
+    border-radius: var(--border-radius);
+    padding: 30px;
+    box-shadow: none;
+    max-width: 90%; /* Ensures responsiveness */
+    width: 700px; /* Gives the container a fixed width for centering to work */
+    margin: 0 auto; /* Centers the container horizontally on the page */
+    text-align: center;
+}
 
         h1 {
             color: var(--primary-color);
@@ -1207,10 +1230,9 @@ body {
     margin-top: 20px;
 }
 
-    /* Update the existing .frame-selector style */
-.frame-selector {
+    .frame-selector {
     display: flex;
-    justify-content: center; /* Centers the frame items horizontally */
+    justify-content: center; /* This works because .container is now centered */
     gap: 15px;
     margin-bottom: 30px;
     flex-wrap: wrap;
@@ -1266,16 +1288,17 @@ body {
 
 .photo-frame-container {
     position: relative;
-    width: 300px;
+    width: 300px; /* A defined width is necessary for margin: auto to work */
     height: 740px;
-    margin: 0 auto; /* Centers the photo and frame container */
+    margin: 0 auto; /* Centers this specific container */
     border-radius: var(--border-radius);
     overflow: hidden;
     background-color: transparent;
     display: flex;
     justify-content: center;
-    align-items: center;
+    text-align: center;
     box-shadow: none;
+    
 }
 
 .photo-inner-container {
