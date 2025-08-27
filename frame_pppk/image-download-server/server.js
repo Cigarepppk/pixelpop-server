@@ -139,62 +139,94 @@ app.listen(PORT, () => {
 
 
 
-
-
-
 const express = require('express');
+
 const bodyParser = require('body-parser');
+
 const fs = require('fs');
+
 const path = require('path');
-const cors = require('cors'); // 👈 ADD THIS LINE
+
 
 const app = express();
 
+
 // ✅ Use Render's dynamic port or fallback to 8000 for local dev
+
 const port = process.env.PORT || 8000;
 
+
 // Middleware
-app.use(cors()); // 👈 ADD THIS LINE
+
 app.use(bodyParser.json({ limit: '50mb' }));
 
+
 // Serve static files from "public"
+
 const publicDir = path.join(__dirname, 'public');
+
 app.use(express.static(publicDir));
 
+
 // Ensure "public" and "public/images" exist
+
 if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir);
+
 const imagesDir = path.join(publicDir, 'images');
+
 if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir);
 
+
 // ✅ Image upload endpoint
+
 app.post('/api/upload', (req, res) => {
-    try {
-        const { imageData, fileName } = req.body;
 
-        if (!imageData || !fileName) {
-            return res.status(400).json({ error: 'Missing imageData or fileName' });
-        }
+  try {
 
-        // Save image
-        const filePath = path.join(imagesDir, fileName);
-        const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
-        fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+    const { imageData, fileName } = req.body;
 
-        // Public URL
-        const imageUrl = `/images/${fileName}`;
 
-        res.json({ success: true, url: imageUrl });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Image upload failed' });
+    if (!imageData || !fileName) {
+
+      return res.status(400).json({ error: 'Missing imageData or fileName' });
+
     }
+
+
+    // Save image
+
+    const filePath = path.join(imagesDir, fileName);
+
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
+
+    fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+
+
+    // Public URL
+
+    const imageUrl = `/images/${fileName}`;
+
+
+    res.json({ success: true, url: imageUrl });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({ error: 'Image upload failed' });
+
+  }
+
 });
+
 
 // ✅ Start server
-app.listen(port, () => {
-    console.log(`✅ Server running at http://localhost:${port}`);
-});
 
+app.listen(port, () => {
+
+  console.log(`✅ Server running at http://localhost:${port}`);
+
+}); 
 
 /*
 const express = require('express');
