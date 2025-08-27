@@ -854,46 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-         /*  downloadBtn.addEventListener('click', () => {
-                if (!userPhotoSrc || !selectedFrameSrc) return;
-
-                const imgPhoto = new Image();
-                const imgFrame = new Image();
-                imgPhoto.crossOrigin = "anonymous";
-                imgFrame.crossOrigin = "anonymous";
-
-                let loaded = 0;
-                function checkLoaded() {
-                    loaded++;
-                    if (loaded === 2) {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = imgPhoto.naturalWidth;
-                        canvas.height = imgPhoto.naturalHeight;
-                        const ctx = canvas.getContext('2d');
-
-                        ctx.drawImage(imgPhoto, 0, 0, canvas.width, canvas.height);
-                        ctx.drawImage(imgFrame, 0, 0, canvas.width, canvas.height);
-
-                        canvas.toBlob(blob => {
-                            const link = document.createElement('a');
-                            link.download = "framed-image.png";
-                            link.href = URL.createObjectURL(blob);
-                            link.click();
-                            URL.revokeObjectURL(link.href);
-                            showMessage("Image downloaded!");
-                        }, 'image/png');
-                    }
-                }
-
-                imgPhoto.onload = checkLoaded;
-                imgFrame.onload = checkLoaded;
-                imgPhoto.src = userPhotoSrc;
-                imgFrame.src = selectedFrameSrc;
-            });
-
-            showMessage("Upload a photo to begin!");
-        });
-        */
+        
 
       
       
@@ -940,7 +901,7 @@ document.addEventListener('DOMContentLoaded', () => {
 showMessage("Upload a photo to begin!");
 });
 
-
+/*
 // Get the login form element
 const loginForm = document.getElementById('login-form');
 
@@ -974,17 +935,17 @@ loginForm.addEventListener('submit', async (e) => {
   } catch (error) {
     console.error('Error during login:', error);
   }
-});
+});*/
 
 // The UI code you provided is also correct and can be included as well.
-const container = document.querySelector('.container');
+const container = document.querySelector('.logincontainer');
 const registerBtn = document.querySelector('.register-btn');
 const loginBtn = document.querySelector('.login-btn');
 
 registerBtn.addEventListener('click', () => {
     container.classList.add('active');
-});
+})
 
 loginBtn.addEventListener('click', () => {
     container.classList.remove('active');
-});
+})
