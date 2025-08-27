@@ -887,9 +887,36 @@ class PixelPopStudio {
         // --- UPLOAD IMAGE TO SERVICE ---
 // This is a placeholder function. You MUST replace this with your real
 // server-side upload logic.
-async uploadImageToService(imageData) {
+/*async uploadImageToService(imageData) {
     console.log("Simulating image upload... You need to replace this function.");
     return `https://pixelpop-server.onrender.com/photo-${Date.now()}.jpg`;
+}*/
+async uploadImageToService(imageData) {
+    try {
+        const response = await fetch('https://pixelpop-server.onrender.com/api/upload', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                imageData: imageData,
+                fileName: `pixelpop-photo-${Date.now()}.jpg`
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log("Image uploaded successfully!", data.url);
+            return data.url; // This returns the public URL of the uploaded image
+        } else {
+            console.error("Image upload failed:", data.error);
+            return null;
+        }
+    } catch (error) {
+        console.error("Error during image upload:", error);
+        return null;
+    }
 }
 
 // --- DOWNLOAD + QR ---
@@ -1280,14 +1307,50 @@ showMessage("Upload a photo to begin!");
 });
 
 
+// Get the login form element
+const loginForm = document.getElementById('login-form');
+
+// Add an event listener for the form submission
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault(); // Prevents the default form submission behavior
+
+  // Get the username and password from the form inputs
+  const username = e.target.username.value;
+  const password = e.target.password.value;
+
+  try {
+    // Send a POST request to your live backend server
+    const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log('Login successful:', data);
+      // Handle a successful login (e.g., redirect or show a success message)
+    } else {
+      console.error('Login failed:', data.error);
+      // Handle a failed login (e.g., show an error message to the user)
+    }
+  } catch (error) {
+    console.error('Error during login:', error);
+  }
+});
+
+// The UI code you provided is also correct and can be included as well.
 const container = document.querySelector('.container');
 const registerBtn = document.querySelector('.register-btn');
 const loginBtn = document.querySelector('.login-btn');
 
 registerBtn.addEventListener('click', () => {
     container.classList.add('active');
-})
+});
 
 loginBtn.addEventListener('click', () => {
     container.classList.remove('active');
-})
+});
