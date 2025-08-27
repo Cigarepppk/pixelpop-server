@@ -935,7 +935,7 @@ loginForm.addEventListener('submit', async (e) => {
   } catch (error) {
     console.error('Error during login:', error);
   }
-});*/
+});
 
 // The UI code you provided is also correct and can be included as well.
 const container = document.querySelector('.logincontainer');
@@ -948,4 +948,84 @@ registerBtn.addEventListener('click', () => {
 
 loginBtn.addEventListener('click', () => {
     container.classList.remove('active');
-})
+})*/
+
+// Get the form elements
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const container = document.querySelector('.logincontainer');
+const registerBtn = document.querySelector('.register-btn');
+const loginBtn = document.querySelector('.login-btn');
+
+// UI Toggling
+registerBtn.addEventListener('click', () => {
+    container.classList.add('active');
+});
+
+loginBtn.addEventListener('click', () => {
+    container.classList.remove('active');
+});
+
+// Registration Form Submission
+registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const username = e.target.username.value;
+    const password = e.target.password.value;
+
+    try {
+        const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log('Registration successful:', data);
+            alert('Registration successful! You can now log in.');
+            container.classList.remove('active'); // Switch to the login view
+        } else {
+            console.error('Registration failed:', data.error);
+            alert(`Registration failed: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Error during registration:', error);
+        alert('An error occurred during registration. Please try again later.');
+    }
+});
+
+// Login Form Submission
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const username = e.target.username.value;
+    const password = e.target.password.value;
+
+    try {
+        const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log('Login successful:', data);
+            alert('Login successful!');
+            // Handle successful login (e.g., redirect to dashboard)
+        } else {
+            console.error('Login failed:', data.error);
+            alert(`Login failed: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Error during login:', error);
+        alert('An error occurred during login. Please try again later.');
+    }
+});
