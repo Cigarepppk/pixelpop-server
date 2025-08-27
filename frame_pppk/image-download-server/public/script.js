@@ -881,10 +881,16 @@ class PixelPopStudio {
 
             // Make QR clickable on desktop
             qrLink.href = mirroredImage;
-        }*/
+        }
+    }*/
 
-
-   
+        // --- UPLOAD IMAGE TO SERVICE ---
+// This is a placeholder function. You MUST replace this with your real
+// server-side upload logic.
+async uploadImageToService(imageData) {
+    console.log("Simulating image upload... You need to replace this function.");
+    return `https://pixelpop-server.onrender.com/photo-${Date.now()}.jpg`;
+}
 
 // --- DOWNLOAD + QR ---
 async downloadPhotos() {
@@ -1273,205 +1279,15 @@ document.addEventListener('DOMContentLoaded', () => {
 showMessage("Upload a photo to begin!");
 });
 
-// --- UPLOAD IMAGE TO SERVICE ---
-async function uploadImageToService(imageData) {
-    console.log("Uploading image to live service...");
-    const res = await fetch("https://pixelpop-server.onrender.com/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageData, fileName: `photo-${Date.now()}.jpg` }),
-    });
-    const data = await res.json();
-    if (data.success) {
-        console.log("Image uploaded successfully:", data.url);
-        return data.url;
-    } else {
-        console.error("Image upload failed:", data.error);
-        return null;
-    }
-}
 
-// ... (Your existing code for PixelPopStudio class goes here) ...
+const container = document.querySelector('.container');
+const registerBtn = document.querySelector('.register-btn');
+const loginBtn = document.querySelector('.login-btn');
 
-// SIGNUP function
-async function signup(username, password) {
-  const res = await fetch("https://pixelpop-backend-fm6t.onrender.com/signup", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-  const data = await res.json();
-  alert(data.message || data.error);
-}
+registerBtn.addEventListener('click', () => {
+    container.classList.add('active');
+})
 
-// LOGIN function
-async function login(username, password) {
-  const res = await fetch("https://pixelpop-backend-fm6t.onrender.com/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-  const data = await res.json();
-
-  if (data.token) {
-    localStorage.setItem("token", data.token); // save login token
-    alert("Login successful!");
-  } else {
-    alert(data.error);
-  }
-}
-
-// PROFILE (protected)
-async function getProfile() {
-  const token = localStorage.getItem("token");
-  const res = await fetch("https://pixelpop-backend-fm6t.onrender.com/profile", {
-    headers: { Authorization: token },
-  });
-  const data = await res.json();
-  console.log(data);
-  alert(JSON.stringify(data));
-}
-
-// Auth Backend URL
-const AUTH_BACKEND_URL = "https://pixelpop-backend-fm6t.onrender.com";
-// Image Upload Backend URL
-const UPLOAD_BACKEND_URL = "https://pixelpop-server.onrender.com";
-
-// Select elements from the DOM
-const authModal = document.getElementById("auth-forms");
-const showAuthModalBtn = document.getElementById("showAuthModal");
-const closeModalBtn = document.getElementById("closeModal");
-const signupBtn = document.getElementById("signupBtn");
-const loginBtn = document.getElementById("loginBtn");
-const getProfileBtn = document.getElementById("getProfileBtn");
-const logoutBtn = document.getElementById("logoutBtn");
-const signupMessage = document.getElementById("signup-message");
-const loginMessage = document.getElementById("login-message");
-
-// Helper function to handle API responses
-function handleResponse(response) {
-  if (!response.ok) {
-    return response.json().then(errorData => {
-      throw new Error(errorData.error || response.statusText);
-    });
-  }
-  return response.json();
-}
-
-// Check for a token on page load and update UI
-function checkAuthStatus() {
-  const token = localStorage.getItem("token");
-  if (token) {
-    showAuthModalBtn.style.display = "none";
-    getProfileBtn.style.display = "inline-block";
-    logoutBtn.style.display = "inline-block";
-  } else {
-    showAuthModalBtn.style.display = "inline-block";
-    getProfileBtn.style.display = "none";
-    logoutBtn.style.display = "none";
-  }
-}
-
-// 🔹 Signup function
-async function signup() {
-  const username = document.getElementById("signupUser").value;
-  const password = document.getElementById("signupPass").value;
-
-  try {
-    const res = await fetch(`${AUTH_BACKEND_URL}/signup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await handleResponse(res);
-    signupMessage.textContent = data.message;
-    signupMessage.style.color = "green";
-  } catch (err) {
-    signupMessage.textContent = err.message;
-    signupMessage.style.color = "red";
-    console.error("Signup failed:", err);
-  }
-}
-
-// 🔹 Login function
-async function login() {
-  const username = document.getElementById("loginUser").value;
-  const password = document.getElementById("loginPass").value;
-
-  try {
-    const res = await fetch(`${AUTH_BACKEND_URL}/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await handleResponse(res);
-    if (data.token) {
-      localStorage.setItem("token", data.token);
-      loginMessage.textContent = "Login successful!";
-      loginMessage.style.color = "green";
-      authModal.style.display = "none";
-      checkAuthStatus(); // Update UI
-    }
-  } catch (err) {
-    loginMessage.textContent = err.message;
-    loginMessage.style.color = "red";
-    console.error("Login failed:", err);
-  }
-}
-
-// 🔹 Function to get protected data (requires login)
-async function getProfile() {
-  const token = localStorage.getItem("token");
-  if (!token) {
-    return alert("You must be logged in to view your profile.");
-  }
-
-  try {
-    const res = await fetch(`${AUTH_BACKEND_URL}/profile`, {
-      headers: { "Authorization": `Bearer ${token}` }, // Standard format for JWT tokens
-    });
-    const data = await handleResponse(res);
-    alert("Profile Data: " + JSON.stringify(data));
-  } catch (err) {
-    alert("Error: " + err.message);
-    console.error("Profile request failed:", err);
-  }
-}
-
-// 🔹 Logout function
-function logout() {
-  localStorage.removeItem("token");
-  alert("Logged out successfully.");
-  checkAuthStatus(); // Update UI
-}
-
-// 🔹 Event Listeners
-showAuthModalBtn.addEventListener("click", () => {
-  authModal.style.display = "block";
-});
-
-closeModalBtn.addEventListener("click", () => {
-  authModal.style.display = "none";
-});
-
-signupBtn.addEventListener("click", signup);
-loginBtn.addEventListener("click", login);
-getProfileBtn.addEventListener("click", getProfile);
-logoutBtn.addEventListener("click", logout);
-
-
-// --- UPLOAD IMAGE TO SERVICE ---
-async function uploadImageToService(imageData) {
-    const res = await fetch(`${UPLOAD_BACKEND_URL}/api/upload`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageData, fileName: `photo-${Date.now()}.jpg` }),
-    });
-    const data = await res.json();
-    if (data.success) {
-        return data.url;
-    } else {
-        console.error("Image upload failed:", data.error);
-        return null;
-    }
-}
+loginBtn.addEventListener('click', () => {
+    container.classList.remove('active');
+})
