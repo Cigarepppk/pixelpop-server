@@ -1279,3 +1279,43 @@ document.addEventListener('DOMContentLoaded', () => {
 showMessage("Upload a photo to begin!");
 });
 
+
+// SIGNUP function
+async function signup(username, password) {
+  const res = await fetch("http://localhost:5000/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await res.json();
+  alert(data.message || data.error);
+}
+
+// LOGIN function
+async function login(username, password) {
+  const res = await fetch("http://localhost:5000/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await res.json();
+
+  if (data.token) {
+    localStorage.setItem("token", data.token); // save login token
+    alert("Login successful!");
+  } else {
+    alert(data.error);
+  }
+}
+
+// PROFILE (protected)
+async function getProfile() {
+  const token = localStorage.getItem("token");
+  const res = await fetch("http://localhost:5000/profile", {
+    headers: { Authorization: token },
+  });
+  const data = await res.json();
+  console.log(data);
+  alert(JSON.stringify(data));
+}
+
