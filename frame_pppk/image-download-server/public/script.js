@@ -881,16 +881,10 @@ class PixelPopStudio {
 
             // Make QR clickable on desktop
             qrLink.href = mirroredImage;
-        }
-    }*/
+        }*/
 
-        // --- UPLOAD IMAGE TO SERVICE ---
-// This is a placeholder function. You MUST replace this with your real
-// server-side upload logic.
-async uploadImageToService(imageData) {
-    console.log("Simulating image upload... You need to replace this function.");
-    return `https://pixelpop-server.onrender.com/photo-${Date.now()}.jpg`;
-}
+
+   
 
 // --- DOWNLOAD + QR ---
 async downloadPhotos() {
@@ -1338,9 +1332,10 @@ async function getProfile() {
   alert(JSON.stringify(data));
 }
 
-
+// Auth Backend URL
 const AUTH_BACKEND_URL = "https://pixelpop-backend-fm6t.onrender.com";
-const UPLOAD_BACKEND_URL = "https://pixelpop-server.onrender.com"; // Your image upload backend URL
+// Image Upload Backend URL
+const UPLOAD_BACKEND_URL = "https://pixelpop-server.onrender.com";
 
 // Select elements from the DOM
 const authModal = document.getElementById("auth-forms");
@@ -1464,9 +1459,9 @@ loginBtn.addEventListener("click", login);
 getProfileBtn.addEventListener("click", getProfile);
 logoutBtn.addEventListener("click", logout);
 
+
 // --- UPLOAD IMAGE TO SERVICE ---
 async function uploadImageToService(imageData) {
-    console.log("Uploading image to live service...");
     const res = await fetch(`${UPLOAD_BACKEND_URL}/api/upload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1474,12 +1469,9 @@ async function uploadImageToService(imageData) {
     });
     const data = await res.json();
     if (data.success) {
-        console.log("Image uploaded successfully:", data.url);
         return data.url;
     } else {
         console.error("Image upload failed:", data.error);
         return null;
     }
 }
-// Initial check on page load
-checkAuthStatus();

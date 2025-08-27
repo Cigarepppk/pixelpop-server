@@ -330,23 +330,30 @@
     <!-- Home Page -->
     <section id="home-page" class="page active">
 
-        <h2>Signup</h2>
-<input id="signupUser" placeholder="Username">
-<input id="signupPass" type="password" placeholder="Password">
-<button onclick="signup(
-  document.getElementById('signupUser').value, 
-  document.getElementById('signupPass').value
-)">Signup</button>
+       <div id="auth-forms" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:white; padding:20px; border:1px solid #ccc; z-index:1000;">
+  
+  <h2>Signup</h2>
+  <input id="signupUser" type="text" placeholder="Username">
+  <input id="signupPass" type="password" placeholder="Password">
+  <button id="signupBtn">Signup</button>
+  <p id="signup-message"></p>
+  
+  <hr>
+  
+  <h2>Login</h2>
+  <input id="loginUser" type="text" placeholder="Username">
+  <input id="loginPass" type="password" placeholder="Password">
+  <button id="loginBtn">Login</button>
+  <p id="login-message"></p>
+  
+  <hr>
+  
+  <button id="closeModal">Close</button>
+</div>
 
-<h2>Login</h2>
-<input id="loginUser" placeholder="Username">
-<input id="loginPass" type="password" placeholder="Password">
-<button onclick="login(
-  document.getElementById('loginUser').value, 
-  document.getElementById('loginPass').value
-)">Login</button>
-
-<button onclick="getProfile()">Get Profile</button>
+<button id="showAuthModal">Login/Signup</button>
+<button id="getProfileBtn" style="display:none;">Get My Profile</button>
+<button id="logoutBtn" style="display:none;">Logout</button>
 
 
 
