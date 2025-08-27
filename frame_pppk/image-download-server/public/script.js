@@ -973,6 +973,8 @@ registerForm.addEventListener('submit', async (e) => {
     const username = e.target.username.value;
     const password = e.target.password.value;
 
+    console.log('Attempting registration with:', { username, password });
+
     try {
         const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/register', {
             method: 'POST',
@@ -990,6 +992,7 @@ registerForm.addEventListener('submit', async (e) => {
             container.classList.remove('active'); // Switch to the login view
         } else {
             console.error('Registration failed:', data.error);
+            console.error('Full response:', response);
             alert(`Registration failed: ${data.error}`);
         }
     } catch (error) {
@@ -1005,6 +1008,9 @@ loginForm.addEventListener('submit', async (e) => {
     const username = e.target.username.value;
     const password = e.target.password.value;
 
+    // Log the data being sent to the backend
+    console.log('Attempting login with:', { username, password });
+
     try {
         const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/login', {
             method: 'POST',
@@ -1014,6 +1020,9 @@ loginForm.addEventListener('submit', async (e) => {
             body: JSON.stringify({ username, password })
         });
 
+        // Log the full response object
+        console.log('Received response:', response);
+
         const data = await response.json();
 
         if (response.ok) {
@@ -1022,6 +1031,8 @@ loginForm.addEventListener('submit', async (e) => {
             // Handle successful login (e.g., redirect to dashboard)
         } else {
             console.error('Login failed:', data.error);
+            console.error('Full response data:', data);
+            console.error('Response status:', response.status); // Log the HTTP status code
             alert(`Login failed: ${data.error}`);
         }
     } catch (error) {
