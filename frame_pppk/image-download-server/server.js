@@ -140,7 +140,6 @@ app.listen(PORT, () => {
 
 
 
-/*
 
 
 const express = require('express');
@@ -194,10 +193,10 @@ app.post('/api/upload', (req, res) => {
 // ✅ Start server
 app.listen(port, () => {
     console.log(`✅ Server running at http://localhost:${port}`);
-});*/
+});
 
 
-
+/*
 const express = require('express');
 const bodyParser = require('body-parser');
 const fs = require('fs');
@@ -252,3 +251,4 @@ app.post('/api/upload', (req, res) => {
 app.listen(port, () => {
     console.log(`✅ Server running at http://localhost:${port}`);
 });
+*/
