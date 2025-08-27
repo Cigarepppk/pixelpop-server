@@ -142,7 +142,7 @@ app.listen(PORT, () => {
 
 
 
-/*
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const fs = require('fs');
@@ -193,7 +193,9 @@ app.post('/api/upload', (req, res) => {
 app.listen(port, () => {
   console.log(`✅ Server running at http://localhost:${port}`);
 });
-*/
+
+
+/*
 
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -202,7 +204,7 @@ const path = require('path');
 
 const app = express();
 
-// ✅ Use Render's dynamic port or fallback to 8000 for local dev
+//  Use Render's dynamic port or fallback to 8000 for local dev
 const port = process.env.PORT || 8000;
 
 // Middleware
@@ -218,10 +220,10 @@ if (!fs.existsSync(imagesDir)) {
     fs.mkdirSync(imagesDir);
 }
 
-// ✅ CORRECT: Serve files from the 'public/images' directory at the '/images' URL path
+//  CORRECT: Serve files from the 'public/images' directory at the '/images' URL path
 app.use('/images', express.static(imagesDir));
 
-// ✅ Image upload endpoint
+//  Image upload endpoint
 app.post('/api/upload', (req, res) => {
     try {
         const { imageData, fileName } = req.body;
@@ -248,4 +250,4 @@ app.post('/api/upload', (req, res) => {
 // ✅ Start server
 app.listen(port, () => {
     console.log(`✅ Server running at http://localhost:${port}`);
-});
+});*/

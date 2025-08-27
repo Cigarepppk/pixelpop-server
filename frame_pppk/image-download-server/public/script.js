@@ -778,7 +778,7 @@ class PixelPopStudio {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    /*
+   /* 
  // --- UPLOAD IMAGE TO SERVICE ---
     // This is a placeholder function. You MUST replace this with your real
     // server-side upload logic.
@@ -882,8 +882,8 @@ class PixelPopStudio {
             // Make QR clickable on desktop
             qrLink.href = mirroredImage;
         }
-    }*/
-
+    }
+/*
         // --- UPLOAD IMAGE TO SERVICE ---
 // This is a placeholder function. You MUST replace this with your real
 // server-side upload logic.
