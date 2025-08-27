@@ -142,7 +142,7 @@ app.listen(PORT, () => {
 
 
 
-
+/*
 const express = require('express');
 const bodyParser = require('body-parser');
 const fs = require('fs');
@@ -192,4 +192,60 @@ app.post('/api/upload', (req, res) => {
 // ✅ Start server
 app.listen(port, () => {
   console.log(`✅ Server running at http://localhost:${port}`);
+});
+*/
+
+const express = require('express');
+const bodyParser = require('body-parser');
+const fs = require('fs');
+const path = require('path');
+
+const app = express();
+
+// ✅ Use Render's dynamic port or fallback to 8000 for local dev
+const port = process.env.PORT || 8000;
+
+// Middleware
+app.use(bodyParser.json({ limit: '50mb' }));
+
+// Ensure "public" and "public/images" exist
+const publicDir = path.join(__dirname, 'public');
+if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir);
+}
+const imagesDir = path.join(publicDir, 'images');
+if (!fs.existsSync(imagesDir)) {
+    fs.mkdirSync(imagesDir);
+}
+
+// ✅ CORRECT: Serve files from the 'public/images' directory at the '/images' URL path
+app.use('/images', express.static(imagesDir));
+
+// ✅ Image upload endpoint
+app.post('/api/upload', (req, res) => {
+    try {
+        const { imageData, fileName } = req.body;
+
+        if (!imageData || !fileName) {
+            return res.status(400).json({ error: 'Missing imageData or fileName' });
+        }
+
+        // Save image
+        const filePath = path.join(imagesDir, fileName);
+        const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
+        fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+
+        // Public URL
+        const imageUrl = `/images/${fileName}`;
+
+        res.json({ success: true, url: imageUrl });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Image upload failed' });
+    }
+});
+
+// ✅ Start server
+app.listen(port, () => {
+    console.log(`✅ Server running at http://localhost:${port}`);
 });
