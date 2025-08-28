@@ -525,6 +525,20 @@ class PixelPopStudio {
 
     /*canvas.height = heights[stripCount] || heights[4];*/
 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     // Background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -950,6 +964,16 @@ loginBtn.addEventListener('click', () => {
     container.classList.remove('active');
 })*/
 
+
+
+
+
+
+
+
+
+
+
 // Get the form elements
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
@@ -966,6 +990,93 @@ loginBtn.addEventListener('click', () => {
     container.classList.remove('active');
 });
 
+// Registration Form Submission
+registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const username = e.target.username.value;
+    const password = e.target.password.value;
+    const confirmPassword = e.target.confirmPassword.value;
+
+    if (password !== confirmPassword) {
+        alert('Passwords do not match!');
+        return;
+    }
+    
+    // Log the data being sent to the backend
+    console.log('Attempting registration with:', { username, password });
+
+    try {
+        const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/signup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        });
+        
+        // Log the full response object
+        console.log('Received response:', response);
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            console.log('Registration successful:', data);
+            alert('Registration successful!');
+            // You might want to redirect the user or show a success message
+        } else {
+            console.error('Registration failed:', data.error);
+            console.error('Full response data:', data);
+            console.error('Response status:', response.status); // Log the HTTP status code
+            alert(`Registration failed: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Error during registration:', error);
+        alert('An error occurred during registration. Please try again later.');
+    }
+});
+
+// Login Form Submission
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const username = e.target.username.value;
+    const password = e.target.password.value;
+
+    // Log the data being sent to the backend
+    console.log('Attempting login with:', { username, password });
+
+    try {
+      const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        });
+
+        // Log the full response object
+        console.log('Received response:', response);
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log('Login successful:', data);
+            alert('Login successful!');
+            // Handle successful login (e.g., redirect to dashboard)
+        } else {
+            console.error('Login failed:', data.error);
+            console.error('Full response data:', data);
+            console.error('Response status:', response.status); // Log the HTTP status code
+            alert(`Login failed: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Error during login:', error);
+        alert('An error occurred during login. Please try again later.');
+    }
+});
+
+/*
 // Registration Form Submission
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1040,3 +1151,7 @@ loginForm.addEventListener('submit', async (e) => {
         alert('An error occurred during login. Please try again later.');
     }
 });
+*/
+
+
+
