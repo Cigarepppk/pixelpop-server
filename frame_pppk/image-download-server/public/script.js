@@ -1102,9 +1102,6 @@ function logout() {
 
 
 
-
-
-
 // Get the form elements
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
@@ -1120,7 +1117,6 @@ registerBtn.addEventListener('click', () => {
 loginBtn.addEventListener('click', () => {
     container.classList.remove('active');
 });
-
 // Registration Form Submission
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
