@@ -989,7 +989,7 @@ registerForm.addEventListener('submit', async (e) => {
 
     const username = e.target.username.value;
     const password = e.target.password.value;
-    const confirmPassword = e.target.confirmPassword.value;
+    const confirmPassword = e.target.confirmpassword.value;
 
     if (password !== confirmPassword) {
         alert('Passwords do not match!');
