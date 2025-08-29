@@ -974,9 +974,7 @@ const container = document.querySelector('.logincontainer');
 const registerBtn = document.querySelector('.register-btn');
 const loginBtn = document.querySelector('.login-btn');
 
-// ------------------
 // UI Toggling
-// ------------------
 registerBtn.addEventListener('click', () => {
     container.classList.add('active');
 });
@@ -985,45 +983,44 @@ loginBtn.addEventListener('click', () => {
     container.classList.remove('active');
 });
 
-// ------------------
-// Registration Form
-// ------------------
+// Registration Form Submission
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const username = e.target.username.value;
-    const email = e.target.email.value;
     const password = e.target.password.value;
-    const confirmPassword = e.target.confirmpassword.value; // ✅ match HTML name
+    const confirmPassword = e.target.confirmPassword.value;
 
     if (password !== confirmPassword) {
         alert('Passwords do not match!');
         return;
     }
-
-    console.log('Attempting registration with:', { username, email, password });
+    
+    // Log the data being sent to the backend
+    console.log('Attempting registration with:', { username, password });
 
     try {
         const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/signup', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email, password })
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
         });
+        
+        // Log the full response object
+        console.log('Received response:', response);
 
         const data = await response.json();
-
+        
         if (response.ok) {
             console.log('Registration successful:', data);
-
-            // If backend sends token, store it
-            if (data.token) {
-                localStorage.setItem('token', data.token);
-            }
-
-            alert('Registration successful! You can now log in.');
-            container.classList.remove('active'); // switch to login form
+            alert('Registration successful!');
+            // You might want to redirect the user or show a success message
         } else {
             console.error('Registration failed:', data.error);
+            console.error('Full response data:', data);
+            console.error('Response status:', response.status); // Log the HTTP status code
             alert(`Registration failed: ${data.error}`);
         }
     } catch (error) {
@@ -1031,6 +1028,7 @@ registerForm.addEventListener('submit', async (e) => {
         alert('An error occurred during registration. Please try again later.');
     }
 });
+
 
 // ------------------
 // Login Form
