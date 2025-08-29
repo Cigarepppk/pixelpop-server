@@ -966,7 +966,6 @@ loginBtn.addEventListener('click', () => {
 
 
 
-/*
 // Get the form elements
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
@@ -988,16 +987,17 @@ registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const username = e.target.username.value;
+    const email = e.target.email.value; // Get the email value
     const password = e.target.password.value;
-    const confirmPassword = e.target.confirmpassword.value;
+    const confirmPassword = e.target.confirmPassword.value;
 
     if (password !== confirmPassword) {
         alert('Passwords do not match!');
         return;
     }
-    
+
     // Log the data being sent to the backend
-    console.log('Attempting registration with:', { username, password });
+    console.log('Attempting registration with:', { username, email, password });
 
     try {
         const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/signup', {
@@ -1005,18 +1005,19 @@ registerForm.addEventListener('submit', async (e) => {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify({ username, email, password })
         });
-        
+
         // Log the full response object
         console.log('Received response:', response);
 
         const data = await response.json();
-        
+
         if (response.ok) {
             console.log('Registration successful:', data);
-            alert('Registration successful!');
-            // You might want to redirect the user or show a success message
+            alert('Registration successful! Please log in.');
+            // Automatically switch to the login form on success
+            container.classList.remove('active');
         } else {
             console.error('Registration failed:', data.error);
             console.error('Full response data:', data);
@@ -1081,7 +1082,10 @@ async function getProfile() {
 
     try {
         const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/profile', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: {
+                // Correctly format the Authorization header with "Bearer"
+                'Authorization': `Bearer ${token}`
+            }
         });
 
         const data = await response.json();
@@ -1098,7 +1102,8 @@ function logout() {
     localStorage.removeItem('token');
     alert('You have been logged out.');
     window.location.href = "/"; // back to home/login page
-}*/
+}
+/*
 // Get the form elements
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
