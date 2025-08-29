@@ -967,13 +967,146 @@ loginBtn.addEventListener('click', () => {
 
 
 
+// Get the form elements
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const container = document.querySelector('.logincontainer');
+const registerBtn = document.querySelector('.register-btn');
+const loginBtn = document.querySelector('.login-btn');
+
+// ------------------
+// UI Toggling
+// ------------------
+registerBtn.addEventListener('click', () => {
+    container.classList.add('active');
+});
+
+loginBtn.addEventListener('click', () => {
+    container.classList.remove('active');
+});
+
+// ------------------
+// Registration Form
+// ------------------
+registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const username = e.target.username.value;
+    const email = e.target.email.value;
+    const password = e.target.password.value;
+    const confirmPassword = e.target.confirmpassword.value; // ✅ match HTML name
+
+    if (password !== confirmPassword) {
+        alert('Passwords do not match!');
+        return;
+    }
+
+    console.log('Attempting registration with:', { username, email, password });
+
+    try {
+        const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log('Registration successful:', data);
+
+            // If backend sends token, store it
+            if (data.token) {
+                localStorage.setItem('token', data.token);
+            }
+
+            alert('Registration successful! You can now log in.');
+            container.classList.remove('active'); // switch to login form
+        } else {
+            console.error('Registration failed:', data.error);
+            alert(`Registration failed: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Error during registration:', error);
+        alert('An error occurred during registration. Please try again later.');
+    }
+});
+
+// ------------------
+// Login Form
+// ------------------
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const username = e.target.username.value;
+    const password = e.target.password.value;
+
+    console.log('Attempting login with:', { username, password });
+
+    try {
+        const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log('Login successful:', data);
+
+            // ✅ Save token
+            localStorage.setItem('token', data.token);
+
+            alert('Login successful!');
+            // Example: redirect to dashboard
+            window.location.href = "/dashboard.html";
+        } else {
+            console.error('Login failed:', data.error);
+            alert(`Login failed: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Error during login:', error);
+        alert('An error occurred during login. Please try again later.');
+    }
+});
+
+// ------------------
+// Example: Fetch Profile
+// ------------------
+async function getProfile() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        alert('Please log in first.');
+        return;
+    }
+
+    try {
+        const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/profile', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+        console.log('Profile:', data);
+    } catch (error) {
+        console.error('Error fetching profile:', error);
+    }
+}
+
+// ------------------
+// Logout Function
+// ------------------
+function logout() {
+    localStorage.removeItem('token');
+    alert('You have been logged out.');
+    window.location.href = "/"; // back to home/login page
+}
 
 
 
 
 
-
-
+/*
 // Get the form elements
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
@@ -1076,7 +1209,7 @@ loginForm.addEventListener('submit', async (e) => {
     }
 });
 
-/*
+
 // Registration Form Submission
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
