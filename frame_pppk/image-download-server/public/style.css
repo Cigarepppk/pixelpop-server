@@ -956,13 +956,31 @@ body {
 }
 
 /* Footer */
-.footer {
-    background: var(--white);
-    padding: 2rem;
-    text-align: center;
-    box-shadow: 0 -4px 15px rgba(199, 21, 133, 0.1);
-    margin-top: 4rem;
-}
+footer {
+      text-align: center;
+      padding: 20px;
+      background: #fff;
+      font-family: Arial, sans-serif;
+      color: #333;
+    }
+
+    footer p {
+      margin: 0 0 10px;
+    }
+
+    .social-icons a {
+      margin: 0 10px;
+      font-size: 24px;
+      color: #ff1493; /* pink */
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .social-icons a:hover {
+      color: #e01382; /* darker pink on hover */
+    }
+/*
+
 
 .footer-content {
     max-width: 1200px;
@@ -970,7 +988,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
+}*/
 
 .social-links {
     display: flex;
