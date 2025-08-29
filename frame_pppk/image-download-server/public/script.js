@@ -1207,7 +1207,7 @@ loginForm.addEventListener('submit', async (e) => {
     }
 });
 
-
+/*
 // Registration Form Submission
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1282,7 +1282,7 @@ loginForm.addEventListener('submit', async (e) => {
         alert('An error occurred during login. Please try again later.');
     }
 });
-
+*/
 
 
 
