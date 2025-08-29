@@ -966,7 +966,7 @@ loginBtn.addEventListener('click', () => {
 
 
 
-
+/*
 // Get the form elements
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
@@ -1098,13 +1098,13 @@ function logout() {
     localStorage.removeItem('token');
     alert('You have been logged out.');
     window.location.href = "/"; // back to home/login page
-}
+}*/
 
 
 
 
 
-/*
+
 // Get the form elements
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
@@ -1282,7 +1282,7 @@ loginForm.addEventListener('submit', async (e) => {
         alert('An error occurred during login. Please try again later.');
     }
 });
-*/
+
 
 
 
