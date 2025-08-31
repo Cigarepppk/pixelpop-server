@@ -23,7 +23,7 @@ class PixelPopStudio {
         this.setupPhotoControls();
         this.setupMobileMenu();
     }
-
+/*
     // This method handles the navigation links and CTA button
     setupNavigation() {
         const navLinks = document.querySelectorAll('.nav-link');
@@ -47,6 +47,15 @@ class PixelPopStudio {
 
     // This method handles the logic for showing/hiding pages
     navigateToPage(page) {
+        // 🔒 Block Photobooth unless logged in
+if (page === 'layout') {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    alert('You must log in first!');
+    return; // stop navigation
+  }
+}
+
         // Hide all pages
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         
@@ -96,7 +105,125 @@ class PixelPopStudio {
                 hamburger.classList.toggle('active');
             });
         }
+    }*/
+
+        // This method handles the navigation links and CTA button
+// No async/await—returns a Promise<boolean>
+ // ---- Auth helpers ----
+  // No async/await here: returns Promise<boolean>
+  verifyToken() {
+    var token = localStorage.getItem('token');
+    if (!token) return Promise.resolve(false);
+    return fetch('https://pixelpop-backend-fm6t.onrender.com/api/auth/verify', {
+      headers: { Authorization: 'Bearer ' + token }
+    })
+      .then(function (res) { return res.ok; })
+      .catch(function () { return false; });
+  }
+
+  // ---- Navigation + gating ----
+  setupNavigation() {
+    var navLinks = document.querySelectorAll('.nav-link');
+    var ctaButton = document.querySelector('.cta-button');
+
+    for (var i = 0; i < navLinks.length; i++) {
+      var link = navLinks[i];
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        var page = e.currentTarget.dataset.page;
+
+        if (page === 'layout') {
+          this.verifyToken().then((ok) => {
+            if (!ok) {
+              localStorage.removeItem('token');
+              alert('You must log in first!');
+              return;
+            }
+            this.navigateToPage(page);
+          });
+          return;
+        }
+
+        this.navigateToPage(page);
+      });
     }
+
+    if (ctaButton) {
+      ctaButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.verifyToken().then((ok) => {
+          if (!ok) {
+            localStorage.removeItem('token');
+            alert('You must log in first!');
+            return;
+          }
+          this.navigateToPage('layout');
+        });
+      });
+    }
+  }
+
+  navigateToPage(page) {
+    // defense-in-depth: block programmatic calls too
+    if (page === 'layout' && !localStorage.getItem('token')) {
+      alert('You must log in first!');
+      return;
+    }
+
+    // Hide all pages
+    var pages = document.querySelectorAll('.page');
+    for (var i = 0; i < pages.length; i++) pages[i].classList.remove('active');
+
+    // Show target page
+    var targetPage = document.getElementById(page + '-page');
+    if (targetPage) {
+      targetPage.classList.add('active');
+      targetPage.classList.add('fade-in');
+    }
+
+    // Update nav active state
+    var links = document.querySelectorAll('.nav-link');
+    for (var j = 0; j < links.length; j++) {
+      var l = links[j];
+      l.classList.toggle('active', l.dataset.page === page);
+    }
+
+    this.currentPage = page;
+
+    // Camera lifecycle
+    if (page === 'layout') this.initializeCamera();
+    else if (this.stream) this.stopCamera();
+
+    // Close mobile menu if open
+    var navMenu = document.querySelector('.nav-menu');
+    var hamburger = document.querySelector('.hamburger');
+    if (navMenu && navMenu.classList.contains('active')) {
+      navMenu.classList.remove('active');
+      if (hamburger) hamburger.classList.remove('active');
+    }
+  }
+
+  setupMobileMenu() {
+    var hamburger = document.querySelector('.hamburger');
+    var navMenu = document.querySelector('.nav-menu');
+    if (hamburger && navMenu) {
+      hamburger.addEventListener('click', function () {
+        navMenu.classList.toggle('active');
+        hamburger.classList.toggle('active');
+      });
+    }
+  }
+
+addLayoutTitle(ctx, canvas, text) {
+  ctx.save();
+  ctx.fillStyle = '#000';
+  ctx.font = 'bold 16px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(text, canvas.width / 2, canvas.height - 8);
+  ctx.restore();
+}
+
 
     // Layout Selection
     setupLayoutSelection() {
@@ -785,9 +912,10 @@ function closeErrorModal() {
     }
 }
 
-// Initialize application
+// Initialize application + expose navigate helper
 document.addEventListener('DOMContentLoaded', () => {
-    new PixelPopStudio();
+  const app = new PixelPopStudio();
+  window.PixelPopAppNavigate = (page) => app.navigateToPage(page);
 });
 //frame section
 
@@ -966,24 +1094,183 @@ loginBtn.addEventListener('click', () => {
 
 
 
-// Get the form elements
-const loginForm = document.getElementById('login-form');
+
+
+
+
+
+
+
+
+
+
+// ===== Auth UI + API glue =====
+const API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
+
+// Safely parse JSON (doesn't throw on empty/HTML responses)
+async function safeJson(res) {
+  const text = await res.text();
+  try { return text ? JSON.parse(text) : {}; } catch { return {}; }
+}
+
+// Enable/disable an entire form while submitting
+function setBusy(form, busy) {
+  if (!form) return;
+  [...form.elements].forEach(el => (el.disabled = !!busy));
+  form.dataset.busy = busy ? '1' : '';
+}
+
+// Get elements (may be null if not on this page)
+const loginForm   = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
-const container = document.querySelector('.logincontainer');
+const container    = document.querySelector('.logincontainer');
+const registerBtn  = document.querySelector('.register-btn');
+const loginBtn     = document.querySelector('.login-btn');
+
+// Toggle UI
+registerBtn?.addEventListener('click', () => container?.classList.add('active'));
+loginBtn?.addEventListener('click', () => container?.classList.remove('active'));
+
+// --- Registration ---
+registerForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  setBusy(registerForm, true);
+
+  const username = e.target.username.value.trim();
+  const email = e.target.email.value.trim();
+  const password = e.target.password.value;
+  const confirmPassword = e.target.confirmPassword.value;
+
+  if (password !== confirmPassword) {
+    alert('Passwords do not match!');
+    setBusy(registerForm, false);
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password })
+    });
+
+    const data = await safeJson(response);
+
+    if (response.ok) {
+      alert('Registration successful! Please log in.');
+      // switch back to login UI
+      container?.classList.remove('active');
+      // optional: clear the form
+      registerForm.reset?.();
+    } else {
+      alert(`Registration failed: ${data.error || data.message || response.statusText}`);
+      console.error('Registration failed:', data);
+    }
+  } catch (err) {
+    console.error('Error during registration:', err);
+    alert('An error occurred during registration. Please try again later.');
+  } finally {
+    setBusy(registerForm, false);
+  }
+});
+
+// --- Login ---
+loginForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  setBusy(loginForm, true);
+
+  const username = e.target.username.value.trim();
+  const password = e.target.password.value;
+
+  try {
+    const response = await fetch(`${API_BASE}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await safeJson(response);
+
+    if (response.ok && data?.token) {
+      // Save token
+      localStorage.setItem('token', data.token);
+      alert('Login successful!');
+
+      // Go to Photobooth
+      if (typeof window.PixelPopAppNavigate === 'function') {
+        window.PixelPopAppNavigate('layout');
+      } else {
+        // Fallback: stay put, or navigate however your app prefers
+        // window.location.href = '/#layout';
+      }
+
+      // optional: clear the form
+      loginForm.reset?.();
+    } else {
+      alert(`Login failed: ${data.error || data.message || response.statusText}`);
+      console.error('Login failed:', data);
+    }
+  } catch (err) {
+    console.error('Error during login:', err);
+    alert('An error occurred during login. Please try again later.');
+  } finally {
+    setBusy(loginForm, false);
+  }
+});
+
+// --- Example: Fetch Profile ---
+async function getProfile() {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    alert('Please log in first.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/profile`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await safeJson(res);
+    if (!res.ok) {
+      alert(`Failed to fetch profile: ${data.error || data.message || res.statusText}`);
+      return;
+    }
+    console.log('Profile:', data);
+  } catch (err) {
+    console.error('Error fetching profile:', err);
+    alert('An error occurred while fetching your profile.');
+  }
+}
+
+// --- Logout ---
+function logout() {
+  localStorage.removeItem('token');
+  alert('You have been logged out.');
+  window.location.href = '/'; // back to home/login page
+}
+
+
+
+
+
+
+
+
+
+
+/*
+// Get the form elements
+const loginForm  = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const container  = document.querySelector('.logincontainer');
 const registerBtn = document.querySelector('.register-btn');
-const loginBtn = document.querySelector('.login-btn');
+const loginBtn  = document.querySelector('.login-btn');
 
-// UI Toggling
-registerBtn.addEventListener('click', () => {
-    container.classList.add('active');
-});
-
-loginBtn.addEventListener('click', () => {
-    container.classList.remove('active');
-});
+registerBtn?.addEventListener('click', () => container?.classList.add('active'));
+loginBtn?.addEventListener('click', () => container?.classList.remove('active'));
 
 // Registration Form Submission
-registerForm.addEventListener('submit', async (e) => {
+registerForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const username = e.target.username.value;
@@ -1034,7 +1321,7 @@ registerForm.addEventListener('submit', async (e) => {
 // ------------------
 // Login Form
 // ------------------
-loginForm.addEventListener('submit', async (e) => {
+loginForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const username = e.target.username.value;
@@ -1054,12 +1341,14 @@ loginForm.addEventListener('submit', async (e) => {
         if (response.ok) {
             console.log('Login successful:', data);
 
-            // ✅ Save token
+        // ✅ Save token
             localStorage.setItem('token', data.token);
-
             alert('Login successful!');
-            // Example: redirect to dashboard
-            window.location.href = "/dashboard.html";
+
+            // ✅ Navigate to PhotoBooth
+            if (typeof window.PixelPopAppNavigate === 'function') {
+                window.PixelPopAppNavigate('layout');
+            }
         } else {
             console.error('Login failed:', data.error);
             alert(`Login failed: ${data.error}`);
@@ -1103,6 +1392,23 @@ function logout() {
     alert('You have been logged out.');
     window.location.href = "/"; // back to home/login page
 }
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /*
 // Get the form elements
 const loginForm = document.getElementById('login-form');
