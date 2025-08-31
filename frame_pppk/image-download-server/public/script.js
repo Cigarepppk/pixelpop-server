@@ -214,15 +214,6 @@ if (page === 'layout') {
     }
   }
 
-addLayoutTitle(ctx, canvas, text) {
-  ctx.save();
-  ctx.fillStyle = '#000';
-  ctx.font = 'bold 16px Inter, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
-  ctx.fillText(text, canvas.width / 2, canvas.height - 8);
-  ctx.restore();
-}
 
 
     // Layout Selection
@@ -1194,7 +1185,9 @@ loginForm?.addEventListener('submit', async (e) => {
     if (response.ok && data?.token) {
       // Save token
       localStorage.setItem('token', data.token);
+      toggleLogoutVisibility();
       alert('Login successful!');
+      
 
       // Go to Photobooth
       if (typeof window.PixelPopAppNavigate === 'function') {
@@ -1245,9 +1238,45 @@ async function getProfile() {
 // --- Logout ---
 function logout() {
   localStorage.removeItem('token');
-  alert('You have been logged out.');
-  window.location.href = '/'; // back to home/login page
+  toggleLogoutVisibility();              // <-- hide the button immediately
+  if (typeof window.PixelPopAppNavigate === 'function') {
+    window.PixelPopAppNavigate('home');  // soft-return to homepage (stops camera)
+  } else {
+    window.location.replace('/');        // hard-return fallback
+  }
 }
+
+
+// Show/hide logout based on token
+function toggleLogoutVisibility() {
+  const menu = document.querySelector('.nav-menu');
+  if (!menu) return;
+
+  const hasToken = !!localStorage.getItem('token');
+  let li = document.getElementById('logout-li');
+
+  if (hasToken) {
+    // create once
+    if (!li) {
+      li = document.createElement('li');
+      li.id = 'logout-li';
+      // IMPORTANT: not using "nav-link" class so your nav click handler won't intercept it
+      li.innerHTML = `<button id="logout-btn" class="logout-btn">Logout</button>`;
+      menu.appendChild(li);
+
+      document.getElementById('logout-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        logout();
+      });
+    }
+  } else {
+    // remove if present
+    if (li) li.remove();
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  toggleLogoutVisibility();
+});
 
 
 

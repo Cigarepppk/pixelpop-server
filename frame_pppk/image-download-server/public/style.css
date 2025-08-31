@@ -1606,3 +1606,13 @@ form{ width: 100%; }
 
     .toggle-panel h1{font-size: 30px; }
 }
+
+
+.logout-btn {
+  background: none;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+}
+.logout-btn:hover { opacity: 0.8; }
