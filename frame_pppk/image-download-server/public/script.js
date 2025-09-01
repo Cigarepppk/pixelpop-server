@@ -652,33 +652,29 @@ class PixelPopStudio {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-  
+// Put these inside your class body
 async uploadImageToService(imageData) {
-    try {
-        const response = await fetch('https://pixelpop-server.onrender.com/api/upload', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                imageData: imageData,
-                fileName: `pixelpop-photo-${Date.now()}.jpg`
-            })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            console.log("Image uploaded successfully!", data.url);
-            return data.url; // This returns the public URL of the uploaded image
-        } else {
-            console.error("Image upload failed:", data.error);
-            return null;
-        }
-    } catch (error) {
-        console.error("Error during image upload:", error);
-        return null;
+  try {
+    const response = await fetch('https://pixelpop-server.onrender.com/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageData,
+        fileName: `pixelpop-photo-${Date.now()}.jpg`
+      })
+    });
+    const data = await response.json();
+    if (response.ok && data?.url) {
+      console.log("Image uploaded successfully!", data.url);
+      return data.url; // short public URL — perfect for QR
+    } else {
+      console.error("Image upload failed:", data?.error || 'Unknown error');
+      return null;
     }
+  } catch (error) {
+    console.error("Error during image upload:", error);
+    return null;
+  }
 }
 
 // --- QR render (size + level + quiet zone) ---
@@ -689,30 +685,150 @@ showQRCode(uploadUrl) {
 
   if (!(qrSection && qrCanvas && qrLink && uploadUrl)) return;
 
-  // Make it visible
+  // visible
   qrSection.style.display = 'block';
 
-  // Ensure crisp pixels and quiet zone
-  qrCanvas.width = 300;   // actual canvas pixels
+  // crisp pixels + quiet zone
+  qrCanvas.width = 300;
   qrCanvas.height = 300;
   qrCanvas.style.background = 'white';
-  qrCanvas.style.padding = '10px'; // quiet zone
+  qrCanvas.style.padding = '10px';
 
-  // Render high-reliability QR
+  // fallback if QRious missing
+  if (typeof QRious !== 'function') {
+    console.error('QRious is not available on the page.');
+    qrLink.href = uploadUrl;
+    qrLink.target = '_blank';
+    qrLink.rel = 'noopener noreferrer';
+    qrLink.textContent = 'Open image';
+    return;
+  }
+
   new QRious({
     element: qrCanvas,
-    value: uploadUrl,  // ✅ short URL only
-    size: 300,         // ≥ 300px helps older scanners
-    level: 'H',        // high error correction
+    value: uploadUrl, // short URL only
+    size: 300,
+    level: 'H',
     background: 'white',
     foreground: 'black'
   });
 
-  // Clickable link fallback
+  // clickable fallback
   qrLink.href = uploadUrl;
   qrLink.target = '_blank';
   qrLink.rel = 'noopener noreferrer';
   qrLink.textContent = uploadUrl;
+}
+
+// --- DOWNLOAD + QR ---
+async downloadPhotos() {
+  const finalCanvas = document.getElementById('final-canvas');
+  if (!finalCanvas) return;
+
+  const scale = 2;
+  const w = finalCanvas.width * scale;
+  const h = finalCanvas.height * scale;
+
+  const mirrorCanvas = document.createElement('canvas');
+  mirrorCanvas.width = w;
+  mirrorCanvas.height = h;
+  const ctx = mirrorCanvas.getContext('2d');
+
+  // white background
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+
+  // mirror transform + draw
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.translate(finalCanvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
+  ctx.restore?.();
+
+  // export & upload (QR uses short URL from server)
+  mirrorCanvas.toBlob(async (blob) => {
+    const dataURL = mirrorCanvas.toDataURL('image/jpeg', 1.0);
+    const uploadUrl = await this.uploadImageToService(dataURL);
+
+    // download file
+    const link = document.createElement('a');
+    link.download = `pixelpop-photos-${Date.now()}.jpg`;
+    link.href = URL.createObjectURL(blob);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(link.href), 250);
+
+    // robust QR
+    if (uploadUrl) this.showQRCode(uploadUrl);
+  }, 'image/jpeg', 1.0);
+}
+
+// --- PRINT + QR ---
+async printPhotos() {
+  const finalCanvas = document.getElementById('final-canvas');
+  if (!finalCanvas) return;
+
+  const scale = 2;
+  const w = finalCanvas.width * scale;
+  const h = finalCanvas.height * scale;
+
+  const mirrorCanvas = document.createElement('canvas');
+  mirrorCanvas.width = w;
+  mirrorCanvas.height = h;
+  const ctx = mirrorCanvas.getContext('2d');
+
+  // white background
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.translate(finalCanvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
+  ctx.restore?.();
+
+  const mirroredImageData = mirrorCanvas.toDataURL('image/jpeg', 1.0);
+  const uploadUrl = await this.uploadImageToService(mirroredImageData);
+
+  // print window
+  const printWindow = window.open('', '_blank');
+  if (printWindow) {
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>PixelPop Studio Photos</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <style>
+            @media print { html, body { height: 100%; } img { page-break-inside: avoid; } }
+            body { margin: 0; display: flex; justify-content: center; align-items: center;
+                   min-height: 100vh; background: #fff; }
+            img { max-width: 100%; max-height: 100vh; height: auto; }
+          </style>
+        </head>
+        <body>
+          <img src="${mirroredImageData}" alt="PixelPop Mirrored Photo"/>
+          <script>
+            const img = document.querySelector('img');
+            if (img && !img.complete) { img.addEventListener('load', () => window.print()); }
+            else { window.print(); }
+            window.addEventListener('afterprint', () => window.close());
+          <\/script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  } else {
+    alert('Please allow pop-ups to print.');
+  }
+
+  if (uploadUrl) this.showQRCode(uploadUrl);
 }
 
 
@@ -773,53 +889,7 @@ async downloadPhotos() {
 }
 */
 
-// --- DOWNLOAD + QR ---
-async downloadPhotos() {
-  const finalCanvas = document.getElementById('final-canvas');
-  if (!finalCanvas) return;
 
-  // SCALE FOR HD OUTPUT
-  const scale = 2;
-  const w = finalCanvas.width * scale;
-  const h = finalCanvas.height * scale;
-
-  const mirrorCanvas = document.createElement('canvas');
-  mirrorCanvas.width = w;
-  mirrorCanvas.height = h;
-  const ctx = mirrorCanvas.getContext('2d');
-
-  // Draw white background to avoid black JPEG edges on some viewers
-  ctx.save();
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, w, h);
-  ctx.restore();
-
-  // Mirror transform
-  ctx.save();
-  ctx.scale(scale, scale);
-  ctx.translate(finalCanvas.width, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
-  ctx.restore?.();
-
-  // Export HD image & upload (we only QR the returned short URL)
-  mirrorCanvas.toBlob(async (blob) => {
-    const dataURL = mirrorCanvas.toDataURL('image/jpeg', 1.0);
-    const uploadUrl = await this.uploadImageToService(dataURL);
-
-    // Download file
-    const link = document.createElement('a');
-    link.download = `pixelpop-photos-${Date.now()}.jpg`;
-    link.href = URL.createObjectURL(blob);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(link.href), 250);
-
-    // ✅ Show robust QR
-    if (uploadUrl) showQRCode(uploadUrl);
-  }, 'image/jpeg', 1.0);
-}
 
 
 /*
@@ -881,71 +951,6 @@ async printPhotos() {
         qrLink.href = uploadUrl;
     }
 }*/
-
-
-// --- PRINT + QR ---
-async printPhotos() {
-  const finalCanvas = document.getElementById('final-canvas');
-  if (!finalCanvas) return;
-
-  const scale = 2;
-  const w = finalCanvas.width * scale;
-  const h = finalCanvas.height * scale;
-
-  const mirrorCanvas = document.createElement('canvas');
-  mirrorCanvas.width = w;
-  mirrorCanvas.height = h;
-  const ctx = mirrorCanvas.getContext('2d');
-
-  // White background
-  ctx.save();
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, w, h);
-  ctx.restore();
-
-  ctx.save();
-  ctx.scale(scale, scale);
-  ctx.translate(finalCanvas.width, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
-  ctx.restore?.();
-
-  const mirroredImageData = mirrorCanvas.toDataURL('image/jpeg', 1.0);
-  const uploadUrl = await this.uploadImageToService(mirroredImageData);
-
-  // Print window
-  const printWindow = window.open('', '_blank');
-  if (printWindow) {
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>PixelPop Studio Photos</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <style>
-            @media print { html, body { height: 100%; } img { page-break-inside: avoid; } }
-            body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #fff; }
-            img { max-width: 100%; max-height: 100vh; height: auto; }
-          </style>
-        </head>
-        <body>
-          <img src="${mirroredImageData}" alt="PixelPop Mirrored Photo"/>
-          <script>
-            const img = document.querySelector('img');
-            if (img && !img.complete) { img.addEventListener('load', () => window.print()); }
-            else { window.print(); }
-            window.addEventListener('afterprint', () => window.close());
-          <\/script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-  } else {
-    alert('Please allow pop-ups to print.');
-  }
-
-  // ✅ Show robust QR
-  if (uploadUrl) showQRCode(uploadUrl);
-}
 
 
 
