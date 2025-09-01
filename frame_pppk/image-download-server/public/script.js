@@ -651,6 +651,12 @@ class PixelPopStudio {
         this.resetSession();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+
+
+
+
+
+
 // Class field
 API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
 
@@ -660,7 +666,8 @@ async verifyPublicUrl(url) {
   catch { return false; }
 }
 
-async uploadImageToService(imageData) {
+// mode: 'view' | 'download' | 'raw'
+async uploadImageToService(imageData, mode = 'view') {
   try {
     const response = await fetch(`${this.API_BASE}/api/upload`, {
       method: 'POST',
@@ -671,15 +678,20 @@ async uploadImageToService(imageData) {
       })
     });
     const data = await response.json();
-    if (response.ok && data?.url) {
-      console.log("Image uploaded successfully!", data.url);
-      return data.url; // public URL from backend (GridFS)
-    } else {
-      console.error("Image upload failed:", data?.error || 'Unknown error');
+    if (!response.ok) {
+      console.error('Upload failed:', data?.error || 'Unknown error');
       return null;
     }
+
+    // pick the nicest QR target
+    let qrUrl = data.url;                          // raw fallback
+    if (mode === 'view' && data.viewerUrl)        qrUrl = data.viewerUrl;   // /v/:id (Download button)
+    if (mode === 'download' && data.downloadUrl)  qrUrl = data.downloadUrl; // /d/:id (force download)
+
+    console.log('Image uploaded!', { id: data.id, qrUrl });
+    return qrUrl;
   } catch (error) {
-    console.error("Error during image upload:", error);
+    console.error('Error during image upload:', error);
     return null;
   }
 }
@@ -715,10 +727,38 @@ showQRCode(uploadUrl) {
     padding: 16 // true quiet zone
   });
 
+  // clickable fallback link
   qrLink.href = uploadUrl;
   qrLink.target = '_blank';
   qrLink.rel = 'noopener noreferrer';
   qrLink.textContent = uploadUrl;
+
+  // hook up buttons
+  this.wireQrActions(uploadUrl);
+}
+
+// Optional UI niceties under the QR
+wireQrActions(uploadUrl) {
+  const actions = document.getElementById('qr-actions');
+  const copyBtn = document.getElementById('copy-link');
+  const dlBtn   = document.getElementById('download-qr');
+  const qrCanvas = document.getElementById('qr-code');
+  if (!(actions && copyBtn && dlBtn && qrCanvas)) return;
+
+  actions.style.display = 'inline-flex';
+
+  copyBtn.onclick = async () => {
+    try { await navigator.clipboard.writeText(uploadUrl); copyBtn.textContent = 'Copied!'; }
+    catch { copyBtn.textContent = 'Copy failed'; }
+    setTimeout(()=> copyBtn.textContent = 'Copy link', 1200);
+  };
+
+  dlBtn.onclick = () => {
+    const dataUrl = qrCanvas.toDataURL('image/png'); // lossless export
+    const a = document.createElement('a');
+    a.href = dataUrl; a.download = `pixelpop-qr-${Date.now()}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+  };
 }
 
 // --- DOWNLOAD + QR ---
@@ -735,7 +775,10 @@ async downloadPhotos() {
   mirrorCanvas.height = h;
   const ctx = mirrorCanvas.getContext('2d');
 
+  // white background
   ctx.save(); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); ctx.restore?.();
+
+  // mirror + draw
   ctx.save();
   ctx.scale(scale, scale);
   ctx.translate(finalCanvas.width, 0);
@@ -745,17 +788,17 @@ async downloadPhotos() {
 
   mirrorCanvas.toBlob(async (blob) => {
     const dataURL = mirrorCanvas.toDataURL('image/jpeg', 1.0);
-    const url = await this.uploadImageToService(dataURL);
+    const qrUrl = await this.uploadImageToService(dataURL, 'view'); // 'view' | 'download' | 'raw'
 
-    // download file locally
+    // local download
     const link = document.createElement('a');
     link.download = `pixelpop-photos-${Date.now()}.jpg`;
     link.href = URL.createObjectURL(blob);
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(link.href), 250);
 
-    if (url && await this.verifyPublicUrl(url)) this.showQRCode(url);
-    else if (url) this.showQRCode(url); // fallback: still show if HEAD blocked by host
+    if (qrUrl && await this.verifyPublicUrl(qrUrl)) this.showQRCode(qrUrl);
+    else if (qrUrl) this.showQRCode(qrUrl);
   }, 'image/jpeg', 1.0);
 }
 
@@ -773,7 +816,10 @@ async printPhotos() {
   mirrorCanvas.height = h;
   const ctx = mirrorCanvas.getContext('2d');
 
+  // white background
   ctx.save(); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); ctx.restore?.();
+
+  // mirror + draw
   ctx.save();
   ctx.scale(scale, scale);
   ctx.translate(finalCanvas.width, 0);
@@ -782,8 +828,8 @@ async printPhotos() {
   ctx.restore?.();
 
   const dataURL = mirrorCanvas.toDataURL('image/jpeg', 1.0);
-  const url = await this.uploadImageToService(dataURL);
 
+  // print first (snappy UX)
   const printWindow = window.open('', '_blank');
   if (printWindow) {
     printWindow.document.write(`
@@ -814,10 +860,12 @@ async printPhotos() {
     alert('Please allow pop-ups to print.');
   }
 
-  if (url && await this.verifyPublicUrl(url)) this.showQRCode(url);
-  else if (url) this.showQRCode(url); // fallback
+  // then upload & show QR
+  const qrUrl = await this.uploadImageToService(dataURL, 'view');
+  if (qrUrl && await this.verifyPublicUrl(qrUrl)) this.showQRCode(qrUrl);
+  else if (qrUrl) this.showQRCode(qrUrl);
 }
-
+}
 /*
 // --- DOWNLOAD + QR ---
 async downloadPhotos() {
@@ -941,7 +989,7 @@ async printPhotos() {
 
 
     // --- ERROR HANDLING ---
-    showError(message) {
+  function showError(message) {
         const errorModal = document.getElementById('error-modal');
         const errorMessage = document.getElementById('error-message');
         if (errorModal && errorMessage) {
@@ -949,7 +997,7 @@ async printPhotos() {
             errorModal.style.display = 'flex';
         }
     }
-}
+
 
 // Global function to close error modal
 function closeErrorModal() {
