@@ -866,125 +866,6 @@ async printPhotos() {
   else if (qrUrl) this.showQRCode(qrUrl);
 }
 }
-/*
-// --- DOWNLOAD + QR ---
-async downloadPhotos() {
-    const finalCanvas = document.getElementById('final-canvas');
-    if (!finalCanvas) return;
-
-    // --- SCALE FOR HD OUTPUT ---
-    const scale = 2; // increase for sharper output (2x = HD, 3x = 4K-ish)
-    const w = finalCanvas.width * scale;
-    const h = finalCanvas.height * scale;
-
-    const mirrorCanvas = document.createElement('canvas');
-    mirrorCanvas.width = w;
-    mirrorCanvas.height = h;
-    const ctx = mirrorCanvas.getContext('2d');
-
-    // Scale the context for HD
-    ctx.scale(scale, scale);
-    ctx.translate(finalCanvas.width, 0);
-    ctx.scale(-1, 1);
-
-    ctx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
-    ctx.restore?.();
-
-    // --- EXPORT HD IMAGE ---
-    mirrorCanvas.toBlob(async (blob) => {
-        const uploadUrl = await this.uploadImageToService(mirrorCanvas.toDataURL('image/jpeg', 1.0));
-
-        // Download: The a.click() method is synchronous, so we need to add a short delay
-        // before revoking the URL to give the browser a chance to start the download.
-        const link = document.createElement('a');
-        link.download = `pixelpop-photos-${Date.now()}.jpg`;
-        link.href = URL.createObjectURL(blob);
-        document.body.appendChild(link); // Append the link to the body
-        link.click();
-        document.body.removeChild(link); // Clean up the link element
-
-        // The URL.revokeObjectURL call is now deferred to ensure the download works
-        setTimeout(() => URL.revokeObjectURL(link.href), 100);
-
-        // Show QR code
-        const qrSection = document.getElementById('qr-section');
-        const qrCanvas = document.getElementById('qr-code');
-        const qrLink = document.getElementById('qr-link');
-        if (qrSection && qrCanvas && qrLink && uploadUrl) {
-            qrSection.style.display = 'block';
-            new QRious({
-                element: qrCanvas,
-                value: uploadUrl,
-                size: 200
-            });
-            qrLink.href = uploadUrl;
-        }
-    }, 'image/jpeg', 1.0); // best quality
-}
-*/
-
-
-
-
-/*
-// --- PRINT + QR ---
-async printPhotos() {
-    const finalCanvas = document.getElementById('final-canvas');
-    if (!finalCanvas) return;
-
-    // --- SCALE FOR HD OUTPUT ---
-    const scale = 2;
-    const w = finalCanvas.width * scale;
-    const h = finalCanvas.height * scale;
-
-    const mirrorCanvas = document.createElement('canvas');
-    mirrorCanvas.width = w;
-    mirrorCanvas.height = h;
-    const ctx = mirrorCanvas.getContext('2d');
-
-    ctx.scale(scale, scale);
-    ctx.translate(finalCanvas.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
-    ctx.restore?.();
-
-    // Get HD image data
-    const mirroredImageData = mirrorCanvas.toDataURL('image/jpeg', 1.0);
-    const uploadUrl = await this.uploadImageToService(mirroredImageData);
-
-    // Open print window
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-        <html>
-            <head>
-                <title>PixelPop Studio Photos</title>
-                <style>
-                    body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-                    img { max-width: 100%; height: 100%; }
-                </style>
-            </head>
-            <body>
-                <img src="${mirroredImageData}" />
-            </body>
-        </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
-
-    // Show QR code
-    const qrSection = document.getElementById('qr-section');
-    const qrCanvas = document.getElementById('qr-code');
-    const qrLink = document.getElementById('qr-link');
-    if (qrSection && qrCanvas && qrLink && uploadUrl) {
-        qrSection.style.display = 'block';
-        new QRious({
-            element: qrCanvas,
-            value: uploadUrl,
-            size: 200
-        });
-        qrLink.href = uploadUrl;
-    }
-}*/
 
 
 
@@ -1011,7 +892,10 @@ function closeErrorModal() {
 document.addEventListener('DOMContentLoaded', () => {
   const app = new PixelPopStudio();
   window.PixelPopAppNavigate = (page) => app.navigateToPage(page);
+  window.PixelPopApp = app; // <— expose so frame section can call upload/showQRCode/etc.
 });
+
+/*
 //frame section
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1136,7 +1020,123 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 showMessage("Upload a photo to begin!");
+});*/
+
+// === helpers used by both Download + Print ===
+
+// Build a full-resolution framed canvas and return {canvas, blob, dataURL}
+async function buildFramedOutput(userPhotoSrc, selectedFrameSrc) {
+  return new Promise((resolve) => {
+    const imgPhoto = new Image();
+    const imgFrame = new Image();
+    // Optional: only keep crossOrigin if your images are served with proper CORS headers
+    imgPhoto.crossOrigin = "anonymous";
+    imgFrame.crossOrigin = "anonymous";
+
+    let loaded = 0;
+    function checkLoaded() {
+      loaded++;
+      if (loaded === 2) {
+        const canvas = document.createElement('canvas');
+        canvas.width = imgPhoto.naturalWidth;
+        canvas.height = imgPhoto.naturalHeight;
+        const ctx = canvas.getContext('2d');
+
+        // white background for consistent JPEG
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // draw base photo + overlay frame
+        ctx.drawImage(imgPhoto, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(imgFrame, 0, 0, canvas.width, canvas.height);
+
+        const dataURL = canvas.toDataURL('image/jpeg', 1.0);
+        canvas.toBlob((blob) => resolve({ canvas, blob, dataURL }), 'image/jpeg', 1.0);
+      }
+    }
+
+    imgPhoto.onload = checkLoaded;
+    imgFrame.onload = checkLoaded;
+    imgPhoto.src = userPhotoSrc;
+    imgFrame.src = selectedFrameSrc;
+  });
+}
+
+// Upload and show QR with your existing app methods
+async function uploadAndShowQR(dataURL, mode = 'view') {
+  if (!window.PixelPopApp) return;
+
+  try {
+    const qrUrl = await window.PixelPopApp.uploadImageToService(dataURL, mode);
+    if (!qrUrl) return;
+
+    // Even if HEAD fails (some hosts block it), still render a QR as fallback
+    const ok = await window.PixelPopApp.verifyPublicUrl(qrUrl);
+    window.PixelPopApp.showQRCode(qrUrl);
+  } catch (e) {
+    console.error('QR upload/show failed', e);
+  }
+}
+downloadBtn.addEventListener('click', async () => {
+  if (!userPhotoSrc || !selectedFrameSrc) return;
+
+  const { blob, dataURL } = await buildFramedOutput(userPhotoSrc, selectedFrameSrc);
+
+  // Local download (lossless JPEG @ 100% quality)
+  const a = document.createElement('a');
+  a.download = `framed-image-${Date.now()}.jpg`;
+  a.href = URL.createObjectURL(blob);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 250);
+
+  // Then upload & show QR (like the upper flow)
+  await uploadAndShowQR(dataURL, 'view'); // or 'download' to force-download link
+  showMessage("Image downloaded and QR link generated!");
 });
+const printFrameBtn = document.getElementById('printFrameBtn');
+printFrameBtn?.addEventListener('click', async () => {
+  if (!userPhotoSrc || !selectedFrameSrc) return;
+
+  const { dataURL } = await buildFramedOutput(userPhotoSrc, selectedFrameSrc);
+
+  // Print first (snappy UX), identical to upper flow style
+  const w = window.open('', '_blank');
+  if (w) {
+    w.document.write(`
+      <html>
+        <head>
+          <title>PixelPop Framed Photo</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <style>
+            @media print { html, body { height: 100%; } img { page-break-inside: avoid; } }
+            html, body { margin:0; }
+            body { display:flex; justify-content:center; align-items:center; min-height:100vh; background:#fff; }
+            img { max-width:100%; max-height:100vh; height:auto; }
+          </style>
+        </head>
+        <body>
+          <img src="${dataURL}" alt="Framed Photo"/>
+          <script>
+            const img = document.querySelector('img');
+            if (img && !img.complete) img.addEventListener('load', () => window.print());
+            else window.print();
+            window.addEventListener('afterprint', () => window.close());
+          <\/script>
+        </body>
+      </html>
+    `);
+    w.document.close();
+  } else {
+    alert('Please allow pop-ups to print.');
+  }
+
+  // Then upload & show QR (reuse existing QR UI)
+  await uploadAndShowQR(dataURL, 'view');
+  showMessage("Ready to print. QR link generated!");
+});
+
 
 // ===== Auth UI + API glue =====
 const API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
