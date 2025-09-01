@@ -899,10 +899,11 @@ document.addEventListener('DOMContentLoaded', () => {
 // Frame page (Download + Print + QR)
 // ===============================
 
-API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
+// was: const API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
+const FRAME_API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
 
 // ---------- helpers ----------
-const toAbsolute = (url) => (!url ? null : url.startsWith('http') ? url : `${API_BASE}${url}`);
+const toAbsolute = (url) => (!url ? null : url.startsWith('http') ? url : `${FRAME_API_BASE}${url}`);
 
 async function verifyPublicUrl(url) {
   try { const r = await fetch(url, { method: 'HEAD', cache: 'no-store' }); return r.ok; }
@@ -912,7 +913,7 @@ async function verifyPublicUrl(url) {
 // mode: 'view' | 'download' | 'raw'
 async function uploadImageToService(imageData, mode = 'view') {
   try {
-    const res = await fetch(`${API_BASE}/api/upload`, {
+    const res = await fetch(`${FRAME_API_BASE}/api/upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imageData, fileName: `framed-image-${Date.now()}.jpg` })
@@ -931,6 +932,7 @@ async function uploadImageToService(imageData, mode = 'view') {
     return null;
   }
 }
+
 
 function showQRCode(uploadUrl) {
   const qrSection = document.getElementById('qr-section');
