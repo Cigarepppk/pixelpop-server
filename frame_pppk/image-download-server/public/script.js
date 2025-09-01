@@ -657,7 +657,7 @@ class PixelPopStudio {
 
 
 
-// Class field
+// Class field for photo result
 API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
 
 // (optional) quick HEAD reachability check
@@ -695,53 +695,41 @@ async uploadImageToService(imageData, mode = 'view') {
     return null;
   }
 }
-
-// --- QR render (size + level + quiet zone) ---
-showQRCode(uploadUrl) {
+// --- PHOTO RESULT (inside your class) ---
+showQRCodeResult(uploadUrl) {
   const qrSection = document.getElementById('qr-section');
   const qrCanvas  = document.getElementById('qr-code');
   const qrLink    = document.getElementById('qr-link');
   if (!(qrSection && qrCanvas && qrLink && uploadUrl)) return;
 
   qrSection.style.display = 'block';
-  qrCanvas.width = 300;
-  qrCanvas.height = 300;
+  qrCanvas.width = 300; qrCanvas.height = 300;
   qrCanvas.style.background = 'white';
 
-  if (typeof QRious !== 'function') {
-    console.error('QRious is not available on the page.');
-    qrLink.href = uploadUrl;
-    qrLink.target = '_blank';
-    qrLink.rel = 'noopener noreferrer';
-    qrLink.textContent = 'Open image';
-    return;
+  if (typeof QRious === 'function') {
+    new QRious({
+      element: qrCanvas,
+      value: uploadUrl,
+      size: 300,
+      level: 'H',
+      background: 'white',
+      foreground: 'black',
+      padding: 16
+    });
   }
 
-  new QRious({
-    element: qrCanvas,
-    value: uploadUrl,
-    size: 300,
-    level: 'H',
-    background: 'white',
-    foreground: 'black',
-    padding: 16 // true quiet zone
-  });
-
-  // clickable fallback link
   qrLink.href = uploadUrl;
   qrLink.target = '_blank';
   qrLink.rel = 'noopener noreferrer';
-  qrLink.textContent = uploadUrl;
+  qrLink.textContent = 'Open image';
 
-  // hook up buttons
-  this.wireQrActions(uploadUrl);
+  this.wireQrActionsResult(uploadUrl);
 }
 
-// Optional UI niceties under the QR
-wireQrActions(uploadUrl) {
-  const actions = document.getElementById('qr-actions');
-  const copyBtn = document.getElementById('copy-link');
-  const dlBtn   = document.getElementById('download-qr');
+wireQrActionsResult(uploadUrl) {
+  const actions  = document.getElementById('qr-actions');
+  const copyBtn  = document.getElementById('copy-link');
+  const dlBtn    = document.getElementById('download-qr');
   const qrCanvas = document.getElementById('qr-code');
   if (!(actions && copyBtn && dlBtn && qrCanvas)) return;
 
@@ -750,16 +738,17 @@ wireQrActions(uploadUrl) {
   copyBtn.onclick = async () => {
     try { await navigator.clipboard.writeText(uploadUrl); copyBtn.textContent = 'Copied!'; }
     catch { copyBtn.textContent = 'Copy failed'; }
-    setTimeout(()=> copyBtn.textContent = 'Copy link', 1200);
+    setTimeout(() => copyBtn.textContent = 'Copy link', 1200);
   };
 
   dlBtn.onclick = () => {
-    const dataUrl = qrCanvas.toDataURL('image/png'); // lossless export
+    const dataUrl = qrCanvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = dataUrl; a.download = `pixelpop-qr-${Date.now()}.png`;
     document.body.appendChild(a); a.click(); a.remove();
   };
 }
+
 
 // --- DOWNLOAD + QR ---
 async downloadPhotos() {
@@ -797,8 +786,8 @@ async downloadPhotos() {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(link.href), 250);
 
-    if (qrUrl && await this.verifyPublicUrl(qrUrl)) this.showQRCode(qrUrl);
-    else if (qrUrl) this.showQRCode(qrUrl);
+    if (qrUrl && await this.verifyPublicUrl(qrUrl)) this.showQRCodeResult(qrUrl);
+    else if (qrUrl) this.showQRCodeResult(qrUrl);
   }, 'image/jpeg', 1.0);
 }
 
@@ -862,8 +851,8 @@ async printPhotos() {
 
   // then upload & show QR
   const qrUrl = await this.uploadImageToService(dataURL, 'view');
-  if (qrUrl && await this.verifyPublicUrl(qrUrl)) this.showQRCode(qrUrl);
-  else if (qrUrl) this.showQRCode(qrUrl);
+  if (qrUrl && await this.verifyPublicUrl(qrUrl)) this.showQRCodeResult(qrUrl);
+  else if (qrUrl) this.showQRCodeResult(qrUrl);
 }
 }
 
@@ -933,53 +922,52 @@ async function uploadImageToService(imageData, mode = 'view') {
   }
 }
 
+// --- FRAME QR (page level) ---
+function showQRCodeFrame(uploadUrl) {
+  const section = document.getElementById('qr-section-frame');
+  const canvas  = document.getElementById('qr-code-frame');
+  const link    = document.getElementById('qr-link-frame');
+  const actions = document.getElementById('qr-actions-frame');
+  const copyBtn = document.getElementById('copy-link-frame');
+  const dlBtn   = document.getElementById('download-qr-frame');
+  if (!(section && canvas && link) || !uploadUrl) return;
 
-function showQRCode(uploadUrl) {
-  const qrSection = document.getElementById('qr-section');
-  const qrCanvas  = document.getElementById('qr-code');
-  const qrLink    = document.getElementById('qr-link');
-  const qrActions = document.getElementById('qr-actions');
-  const copyBtn   = document.getElementById('copy-link');
-  const dlQrBtn   = document.getElementById('download-qr');
-
-  if (!(qrSection && qrCanvas && qrLink) || !uploadUrl) return;
-
-  qrSection.style.display = 'block';
-  qrCanvas.width = 300; qrCanvas.height = 300;
+  section.style.display = 'block';
+  canvas.width = 300; canvas.height = 300;
 
   if (typeof QRious === 'function') {
     new QRious({
-      element: qrCanvas,
+      element: canvas,
       value: uploadUrl,
       size: 300,
       level: 'H',
       background: 'white',
       foreground: 'black',
-      padding: 16 // quiet zone
+      padding: 16
     });
   }
 
-  // universal fallback link (works on all devices)
-  qrLink.href = uploadUrl;
-  qrLink.target = '_blank';
-  qrLink.rel = 'noopener noreferrer';
-  qrLink.textContent = 'Open / Download photo';
+  link.href = uploadUrl;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = 'Open / Download photo';
 
-  if (qrActions && copyBtn && dlQrBtn) {
-    qrActions.style.display = 'inline-flex';
+  if (actions && copyBtn && dlBtn) {
+    actions.style.display = 'inline-flex';
     copyBtn.onclick = async () => {
       try { await navigator.clipboard.writeText(uploadUrl); copyBtn.textContent = 'Copied!'; }
       catch { copyBtn.textContent = 'Copy failed'; }
       setTimeout(() => (copyBtn.textContent = 'Copy link'), 1200);
     };
-    dlQrBtn.onclick = () => {
-      const dataUrl = qrCanvas.toDataURL('image/png');
+    dlBtn.onclick = () => {
+      const dataUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = dataUrl; a.download = `pixelpop-qr-${Date.now()}.png`;
       document.body.appendChild(a); a.click(); a.remove();
     };
   }
 }
+
 
 function buildFramedOutput(userSrc, frameSrc) {
   return new Promise((resolve) => {
@@ -1115,7 +1103,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // upload → QR (works on all devices)
     const qrUrl = await uploadImageToService(out.dataURL, 'view'); // or 'download'
-    if (qrUrl) { try { await verifyPublicUrl(qrUrl); } catch {} showQRCode(qrUrl); }
+    if (qrUrl) { try { await verifyPublicUrl(qrUrl); } catch {} showQRCodeFrame(qrUrl); }
 
     showMessage('Image downloaded in original HD quality!');
   });
@@ -1160,7 +1148,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // upload → QR (works on all devices)
     const qrUrl = await uploadImageToService(out.dataURL, 'view'); // or 'download'
-    if (qrUrl) { try { await verifyPublicUrl(qrUrl); } catch {} showQRCode(qrUrl); }
+    if (qrUrl) { try { await verifyPublicUrl(qrUrl); } catch {} showQRCodeFrame(qrUrl); }
 
     showMessage('Ready to print. QR generated!');
   });

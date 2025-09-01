@@ -396,19 +396,7 @@
                 New Session
               </button>
 
-              <!-- QR Code Section 
-             <div id="qr-section" style="margin-top:20px; display:none; text-align:center;">
-                <a id="qr-link" target="_blank">
-                 <canvas id="qr-code"></canvas>
-                </a>
-                <p>If you can’t scan, tap the link above or copy-paste into your browser.</p>
-
-                <p>Scan or click QR code to download on your phone</p>
-            </div>
-         new   <div id="qr-section" style="display:none; text-align:center; margin-top:20px;">
-  <canvas id="qr-code"></canvas>
-  <div><a id="qr-link" target="_blank" rel="noopener">Open image</a></div>
-</div>-->
+<!-- QR Code Section -->
 <div id="qr-section" style="display:none; text-align:center; margin-top:20px;">
   <canvas id="qr-code"></canvas>
   <div><a id="qr-link" target="_blank" rel="noopener">Open image</a></div>
@@ -508,13 +496,13 @@
         <button id="printFrameBtn" style="margin-top:20px;display:none;" class="upload-btn">Print</button>
 
 
-<!-- QR block -->
-<section id="qr-section" style="display:none">
-  <canvas id="qr-code" width="300" height="300"></canvas>
-  <p><a id="qr-link" href="#" target="_blank" rel="noopener noreferrer"></a></p>
-  <div id="qr-actions" style="display:none">
-    <button id="copy-link">Copy link</button>
-    <button id="download-qr">Download QR</button>
+<!-- NEW: Frame-section QR (unique IDs) -->
+<section id="qr-section-frame" style="display:none; text-align:center; margin-top:20px;">
+  <canvas id="qr-code-frame" width="300" height="300"></canvas>
+  <p><a id="qr-link-frame" href="#" target="_blank" rel="noopener noreferrer">Open / Download image</a></p>
+  <div id="qr-actions-frame" style="display:none; gap:8px; margin-top:8px;">
+    <button id="copy-link-frame">Copy link</button>
+    <button id="download-qr-frame">Download QR</button>
   </div>
 </section>
 
