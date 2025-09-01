@@ -23,94 +23,7 @@ class PixelPopStudio {
         this.setupPhotoControls();
         this.setupMobileMenu();
     }
-/*
-    // This method handles the navigation links and CTA button
-    setupNavigation() {
-        const navLinks = document.querySelectorAll('.nav-link');
-        const ctaButton = document.querySelector('.cta-button');
-        
-        navLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const page = link.dataset.page;
-                this.navigateToPage(page);
-            });
-        });
 
-        if (ctaButton) {
-            ctaButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.navigateToPage('layout');
-            });
-        }
-    }
-
-    // This method handles the logic for showing/hiding pages
-    navigateToPage(page) {
-        // 🔒 Block Photobooth unless logged in
-if (page === 'layout') {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    alert('You must log in first!');
-    return; // stop navigation
-  }
-}
-
-        // Hide all pages
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        
-        // Show target page
-        const targetPage = document.getElementById(`${page}-page`);
-        if (targetPage) {
-            targetPage.classList.add('active');
-            targetPage.classList.add('fade-in');
-        }
-
-        // Update navigation
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.remove('active');
-            if (link.dataset.page === page) {
-                link.classList.add('active');
-            }
-        });
-
-        this.currentPage = page;
-
-        // Initialize camera if navigating to layout page
-        if (page === 'layout') {
-            this.initializeCamera();
-        } else if (this.stream) {
-            this.stopCamera();
-        }
-
-        // Close mobile menu after navigation
-        const navMenu = document.querySelector('.nav-menu');
-        const hamburger = document.querySelector('.hamburger');
-        if (navMenu.classList.contains('active')) {
-            navMenu.classList.remove('active');
-            if (hamburger) {
-                hamburger.classList.remove('active');
-            }
-        }
-    }
-
-    // This method handles the mobile menu toggle functionality
-    setupMobileMenu() {
-        const hamburger = document.querySelector('.hamburger');
-        const navMenu = document.querySelector('.nav-menu');
-
-        if (hamburger) {
-            hamburger.addEventListener('click', () => {
-                navMenu.classList.toggle('active');
-                hamburger.classList.toggle('active');
-            });
-        }
-    }*/
-
-        // This method handles the navigation links and CTA button
-// No async/await—returns a Promise<boolean>
- // ---- Auth helpers ----
-  // No async/await here: returns Promise<boolean>
   verifyToken() {
     var token = localStorage.getItem('token');
     if (!token) return Promise.resolve(false);
@@ -768,7 +681,42 @@ async uploadImageToService(imageData) {
     }
 }
 
+// --- QR render (size + level + quiet zone) ---
+showQRCode(uploadUrl) {
+  const qrSection = document.getElementById('qr-section');
+  const qrCanvas  = document.getElementById('qr-code');
+  const qrLink    = document.getElementById('qr-link');
 
+  if (!(qrSection && qrCanvas && qrLink && uploadUrl)) return;
+
+  // Make it visible
+  qrSection.style.display = 'block';
+
+  // Ensure crisp pixels and quiet zone
+  qrCanvas.width = 300;   // actual canvas pixels
+  qrCanvas.height = 300;
+  qrCanvas.style.background = 'white';
+  qrCanvas.style.padding = '10px'; // quiet zone
+
+  // Render high-reliability QR
+  new QRious({
+    element: qrCanvas,
+    value: uploadUrl,  // ✅ short URL only
+    size: 300,         // ≥ 300px helps older scanners
+    level: 'H',        // high error correction
+    background: 'white',
+    foreground: 'black'
+  });
+
+  // Clickable link fallback
+  qrLink.href = uploadUrl;
+  qrLink.target = '_blank';
+  qrLink.rel = 'noopener noreferrer';
+  qrLink.textContent = uploadUrl;
+}
+
+
+/*
 // --- DOWNLOAD + QR ---
 async downloadPhotos() {
     const finalCanvas = document.getElementById('final-canvas');
@@ -823,7 +771,58 @@ async downloadPhotos() {
         }
     }, 'image/jpeg', 1.0); // best quality
 }
+*/
 
+// --- DOWNLOAD + QR ---
+async downloadPhotos() {
+  const finalCanvas = document.getElementById('final-canvas');
+  if (!finalCanvas) return;
+
+  // SCALE FOR HD OUTPUT
+  const scale = 2;
+  const w = finalCanvas.width * scale;
+  const h = finalCanvas.height * scale;
+
+  const mirrorCanvas = document.createElement('canvas');
+  mirrorCanvas.width = w;
+  mirrorCanvas.height = h;
+  const ctx = mirrorCanvas.getContext('2d');
+
+  // Draw white background to avoid black JPEG edges on some viewers
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+
+  // Mirror transform
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.translate(finalCanvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
+  ctx.restore?.();
+
+  // Export HD image & upload (we only QR the returned short URL)
+  mirrorCanvas.toBlob(async (blob) => {
+    const dataURL = mirrorCanvas.toDataURL('image/jpeg', 1.0);
+    const uploadUrl = await this.uploadImageToService(dataURL);
+
+    // Download file
+    const link = document.createElement('a');
+    link.download = `pixelpop-photos-${Date.now()}.jpg`;
+    link.href = URL.createObjectURL(blob);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(link.href), 250);
+
+    // ✅ Show robust QR
+    if (uploadUrl) showQRCode(uploadUrl);
+  }, 'image/jpeg', 1.0);
+}
+
+
+/*
 // --- PRINT + QR ---
 async printPhotos() {
     const finalCanvas = document.getElementById('final-canvas');
@@ -881,7 +880,73 @@ async printPhotos() {
         });
         qrLink.href = uploadUrl;
     }
+}*/
+
+
+// --- PRINT + QR ---
+async printPhotos() {
+  const finalCanvas = document.getElementById('final-canvas');
+  if (!finalCanvas) return;
+
+  const scale = 2;
+  const w = finalCanvas.width * scale;
+  const h = finalCanvas.height * scale;
+
+  const mirrorCanvas = document.createElement('canvas');
+  mirrorCanvas.width = w;
+  mirrorCanvas.height = h;
+  const ctx = mirrorCanvas.getContext('2d');
+
+  // White background
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.translate(finalCanvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
+  ctx.restore?.();
+
+  const mirroredImageData = mirrorCanvas.toDataURL('image/jpeg', 1.0);
+  const uploadUrl = await this.uploadImageToService(mirroredImageData);
+
+  // Print window
+  const printWindow = window.open('', '_blank');
+  if (printWindow) {
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>PixelPop Studio Photos</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <style>
+            @media print { html, body { height: 100%; } img { page-break-inside: avoid; } }
+            body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #fff; }
+            img { max-width: 100%; max-height: 100vh; height: auto; }
+          </style>
+        </head>
+        <body>
+          <img src="${mirroredImageData}" alt="PixelPop Mirrored Photo"/>
+          <script>
+            const img = document.querySelector('img');
+            if (img && !img.complete) { img.addEventListener('load', () => window.print()); }
+            else { window.print(); }
+            window.addEventListener('afterprint', () => window.close());
+          <\/script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  } else {
+    alert('Please allow pop-ups to print.');
+  }
+
+  // ✅ Show robust QR
+  if (uploadUrl) showQRCode(uploadUrl);
 }
+
 
 
     // --- ERROR HANDLING ---
@@ -1033,67 +1098,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 showMessage("Upload a photo to begin!");
 });
-
-/*
-// Get the login form element
-const loginForm = document.getElementById('login-form');
-
-// Add an event listener for the form submission
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault(); // Prevents the default form submission behavior
-
-  // Get the username and password from the form inputs
-  const username = e.target.username.value;
-  const password = e.target.password.value;
-
-  try {
-    // Send a POST request to your live backend server
-    const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ username, password })
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      console.log('Login successful:', data);
-      // Handle a successful login (e.g., redirect or show a success message)
-    } else {
-      console.error('Login failed:', data.error);
-      // Handle a failed login (e.g., show an error message to the user)
-    }
-  } catch (error) {
-    console.error('Error during login:', error);
-  }
-});
-
-// The UI code you provided is also correct and can be included as well.
-const container = document.querySelector('.logincontainer');
-const registerBtn = document.querySelector('.register-btn');
-const loginBtn = document.querySelector('.login-btn');
-
-registerBtn.addEventListener('click', () => {
-    container.classList.add('active');
-})
-
-loginBtn.addEventListener('click', () => {
-    container.classList.remove('active');
-})*/
-
-
-
-
-
-
-
-
-
-
-
-
 
 // ===== Auth UI + API glue =====
 const API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
@@ -1287,429 +1291,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-/*
-// Get the form elements
-const loginForm  = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const container  = document.querySelector('.logincontainer');
-const registerBtn = document.querySelector('.register-btn');
-const loginBtn  = document.querySelector('.login-btn');
 
-registerBtn?.addEventListener('click', () => container?.classList.add('active'));
-loginBtn?.addEventListener('click', () => container?.classList.remove('active'));
 
-// Registration Form Submission
-registerForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
 
-    const username = e.target.username.value;
-    const email = e.target.email.value; // Get the email value
-    const password = e.target.password.value;
-    const confirmPassword = e.target.confirmPassword.value;
 
-    if (password !== confirmPassword) {
-        alert('Passwords do not match!');
-        return;
-    }
 
-    // Log the data being sent to the backend
-    console.log('Attempting registration with:', { username, email, password });
 
-    try {
-        const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/signup', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ username, email, password })
-        });
 
-        // Log the full response object
-        console.log('Received response:', response);
 
-        const data = await response.json();
 
-        if (response.ok) {
-            console.log('Registration successful:', data);
-            alert('Registration successful! Please log in.');
-            // Automatically switch to the login form on success
-            container.classList.remove('active');
-        } else {
-            console.error('Registration failed:', data.error);
-            console.error('Full response data:', data);
-            console.error('Response status:', response.status); // Log the HTTP status code
-            alert(`Registration failed: ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Error during registration:', error);
-        alert('An error occurred during registration. Please try again later.');
-    }
-});
-
-
-// ------------------
-// Login Form
-// ------------------
-loginForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const username = e.target.username.value;
-    const password = e.target.password.value;
-
-    console.log('Attempting login with:', { username, password });
-
-    try {
-        const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            console.log('Login successful:', data);
-
-        // ✅ Save token
-            localStorage.setItem('token', data.token);
-            alert('Login successful!');
-
-            // ✅ Navigate to PhotoBooth
-            if (typeof window.PixelPopAppNavigate === 'function') {
-                window.PixelPopAppNavigate('layout');
-            }
-        } else {
-            console.error('Login failed:', data.error);
-            alert(`Login failed: ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Error during login:', error);
-        alert('An error occurred during login. Please try again later.');
-    }
-});
-
-// ------------------
-// Example: Fetch Profile
-// ------------------
-async function getProfile() {
-    const token = localStorage.getItem('token');
-    if (!token) {
-        alert('Please log in first.');
-        return;
-    }
-
-    try {
-        const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/profile', {
-            headers: {
-                // Correctly format the Authorization header with "Bearer"
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        const data = await response.json();
-        console.log('Profile:', data);
-    } catch (error) {
-        console.error('Error fetching profile:', error);
-    }
-}
-
-// ------------------
-// Logout Function
-// ------------------
-function logout() {
-    localStorage.removeItem('token');
-    alert('You have been logged out.');
-    window.location.href = "/"; // back to home/login page
-}
-*/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-// Get the form elements
-const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const container = document.querySelector('.logincontainer');
-const registerBtn = document.querySelector('.register-btn');
-const loginBtn = document.querySelector('.login-btn');
-
-// UI Toggling
-if (container && registerBtn && loginBtn) {
-    registerBtn.addEventListener('click', () => {
-        container.classList.add('active');
-    });
-
-    loginBtn.addEventListener('click', () => {
-        container.classList.remove('active');
-    });
-}
-
-// Registration Form Submission
-if (registerForm) {
-    registerForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const username = e.target.username.value;
-        const password = e.target.password.value;
-        const confirmPassword = e.target.confirmPassword.value;
-
-        if (password !== confirmPassword) {
-            alert('Passwords do not match!');
-            return;
-        }
-
-        console.log('Attempting registration with:', { username, password });
-
-        try {
-            const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/signup', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ username, password })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                console.log('Registration successful:', data);
-                alert('Registration successful!');
-            } else {
-                console.error('Registration failed:', data.error);
-                alert(`Registration failed: ${data.error}`);
-            }
-        } catch (error) {
-            console.error('Error during registration:', error);
-            alert('An error occurred during registration. Please try again later.');
-        }
-    });
-}
-
-// Login Form Submission
-if (loginForm) {
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const username = e.target.username.value;
-        const password = e.target.password.value;
-
-        console.log('Attempting login with:', { username, password });
-
-        try {
-            const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ username, password })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                console.log('Login successful:', data);
-                alert('Login successful!');
-            } else {
-                console.error('Login failed:', data.error);
-                alert(`Login failed: ${data.error}`);
-            }
-        } catch (error) {
-            console.error('Error during login:', error);
-            alert('An error occurred during login. Please try again later.');
-        }
-    });
-}
-/*
-// Get the form elements
-const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const container = document.querySelector('.logincontainer');
-const registerBtn = document.querySelector('.register-btn');
-const loginBtn = document.querySelector('.login-btn');
-
-// UI Toggling
-registerBtn.addEventListener('click', () => {
-    container.classList.add('active');
-});
-
-loginBtn.addEventListener('click', () => {
-    container.classList.remove('active');
-});
-// Registration Form Submission
-registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const username = e.target.username.value;
-    const password = e.target.password.value;
-    const confirmPassword = e.target.confirmPassword.value;
-
-    if (password !== confirmPassword) {
-        alert('Passwords do not match!');
-        return;
-    }
-    
-    // Log the data being sent to the backend
-    console.log('Attempting registration with:', { username, password });
-
-    try {
-        const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/signup', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ username, password })
-        });
-        
-        // Log the full response object
-        console.log('Received response:', response);
-
-        const data = await response.json();
-        
-        if (response.ok) {
-            console.log('Registration successful:', data);
-            alert('Registration successful!');
-            // You might want to redirect the user or show a success message
-        } else {
-            console.error('Registration failed:', data.error);
-            console.error('Full response data:', data);
-            console.error('Response status:', response.status); // Log the HTTP status code
-            alert(`Registration failed: ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Error during registration:', error);
-        alert('An error occurred during registration. Please try again later.');
-    }
-});
-
-// Login Form Submission
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const username = e.target.username.value;
-    const password = e.target.password.value;
-
-    // Log the data being sent to the backend
-    console.log('Attempting login with:', { username, password });
-
-    try {
-      const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ username, password })
-        });
-
-        // Log the full response object
-        console.log('Received response:', response);
-
-        const data = await response.json();
-
-        if (response.ok) {
-            console.log('Login successful:', data);
-            alert('Login successful!');
-            // Handle successful login (e.g., redirect to dashboard)
-        } else {
-            console.error('Login failed:', data.error);
-            console.error('Full response data:', data);
-            console.error('Response status:', response.status); // Log the HTTP status code
-            alert(`Login failed: ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Error during login:', error);
-        alert('An error occurred during login. Please try again later.');
-    }
-});
-
-/*
-// Registration Form Submission
-registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const username = e.target.username.value;
-    const password = e.target.password.value;
-
-    console.log('Attempting registration with:', { username, password });
-
-    try {
-        const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ username, password })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            console.log('Registration successful:', data);
-            alert('Registration successful! You can now log in.');
-            container.classList.remove('active'); // Switch to the login view
-        } else {
-            console.error('Registration failed:', data.error);
-            console.error('Full response:', response);
-            alert(`Registration failed: ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Error during registration:', error);
-        alert('An error occurred during registration. Please try again later.');
-    }
-});
-
-// Login Form Submission
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const username = e.target.username.value;
-    const password = e.target.password.value;
-
-    // Log the data being sent to the backend
-    console.log('Attempting login with:', { username, password });
-
-    try {
-      const response = await fetch('https://pixelpop-backend-fm6t.onrender.com/signup', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ username, password })
-        });
-
-        // Log the full response object
-        console.log('Received response:', response);
-
-        const data = await response.json();
-
-        if (response.ok) {
-            console.log('Login successful:', data);
-            alert('Login successful!');
-            // Handle successful login (e.g., redirect to dashboard)
-        } else {
-            console.error('Login failed:', data.error);
-            console.error('Full response data:', data);
-            console.error('Response status:', response.status); // Log the HTTP status code
-            alert(`Login failed: ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Error during login:', error);
-        alert('An error occurred during login. Please try again later.');
-    }
-});
-*/
 
 
 
