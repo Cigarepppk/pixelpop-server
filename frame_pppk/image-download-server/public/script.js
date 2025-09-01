@@ -895,147 +895,44 @@ document.addEventListener('DOMContentLoaded', () => {
   window.PixelPopApp = app; // <— expose so frame section can call upload/showQRCode/etc.
 });
 
-/*
-//frame section
+// ===============================
+// Frame page (Download + Print + QR)
+// ===============================
 
-document.addEventListener('DOMContentLoaded', () => {
-    const fileInput = document.getElementById('fileInput');
-    const userPhoto = document.getElementById('userPhoto');
-    const frameImage = document.getElementById('frameImage');
-    const messageBox = document.getElementById('initialMessage');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const frameSearch = document.getElementById('frameSearch');
+API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
 
-    // CHANGE: Select the parent containers instead of just the images
-    const frameItems = document.querySelectorAll('.frame-item');
+// ---------- helpers ----------
+const toAbsolute = (url) => (!url ? null : url.startsWith('http') ? url : `${API_BASE}${url}`);
 
-    let selectedFrameSrc = '';
-    let userPhotoSrc = '';
+async function verifyPublicUrl(url) {
+  try { const r = await fetch(url, { method: 'HEAD', cache: 'no-store' }); return r.ok; }
+  catch { return false; }
+}
 
-    const showMessage = (text) => {
-        messageBox.textContent = text;
-        messageBox.style.display = 'block';
-        setTimeout(() => { messageBox.style.display = 'none'; }, 3000);
-    };
-
-    function checkDownloadReady() {
-        if (userPhotoSrc && selectedFrameSrc) downloadBtn.style.display = 'inline-block';
-        else downloadBtn.style.display = 'none';
+// mode: 'view' | 'download' | 'raw'
+async function uploadImageToService(imageData, mode = 'view') {
+  try {
+    const res = await fetch(`${API_BASE}/api/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageData, fileName: `framed-image-${Date.now()}.jpg` })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error('Upload failed:', data?.error || res.statusText);
+      return null;
     }
+    let url = data.url;
+    if (mode === 'view' && data.viewerUrl)       url = data.viewerUrl;   // pretty view page (tap to download)
+    if (mode === 'download' && data.downloadUrl) url = data.downloadUrl; // force download route
+    return toAbsolute(url);
+  } catch (e) {
+    console.error('Upload error:', e);
+    return null;
+  }
+}
 
-    fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                userPhotoSrc = e.target.result;
-                userPhoto.src = userPhotoSrc;
-                userPhoto.style.opacity = 1;
-                checkDownloadReady();
-                if (!selectedFrameSrc) showMessage("Now choose a frame!");
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-    
-    // CHANGE: Loop through the new frameItems and add the click listener
-    frameItems.forEach(item => {
-        item.addEventListener('click', () => {
-            frameItems.forEach(t => t.classList.remove('selected'));
-            item.classList.add('selected');
-
-            // Find the image inside the clicked item
-            const thumb = item.querySelector('.frame-thumb');
-            selectedFrameSrc = thumb.getAttribute('data-frame');
-            frameImage.src = selectedFrameSrc;
-            frameImage.style.opacity = 1;
-            checkDownloadReady();
-
-            if (userPhotoSrc) showMessage("Frame applied successfully!");
-            else showMessage("Photo uploaded successfully, now choose a frame!");
-        });
-    });
-
-    // CHANGE: Update the search functionality to target frame-item containers
-    frameSearch.addEventListener('keyup', (event) => {
-        const searchTerm = event.target.value.toLowerCase();
-        
-        frameItems.forEach(item => {
-            // Find the alt text from the image inside the item
-            const frameAltText = item.querySelector('.frame-thumb').alt.toLowerCase();
-            
-            if (frameAltText.includes(searchTerm)) {
-                // Show the whole frame item
-                item.style.display = 'flex';
-            } else {
-                // Hide the whole frame item
-                item.style.display = 'none';
-            }
-        });
-    });
-
-
-        
-
-      
-      
-        downloadBtn.addEventListener('click', () => {
-           if (!userPhotoSrc || !selectedFrameSrc) return;
-
-    const imgPhoto = new Image();
-    const imgFrame = new Image();
-    imgPhoto.crossOrigin = "anonymous";
-    imgFrame.crossOrigin = "anonymous";
-
-    let loaded = 0;
-    function checkLoaded() {
-        loaded++;
-        if (loaded === 2) {
-            // ✅ Keep original resolution
-            const canvas = document.createElement('canvas');
-            canvas.width = imgPhoto.naturalWidth;
-            canvas.height = imgPhoto.naturalHeight;
-            const ctx = canvas.getContext('2d');
-
-            // Draw original image and frame
-            ctx.drawImage(imgPhoto, 0, 0, canvas.width, canvas.height);
-            ctx.drawImage(imgFrame, 0, 0, canvas.width, canvas.height);
-
-            // ✅ Export at best quality
-            canvas.toBlob(blob => {
-                const link = document.createElement('a');
-                link.download = `framed-image-${Date.now()}.jpg`;
-                link.href = URL.createObjectURL(blob);
-                link.click();
-                URL.revokeObjectURL(link.href);
-                showMessage("Image downloaded in original HD quality!");
-            }, 'image/jpeg', 1.0); // full quality
-        }
-    }
-
-    imgPhoto.onload = checkLoaded;
-    imgFrame.onload = checkLoaded;
-    imgPhoto.src = userPhotoSrc;
-    imgFrame.src = selectedFrameSrc;
-});
-
-showMessage("Upload a photo to begin!");
-});*/
-
-// === helpers used by both Download + Print ===
-
-// ===== frame section (with Download + Print + QR) =====
-document.addEventListener('DOMContentLoaded', () => {
-  const fileInput   = document.getElementById('fileInput');
-  const userPhoto   = document.getElementById('userPhoto');
-  const frameImage  = document.getElementById('frameImage');
-  const messageBox  = document.getElementById('initialMessage');
-  const downloadBtn = document.getElementById('downloadBtn');
-  const printBtn    = document.getElementById('printFrameBtn'); // <-- add in HTML
-  const frameSearch = document.getElementById('frameSearch');
-  const frameItems  = document.querySelectorAll('.frame-item');
-
-  // QR UI (shared IDs)
+function showQRCode(uploadUrl) {
   const qrSection = document.getElementById('qr-section');
   const qrCanvas  = document.getElementById('qr-code');
   const qrLink    = document.getElementById('qr-link');
@@ -1043,7 +940,102 @@ document.addEventListener('DOMContentLoaded', () => {
   const copyBtn   = document.getElementById('copy-link');
   const dlQrBtn   = document.getElementById('download-qr');
 
-  const API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
+  if (!(qrSection && qrCanvas && qrLink) || !uploadUrl) return;
+
+  qrSection.style.display = 'block';
+  qrCanvas.width = 300; qrCanvas.height = 300;
+
+  if (typeof QRious === 'function') {
+    new QRious({
+      element: qrCanvas,
+      value: uploadUrl,
+      size: 300,
+      level: 'H',
+      background: 'white',
+      foreground: 'black',
+      padding: 16 // quiet zone
+    });
+  }
+
+  // universal fallback link (works on all devices)
+  qrLink.href = uploadUrl;
+  qrLink.target = '_blank';
+  qrLink.rel = 'noopener noreferrer';
+  qrLink.textContent = 'Open / Download photo';
+
+  if (qrActions && copyBtn && dlQrBtn) {
+    qrActions.style.display = 'inline-flex';
+    copyBtn.onclick = async () => {
+      try { await navigator.clipboard.writeText(uploadUrl); copyBtn.textContent = 'Copied!'; }
+      catch { copyBtn.textContent = 'Copy failed'; }
+      setTimeout(() => (copyBtn.textContent = 'Copy link'), 1200);
+    };
+    dlQrBtn.onclick = () => {
+      const dataUrl = qrCanvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = dataUrl; a.download = `pixelpop-qr-${Date.now()}.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+    };
+  }
+}
+
+function buildFramedOutput(userSrc, frameSrc) {
+  return new Promise((resolve) => {
+    if (!userSrc || !frameSrc) return resolve(null);
+
+    const imgPhoto = new Image();
+    const imgFrame = new Image();
+    // If both are same-origin assets, crossOrigin can be omitted
+    imgPhoto.crossOrigin = 'anonymous';
+    imgFrame.crossOrigin = 'anonymous';
+
+    let loaded = 0;
+    const done = () => {
+      if (++loaded !== 2) return;
+
+      const canvas = document.createElement('canvas');
+      canvas.width  = imgPhoto.naturalWidth;
+      canvas.height = imgPhoto.naturalHeight;
+      const ctx = canvas.getContext('2d');
+
+      // white background for clean JPEG
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.drawImage(imgPhoto, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(imgFrame, 0, 0, canvas.width, canvas.height);
+
+      const dataURL = canvas.toDataURL('image/jpeg', 1.0);
+      if (canvas.toBlob) {
+        canvas.toBlob((blob) => resolve({ canvas, blob, dataURL }), 'image/jpeg', 1.0);
+      } else {
+        // legacy fallback
+        const byteString = atob(dataURL.split(',')[1]);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+        resolve({ canvas, blob: new Blob([ab], { type: 'image/jpeg' }), dataURL });
+      }
+    };
+
+    imgPhoto.onload = done;  imgPhoto.onerror = () => resolve(null);
+    imgFrame.onload = done;  imgFrame.onerror = () => resolve(null);
+
+    imgPhoto.src = userSrc;
+    imgFrame.src = frameSrc;
+  });
+}
+
+// ---------- page wiring ----------
+document.addEventListener('DOMContentLoaded', () => {
+  const fileInput   = document.getElementById('fileInput');
+  const userPhoto   = document.getElementById('userPhoto');
+  const frameImage  = document.getElementById('frameImage');
+  const messageBox  = document.getElementById('initialMessage');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const printBtn    = document.getElementById('printFrameBtn'); // ensure this exists in HTML
+  const frameSearch = document.getElementById('frameSearch');
+  const frameItems  = Array.from(document.querySelectorAll('.frame-item'));
 
   let selectedFrameSrc = '';
   let userPhotoSrc     = '';
@@ -1055,193 +1047,85 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { messageBox.style.display = 'none'; }, 3000);
   };
 
-  function setActionsVisibility() {
+  const setActionsVisibility = () => {
     const ready = !!(userPhotoSrc && selectedFrameSrc);
-    if (downloadBtn) downloadBtn.style.display = ready ? 'inline-block' : 'none';
-    if (printBtn)    printBtn.style.display    = ready ? 'inline-block' : 'none';
-  }
+    if (downloadBtn) { downloadBtn.style.display = ready ? 'inline-block' : 'none'; downloadBtn.disabled = !ready; }
+    if (printBtn)    { printBtn.style.display    = ready ? 'inline-block' : 'none'; printBtn.disabled    = !ready; }
+  };
 
-  // ---------- backend + QR helpers ----------
-  async function verifyPublicUrl(url) {
-    try { const r = await fetch(url, { method: 'HEAD', cache: 'no-store' }); return r.ok; }
-    catch { return false; }
-  }
-
-  // mode: 'view' | 'download' | 'raw'
-  async function uploadImageToService(imageData, mode = 'view') {
-    try {
-      const res = await fetch(`${API_BASE}/api/upload`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageData, fileName: `framed-image-${Date.now()}.jpg` })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        console.error('Upload failed:', data?.error || res.statusText);
-        return null;
-      }
-      let qrUrl = data.url;
-      if (mode === 'view' && data.viewerUrl)       qrUrl = data.viewerUrl;
-      if (mode === 'download' && data.downloadUrl) qrUrl = data.downloadUrl;
-      return qrUrl;
-    } catch (e) {
-      console.error('Upload error:', e);
-      return null;
-    }
-  }
-
-  function showQRCode(uploadUrl) {
-    if (!(qrSection && qrCanvas && qrLink) || !uploadUrl) return;
-
-    qrSection.style.display = 'block';
-    qrCanvas.width = 300;
-    qrCanvas.height = 300;
-    qrCanvas.style.background = 'white';
-
-    if (typeof QRious === 'function') {
-      new QRious({
-        element: qrCanvas,
-        value: uploadUrl,
-        size: 300,
-        level: 'H',
-        background: 'white',
-        foreground: 'black',
-        padding: 16
-      });
-    }
-    // always set link as fallback
-    qrLink.href = uploadUrl;
-    qrLink.target = '_blank';
-    qrLink.rel = 'noopener noreferrer';
-    qrLink.textContent = uploadUrl;
-
-    if (qrActions && copyBtn && dlQrBtn) {
-      qrActions.style.display = 'inline-flex';
-      copyBtn.onclick = async () => {
-        try { await navigator.clipboard.writeText(uploadUrl); copyBtn.textContent = 'Copied!'; }
-        catch { copyBtn.textContent = 'Copy failed'; }
-        setTimeout(() => (copyBtn.textContent = 'Copy link'), 1200);
-      };
-      dlQrBtn.onclick = () => {
-        const dataUrl = qrCanvas.toDataURL('image/png');
-        const a = document.createElement('a');
-        a.href = dataUrl; a.download = `pixelpop-qr-${Date.now()}.png`;
-        document.body.appendChild(a); a.click(); a.remove();
-      };
-    }
-  }
-
-  async function uploadAndShowQR(dataURL, mode = 'view') {
-    const url = await uploadImageToService(dataURL, mode);
-    if (!url) return;
-    // Even if HEAD is blocked by host, still show QR
-    await verifyPublicUrl(url);
-    showQRCode(url);
-  }
-
-  // ---------- render helper (full resolution) ----------
-  async function buildFramedOutput(userSrc, frameSrc) {
-    return new Promise((resolve) => {
-      const imgPhoto = new Image();
-      const imgFrame = new Image();
-
-      // If your images are same-origin, you may remove these two lines.
-      imgPhoto.crossOrigin = 'anonymous';
-      imgFrame.crossOrigin = 'anonymous';
-
-      let loaded = 0;
-      const done = () => {
-        loaded++;
-        if (loaded !== 2) return;
-
-        const canvas = document.createElement('canvas');
-        canvas.width  = imgPhoto.naturalWidth;
-        canvas.height = imgPhoto.naturalHeight;
-        const ctx = canvas.getContext('2d');
-
-        // white BG for consistent JPEG
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // draw photo + overlay frame
-        ctx.drawImage(imgPhoto, 0, 0, canvas.width, canvas.height);
-        ctx.drawImage(imgFrame, 0, 0, canvas.width, canvas.height);
-
-        const dataURL = canvas.toDataURL('image/jpeg', 1.0);
-        canvas.toBlob((blob) => resolve({ canvas, blob, dataURL }), 'image/jpeg', 1.0);
-      };
-
-      imgPhoto.onload = done;  imgPhoto.onerror = () => resolve(null);
-      imgFrame.onload = done;  imgFrame.onerror = () => resolve(null);
-
-      imgPhoto.src = userSrc;
-      imgFrame.src = frameSrc;
-    });
-  }
-
-  // ---------- your existing logic (unchanged) ----------
-  fileInput.addEventListener('change', (e) => {
+  // Upload photo
+  fileInput?.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      userPhotoSrc = ev.target.result;
-      userPhoto.src = userPhotoSrc;
-      userPhoto.style.opacity = 1;
+      userPhotoSrc = String(ev.target.result);
+      if (userPhoto) {
+        userPhoto.src = userPhotoSrc;
+        userPhoto.style.opacity = 1;
+      }
       setActionsVisibility();
-      if (!selectedFrameSrc) showMessage("Now choose a frame!");
+      if (!selectedFrameSrc) showMessage('Now choose a frame!');
     };
     reader.readAsDataURL(file);
   });
 
+  // Choose frame
   frameItems.forEach(item => {
     item.addEventListener('click', () => {
       frameItems.forEach(t => t.classList.remove('selected'));
       item.classList.add('selected');
+
       const thumb = item.querySelector('.frame-thumb');
-      selectedFrameSrc = thumb.getAttribute('data-frame');
-      frameImage.src = selectedFrameSrc;
-      frameImage.style.opacity = 1;
+      selectedFrameSrc = thumb?.getAttribute('data-frame') || thumb?.src || '';
+
+      if (frameImage && selectedFrameSrc) {
+        frameImage.src = selectedFrameSrc;
+        frameImage.style.opacity = 1;
+      }
       setActionsVisibility();
-      if (userPhotoSrc) showMessage("Frame applied successfully!");
-      else showMessage("Photo uploaded successfully, now choose a frame!");
+      showMessage(userPhotoSrc ? 'Frame applied successfully!' : 'Photo uploaded successfully, now choose a frame!');
     });
   });
 
-  frameSearch.addEventListener('keyup', (event) => {
-    const searchTerm = event.target.value.toLowerCase();
+  // Search frames
+  frameSearch?.addEventListener('keyup', (event) => {
+    const term = (event.target.value || '').toLowerCase();
     frameItems.forEach(item => {
-      const frameAltText = item.querySelector('.frame-thumb').alt.toLowerCase();
-      item.style.display = frameAltText.includes(searchTerm) ? 'flex' : 'none';
+      const alt = (item.querySelector('.frame-thumb')?.alt || '').toLowerCase();
+      item.style.display = alt.includes(term) ? 'flex' : 'none';
     });
   });
 
-  // ---------- Download + QR ----------
-  downloadBtn.addEventListener('click', async () => {
+  // Download + QR
+  downloadBtn?.addEventListener('click', async () => {
     if (!userPhotoSrc || !selectedFrameSrc) return;
 
     const out = await buildFramedOutput(userPhotoSrc, selectedFrameSrc);
     if (!out) { alert('Could not compose framed image.'); return; }
 
-    // local download
+    // local download (kiosk)
     const a = document.createElement('a');
     a.download = `framed-image-${Date.now()}.jpg`;
     a.href = URL.createObjectURL(out.blob);
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 250);
 
-    // then upload & show QR
-    await uploadAndShowQR(out.dataURL, 'view');
-    showMessage("Image downloaded in original HD quality!");
+    // upload → QR (works on all devices)
+    const qrUrl = await uploadImageToService(out.dataURL, 'view'); // or 'download'
+    if (qrUrl) { try { await verifyPublicUrl(qrUrl); } catch {} showQRCode(qrUrl); }
+
+    showMessage('Image downloaded in original HD quality!');
   });
 
-  // ---------- Print + QR ----------
+  // Print + QR
   printBtn?.addEventListener('click', async () => {
     if (!userPhotoSrc || !selectedFrameSrc) return;
 
     const out = await buildFramedOutput(userPhotoSrc, selectedFrameSrc);
     if (!out) { alert('Could not compose framed image.'); return; }
 
+    // open print window
     const w = window.open('', '_blank');
     if (w) {
       w.document.write(`
@@ -1272,14 +1156,19 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Please allow pop-ups to print.');
     }
 
-    await uploadAndShowQR(out.dataURL, 'view');
+    // upload → QR (works on all devices)
+    const qrUrl = await uploadImageToService(out.dataURL, 'view'); // or 'download'
+    if (qrUrl) { try { await verifyPublicUrl(qrUrl); } catch {} showQRCode(qrUrl); }
+
     showMessage('Ready to print. QR generated!');
   });
 
   // init
-  showMessage("Upload a photo to begin!");
+  showMessage('Upload a photo to begin!');
   setActionsVisibility();
 });
+
+
 
 // ===== Auth UI + API glue =====
 const API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
