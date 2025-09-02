@@ -49,7 +49,7 @@ class PixelPopStudio {
     // Photobooth result buttons
     const dl = document.getElementById('download-btn');
     const pr = document.getElementById('print-btn');
-    const sv = document.getElementById('save-gallery-btn'); // NEW
+    const sv = document.getElementById('save-gallery-btn'); // Save to My Gallery
     [dl, pr, sv].forEach(btn => {
       if (!btn) return;
       if (!hasToken) btn.setAttribute('title', 'Log in to use this');
@@ -59,7 +59,7 @@ class PixelPopStudio {
     // Frame page buttons
     const fdl = document.getElementById('downloadBtn');
     const fpr = document.getElementById('printFrameBtn');
-    const fsv = document.getElementById('saveFrameToGalleryBtn'); // NEW
+    const fsv = document.getElementById('saveFrameToGalleryBtn'); // Save to My Gallery (frame)
     [fdl, fpr, fsv].forEach(btn => {
       if (!btn) return;
       if (!hasToken) btn.setAttribute('title', 'Log in to use this');
@@ -208,6 +208,9 @@ class PixelPopStudio {
   // ============== Camera & capture ==============
   setupCameraControls() {
     const captureBtn = document.getElementById('capture-btn');
+    theStart: {
+      /* avoid accidental label collisions */
+    }
     const startSessionBtn = document.getElementById('start-session');
     const resetSessionBtn = document.getElementById('reset-session');
 
@@ -246,7 +249,7 @@ class PixelPopStudio {
     const downloadBtn   = document.getElementById('download-btn');
     const printBtn      = document.getElementById('print-btn');
     const newSessionBtn = document.getElementById('new-session');
-    const saveBtn       = document.getElementById('save-gallery-btn'); // NEW
+    const saveBtn       = document.getElementById('save-gallery-btn'); // Save to My Gallery
 
     const requireLogin = () =>
       this.verifyToken().then(ok => {
@@ -285,7 +288,7 @@ class PixelPopStudio {
       });
     }
 
-    // NEW: Manual save to gallery (non-mirrored, HD)
+    // Manual save to gallery (non-mirrored, HD) + jump to Gallery
     if (saveBtn) {
       saveBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -602,7 +605,7 @@ class PixelPopStudio {
     });
   }
 
-  // RESTORED: used by layout creators above
+  // used by layout creators above
   addLayoutTitle(ctx, canvas, text) {
     ctx.save();
     ctx.fillStyle = '#111';
@@ -707,9 +710,8 @@ class PixelPopStudio {
     copyBtn.onclick = () => {
       navigator.clipboard.writeText(uploadUrl)
         .then(() => { copyBtn.textContent = 'Copied!'; })
-        .catch(() => { copyBtn.textContent = 'Copy failed'; })
-        .finally ? copyBtn.addEventListener('mouseleave', () => copyBtn.textContent = 'Copy link', { once:true })
-                 : setTimeout(() => copyBtn.textContent = 'Copy link', 1200);
+        .catch(() => { copyBtn.textContent = 'Copy failed'; });
+      setTimeout(() => { copyBtn.textContent = 'Copy link'; }, 1200);
     };
 
     dlBtn.onclick = () => {
@@ -874,6 +876,60 @@ class PixelPopStudio {
     .catch(() => false);
   }
 
+  // Build a gallery card DOM node (reused)
+  buildGalleryCard(it) {
+    if (!it || !it.url) return null;
+
+    const card = document.createElement('div');
+    card.className = 'gallery-card';
+
+    const img = document.createElement('img');
+    img.src = it.url;
+    img.alt = 'Your photo';
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+
+    const span = document.createElement('span');
+    const time = new Date(it.createdAt || Date.now()).toLocaleString();
+    span.textContent = time;
+
+    const del = document.createElement('button');
+    del.innerHTML = '<i class="fas fa-trash"></i>';
+    del.addEventListener('click', () => {
+      if (!confirm('Delete this photo?')) return;
+      this.deletePhoto(it.id).then(ok => { if (ok) card.remove(); });
+    });
+
+    meta.appendChild(span);
+    meta.appendChild(del);
+    card.appendChild(img);
+    card.appendChild(meta);
+    return card;
+  }
+
+  // Navigate to Gallery and insert a just-saved item at the top
+  goToGalleryAndShow(item) {
+    this.navigateToPage('gallery');
+
+    const grid  = document.getElementById('gallery-grid');
+    const empty = document.getElementById('gallery-empty');
+
+    // If grid exists, insert immediately; else just refresh
+    if (grid) {
+      if (empty) empty.style.display = 'none';
+      const card = this.buildGalleryCard(item);
+      if (card) {
+        if (grid.firstChild) grid.insertBefore(card, grid.firstChild);
+        else grid.appendChild(card);
+      } else {
+        this.refreshGallery();
+      }
+    } else {
+      this.refreshGallery();
+    }
+  }
+
   // Render gallery page
   refreshGallery() {
     const hint    = document.getElementById('gallery-login-hint');
@@ -903,31 +959,8 @@ class PixelPopStudio {
         empty.style.display = 'none';
 
         items.forEach(it => {
-          const card = document.createElement('div');
-          card.className = 'gallery-card';
-
-          const img = document.createElement('img');
-          img.src = it.url;
-          img.alt = 'Your photo';
-
-          const meta = document.createElement('div');
-          meta.className = 'meta';
-
-          const span = document.createElement('span');
-          span.textContent = new Date(it.createdAt || Date.now()).toLocaleString();
-
-          const del = document.createElement('button');
-          del.innerHTML = '<i class="fas fa-trash"></i>';
-          del.addEventListener('click', () => {
-            if (!confirm('Delete this photo?')) return;
-            this.deletePhoto(it.id).then(ok => { if (ok) card.remove(); });
-          });
-
-          meta.appendChild(span);
-          meta.appendChild(del);
-          card.appendChild(img);
-          card.appendChild(meta);
-          grid.appendChild(card);
+          const card = this.buildGalleryCard(it);
+          if (card) grid.appendChild(card);
         });
       });
     });
@@ -974,7 +1007,7 @@ class PixelPopStudio {
       .catch(e => console.warn('Autosave failed:', e));
   }
 
-  // NEW: manual save from Photobooth results
+  // Manual save from Photobooth results — then jump to Gallery and show it
   saveFinalToGallery() {
     const btn = document.getElementById('save-gallery-btn');
 
@@ -1015,10 +1048,12 @@ class PixelPopStudio {
     const dataURL = tmp.toDataURL('image/jpeg', 0.95);
 
     this.savePhotoToGallery(dataURL)
-      .then(({ ok, error }) => {
+      .then(({ ok, item, error }) => {
         if (ok) {
+          // ensure we have something to show immediately
+          const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString() };
           alert('Saved to your private gallery!');
-          if (this.currentPage === 'gallery') this.refreshGallery();
+          this.goToGalleryAndShow(added);
         } else {
           alert('Save failed: ' + (error || 'Unknown error'));
         }
@@ -1027,7 +1062,7 @@ class PixelPopStudio {
         console.warn('Save to gallery failed:', err);
         alert('Save failed. Please try again.');
       })
-      .finally ? Promise.resolve().then(() => setBusy(false)) : setBusy(false);
+      .finally(() => setBusy(false));
   }
 }
 
@@ -1117,9 +1152,8 @@ function showQRCodeFrame(uploadUrl) {
     copyBtn.onclick = () => {
       navigator.clipboard.writeText(uploadUrl)
         .then(() => { copyBtn.textContent = 'Copied!'; })
-        .catch(() => { copyBtn.textContent = 'Copy failed'; })
-        .finally ? copyBtn.addEventListener('mouseleave', () => (copyBtn.textContent = 'Copy link'), { once:true })
-                 : setTimeout(() => (copyBtn.textContent = 'Copy link'), 1200);
+        .catch(() => { copyBtn.textContent = 'Copy failed'; });
+      setTimeout(() => (copyBtn.textContent = 'Copy link'), 1200);
     };
     dlBtn.onclick = () => {
       const dataUrl = canvas.toDataURL('image/png');
@@ -1182,7 +1216,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const messageBox   = document.getElementById('initialMessage');
   const downloadBtn  = document.getElementById('downloadBtn');
   const printBtn     = document.getElementById('printFrameBtn');
-  const saveFrameBtn = document.getElementById('saveFrameToGalleryBtn'); // NEW
+  const saveFrameBtn = document.getElementById('saveFrameToGalleryBtn'); // Save to My Gallery (frame)
   const frameSearch  = document.getElementById('frameSearch');
   const frameItems   = Array.from(document.querySelectorAll('.frame-item'));
 
@@ -1208,7 +1242,7 @@ document.addEventListener('DOMContentLoaded', () => {
       printBtn.style.display = ready ? 'inline-block' : 'none';
       printBtn.title = hasToken ? '' : 'Log in to use this';
     }
-    if (saveFrameBtn) { // NEW
+    if (saveFrameBtn) {
       saveFrameBtn.style.display = ready ? 'inline-block' : 'none';
       saveFrameBtn.title = hasToken ? '' : 'Log in to use this';
     }
@@ -1270,7 +1304,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return p.then(ok => {
       if (!ok) {
         console.warn('[PixelPop Frame] verifyToken=false → showing alert');
-        alert('Please log in to download or print.');
+        alert('Please log in to continue.');
         return false;
       }
       return true;
@@ -1371,7 +1405,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // NEW: Save framed output directly to gallery (LOGIN REQUIRED)
+  // Save framed output directly to gallery (LOGIN REQUIRED) + jump to Gallery
   if (saveFrameBtn) {
     saveFrameBtn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -1400,7 +1434,6 @@ document.addEventListener('DOMContentLoaded', () => {
         buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
           if (!out) { alert('Could not compose framed image.'); setBusy(false); return; }
 
-          // Prefer app method; fallback to direct POST
           const attempt = (window.PixelPopApp && typeof window.PixelPopApp.savePhotoToGallery === 'function')
             ? window.PixelPopApp.savePhotoToGallery(out.dataURL)
             : fetch(FRAME_API_BASE + '/api/gallery', {
@@ -1414,17 +1447,22 @@ document.addEventListener('DOMContentLoaded', () => {
                   visibility: 'private',
                   fileName: 'pixelpop-' + Date.now() + '.jpg'
                 })
-              }).then(r => r.ok ? {} : Promise.reject(new Error('save-failed')));
+              }).then(r => r.ok ? { ok: true, item: { url: out.dataURL } } : Promise.reject(new Error('save-failed')));
 
           Promise.resolve(attempt)
-            .then(() => {
+            .then((res) => {
+              const item = res && res.item ? res.item : { id: null, url: out.dataURL, createdAt: new Date().toISOString() };
               alert('Saved to your private gallery!');
-              if (window.PixelPopApp && window.PixelPopApp.currentPage === 'gallery') {
-                window.PixelPopApp.refreshGallery();
+              // show immediately in Gallery
+              if (window.PixelPopApp && typeof window.PixelPopApp.goToGalleryAndShow === 'function') {
+                window.PixelPopApp.goToGalleryAndShow(item);
+              } else {
+                // fallback: navigate then refresh
+                if (typeof window.PixelPopAppNavigate === 'function') window.PixelPopAppNavigate('gallery');
               }
             })
             .catch(() => alert('Could not save to gallery.'))
-            .finally ? Promise.resolve().then(() => setBusy(false)) : setBusy(false);
+            .finally(() => setBusy(false));
         });
       });
     });
@@ -1499,7 +1537,7 @@ if (registerForm) {
       console.error('Error during registration:', err);
       alert('An error occurred during registration. Please try again later.');
     })
-    .finally ? Promise.resolve().then(() => setBusy(registerForm, false)) : setBusy(registerForm, false);
+    .finally(() => setBusy(registerForm, false));
   });
 }
 
@@ -1535,7 +1573,7 @@ if (loginForm) {
 
         if (loginForm.reset) loginForm.reset();
       } else {
-        alert(`Login failed: ${data.error || '' || response.statusText}`); // fallback in case message missing
+        alert(`Login failed: ${data.error || response.statusText}`);
         console.error('Login failed:', data);
       }
     })
@@ -1543,6 +1581,6 @@ if (loginForm) {
       console.error('Error during login:', err);
       alert('An error occurred during login. Please try again later.');
     })
-    .finally ? Promise.resolve().then(() => setBusy(loginForm, false)) : setBusy(loginForm, false);
+    .finally(() => setBusy(loginForm, false));
   });
 }
