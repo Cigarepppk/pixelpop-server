@@ -51,7 +51,7 @@ class PixelPopStudio {
     const pr = document.getElementById('print-btn');
     [dl, pr].forEach(btn => {
       if (!btn) return;
-      btn.disabled = !hasToken;
+      // keep enabled; handlers will enforce login
       if (!hasToken) btn.setAttribute('title', 'Log in to use this');
       else btn.removeAttribute('title');
     });
@@ -61,9 +61,7 @@ class PixelPopStudio {
     const fpr = document.getElementById('printFrameBtn');
     [fdl, fpr].forEach(btn => {
       if (!btn) return;
-      // visibility still controlled by whether user picked photo+frame
-      // but when visible, disable if not logged in
-      btn.disabled = !hasToken;
+      // keep enabled; handlers will enforce login
       if (!hasToken) btn.setAttribute('title', 'Log in to use this');
       else btn.removeAttribute('title');
     });
@@ -961,12 +959,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (downloadBtn) {
       downloadBtn.style.display = ready ? 'inline-block' : 'none';
-      downloadBtn.disabled = !(ready && hasToken);
       downloadBtn.title = hasToken ? '' : 'Log in to use this';
     }
     if (printBtn) {
       printBtn.style.display = ready ? 'inline-block' : 'none';
-      printBtn.disabled = !(ready && hasToken);
       printBtn.title = hasToken ? '' : 'Log in to use this';
     }
   };
