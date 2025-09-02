@@ -49,9 +49,9 @@ class PixelPopStudio {
     // Photobooth result buttons
     const dl = document.getElementById('download-btn');
     const pr = document.getElementById('print-btn');
-    [dl, pr].forEach(btn => {
+    const sv = document.getElementById('save-gallery-btn'); // NEW
+    [dl, pr, sv].forEach(btn => {
       if (!btn) return;
-      // keep enabled; handlers will enforce login
       if (!hasToken) btn.setAttribute('title', 'Log in to use this');
       else btn.removeAttribute('title');
     });
@@ -59,9 +59,9 @@ class PixelPopStudio {
     // Frame page buttons
     const fdl = document.getElementById('downloadBtn');
     const fpr = document.getElementById('printFrameBtn');
-    [fdl, fpr].forEach(btn => {
+    const fsv = document.getElementById('saveFrameToGalleryBtn'); // NEW
+    [fdl, fpr, fsv].forEach(btn => {
       if (!btn) return;
-      // keep enabled; handlers will enforce login
       if (!hasToken) btn.setAttribute('title', 'Log in to use this');
       else btn.removeAttribute('title');
     });
@@ -102,7 +102,6 @@ class PixelPopStudio {
     const navLinks = document.querySelectorAll('.nav-link');
     const ctaButton = document.querySelector('.cta-button');
 
-    // Everyone can open any page now (no login gate)
     for (let i = 0; i < navLinks.length; i++) {
       const link = navLinks[i];
       link.addEventListener('click', (e) => {
@@ -244,9 +243,10 @@ class PixelPopStudio {
 
   // ============== Photobooth result controls (LOGIN-GATED) ==============
   setupPhotoControls() {
-    const downloadBtn  = document.getElementById('download-btn');
-    const printBtn     = document.getElementById('print-btn');
-    const newSessionBtn= document.getElementById('new-session');
+    const downloadBtn   = document.getElementById('download-btn');
+    const printBtn      = document.getElementById('print-btn');
+    const newSessionBtn = document.getElementById('new-session');
+    const saveBtn       = document.getElementById('save-gallery-btn'); // NEW
 
     const requireLogin = () =>
       this.verifyToken().then(ok => {
@@ -282,6 +282,17 @@ class PixelPopStudio {
       newSessionBtn.addEventListener('click', (e) => {
         e.preventDefault();
         this.startNewSession();
+      });
+    }
+
+    // NEW: Manual save to gallery (non-mirrored, HD)
+    if (saveBtn) {
+      saveBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        requireLogin().then(ok => {
+          if (!ok) return;
+          this.saveFinalToGallery();
+        });
       });
     }
   }
@@ -462,9 +473,9 @@ class PixelPopStudio {
   getBorderColor() {
     switch (this.currentBorder) {
       case 'classic': return '#343a40';
-      case 'modern': return '#ff69b4';
+      case 'modern':  return '#ff69b4';
       case 'vintage': return '#8b4513';
-      default: return '#000000';
+      default:        return '#000000';
     }
   }
 
@@ -477,11 +488,11 @@ class PixelPopStudio {
 
   getRequiredPhotoCount() {
     switch (this.currentLayout) {
-      case 'single': return 1;
-      case 'twostrip': return 2;
+      case 'single':     return 1;
+      case 'twostrip':   return 2;
       case 'threestrip': return 3;
-      case 'fourstrip': return 4;
-      default: return 1;
+      case 'fourstrip':  return 4;
+      default:           return 1;
     }
   }
 
@@ -591,7 +602,7 @@ class PixelPopStudio {
     });
   }
 
-  /* Optional title
+  // RESTORED: used by layout creators above
   addLayoutTitle(ctx, canvas, text) {
     ctx.save();
     ctx.fillStyle = '#111';
@@ -599,7 +610,7 @@ class PixelPopStudio {
     ctx.textAlign = 'center';
     ctx.fillText(text, canvas.width / 2, canvas.height - 8);
     ctx.restore();
-  } */
+  }
 
   showResults() {
     const resultsSection = document.getElementById('photo-results');
@@ -697,7 +708,8 @@ class PixelPopStudio {
       navigator.clipboard.writeText(uploadUrl)
         .then(() => { copyBtn.textContent = 'Copied!'; })
         .catch(() => { copyBtn.textContent = 'Copy failed'; })
-        .finally(() => setTimeout(() => copyBtn.textContent = 'Copy link', 1200));
+        .finally ? copyBtn.addEventListener('mouseleave', () => copyBtn.textContent = 'Copy link', { once:true })
+                 : setTimeout(() => copyBtn.textContent = 'Copy link', 1200);
     };
 
     dlBtn.onclick = () => {
@@ -961,6 +973,62 @@ class PixelPopStudio {
       })
       .catch(e => console.warn('Autosave failed:', e));
   }
+
+  // NEW: manual save from Photobooth results
+  saveFinalToGallery() {
+    const btn = document.getElementById('save-gallery-btn');
+
+    const setBusy = (busy) => {
+      if (!btn) return;
+      if (busy) {
+        btn.disabled = true;
+        btn.dataset._old = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery';
+      }
+    };
+
+    const finalCanvas = document.getElementById('final-canvas');
+    if (!finalCanvas) {
+      alert('No photo to save yet.');
+      return;
+    }
+
+    setBusy(true);
+
+    const scale = 2;
+    const tmp = document.createElement('canvas');
+    tmp.width  = finalCanvas.width * scale;
+    tmp.height = finalCanvas.height * scale;
+    const ctx = tmp.getContext('2d');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, tmp.width, tmp.height);
+
+    ctx.save();
+    ctx.scale(scale, scale);
+    ctx.drawImage(finalCanvas, 0, 0);
+    if (ctx.restore) ctx.restore();
+
+    const dataURL = tmp.toDataURL('image/jpeg', 0.95);
+
+    this.savePhotoToGallery(dataURL)
+      .then(({ ok, error }) => {
+        if (ok) {
+          alert('Saved to your private gallery!');
+          if (this.currentPage === 'gallery') this.refreshGallery();
+        } else {
+          alert('Save failed: ' + (error || 'Unknown error'));
+        }
+      })
+      .catch(err => {
+        console.warn('Save to gallery failed:', err);
+        alert('Save failed. Please try again.');
+      })
+      .finally ? Promise.resolve().then(() => setBusy(false)) : setBusy(false);
+  }
 }
 
 // --- ERROR HANDLING ---
@@ -1050,7 +1118,8 @@ function showQRCodeFrame(uploadUrl) {
       navigator.clipboard.writeText(uploadUrl)
         .then(() => { copyBtn.textContent = 'Copied!'; })
         .catch(() => { copyBtn.textContent = 'Copy failed'; })
-        .finally(() => setTimeout(() => (copyBtn.textContent = 'Copy link'), 1200));
+        .finally ? copyBtn.addEventListener('mouseleave', () => (copyBtn.textContent = 'Copy link'), { once:true })
+                 : setTimeout(() => (copyBtn.textContent = 'Copy link'), 1200);
     };
     dlBtn.onclick = () => {
       const dataUrl = canvas.toDataURL('image/png');
@@ -1107,14 +1176,15 @@ function buildFramedOutput(userSrc, frameSrc) {
 
 // Frame page listeners
 document.addEventListener('DOMContentLoaded', () => {
-  const fileInput   = document.getElementById('fileInput');
-  const userPhoto   = document.getElementById('userPhoto');
-  const frameImage  = document.getElementById('frameImage');
-  const messageBox  = document.getElementById('initialMessage');
-  const downloadBtn = document.getElementById('downloadBtn');
-  const printBtn    = document.getElementById('printFrameBtn');
-  const frameSearch = document.getElementById('frameSearch');
-  const frameItems  = Array.from(document.querySelectorAll('.frame-item'));
+  const fileInput    = document.getElementById('fileInput');
+  const userPhoto    = document.getElementById('userPhoto');
+  const frameImage   = document.getElementById('frameImage');
+  const messageBox   = document.getElementById('initialMessage');
+  const downloadBtn  = document.getElementById('downloadBtn');
+  const printBtn     = document.getElementById('printFrameBtn');
+  const saveFrameBtn = document.getElementById('saveFrameToGalleryBtn'); // NEW
+  const frameSearch  = document.getElementById('frameSearch');
+  const frameItems   = Array.from(document.querySelectorAll('.frame-item'));
 
   let selectedFrameSrc = '';
   let userPhotoSrc     = '';
@@ -1137,6 +1207,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (printBtn) {
       printBtn.style.display = ready ? 'inline-block' : 'none';
       printBtn.title = hasToken ? '' : 'Log in to use this';
+    }
+    if (saveFrameBtn) { // NEW
+      saveFrameBtn.style.display = ready ? 'inline-block' : 'none';
+      saveFrameBtn.title = hasToken ? '' : 'Log in to use this';
     }
   };
 
@@ -1297,6 +1371,65 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // NEW: Save framed output directly to gallery (LOGIN REQUIRED)
+  if (saveFrameBtn) {
+    saveFrameBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+
+      requireLoginFrame().then(ok => {
+        if (!ok) return;
+        if (!userPhotoSrc || !selectedFrameSrc) {
+          alert('Upload a photo and choose a frame first.');
+          return;
+        }
+
+        const setBusy = (busy) => {
+          if (!saveFrameBtn) return;
+          if (busy) {
+            saveFrameBtn.disabled = true;
+            saveFrameBtn.dataset._old = saveFrameBtn.innerHTML;
+            saveFrameBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+          } else {
+            saveFrameBtn.disabled = false;
+            saveFrameBtn.innerHTML = saveFrameBtn.dataset._old || 'Save to My Gallery';
+          }
+        };
+
+        setBusy(true);
+
+        buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
+          if (!out) { alert('Could not compose framed image.'); setBusy(false); return; }
+
+          // Prefer app method; fallback to direct POST
+          const attempt = (window.PixelPopApp && typeof window.PixelPopApp.savePhotoToGallery === 'function')
+            ? window.PixelPopApp.savePhotoToGallery(out.dataURL)
+            : fetch(FRAME_API_BASE + '/api/gallery', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: 'Bearer ' + localStorage.getItem('token')
+                },
+                body: JSON.stringify({
+                  imageData: out.dataURL,
+                  visibility: 'private',
+                  fileName: 'pixelpop-' + Date.now() + '.jpg'
+                })
+              }).then(r => r.ok ? {} : Promise.reject(new Error('save-failed')));
+
+          Promise.resolve(attempt)
+            .then(() => {
+              alert('Saved to your private gallery!');
+              if (window.PixelPopApp && window.PixelPopApp.currentPage === 'gallery') {
+                window.PixelPopApp.refreshGallery();
+              }
+            })
+            .catch(() => alert('Could not save to gallery.'))
+            .finally ? Promise.resolve().then(() => setBusy(false)) : setBusy(false);
+        });
+      });
+    });
+  }
+
   // init display state
   showMessage('Upload a photo to begin!');
   setActionsVisibility();
@@ -1366,7 +1499,7 @@ if (registerForm) {
       console.error('Error during registration:', err);
       alert('An error occurred during registration. Please try again later.');
     })
-    .finally(() => setBusy(registerForm, false));
+    .finally ? Promise.resolve().then(() => setBusy(registerForm, false)) : setBusy(registerForm, false);
   });
 }
 
@@ -1402,7 +1535,7 @@ if (loginForm) {
 
         if (loginForm.reset) loginForm.reset();
       } else {
-        alert(`Login failed: ${data.error || data.message || response.statusText}`);
+        alert(`Login failed: ${data.error || '' || response.statusText}`); // fallback in case message missing
         console.error('Login failed:', data);
       }
     })
@@ -1410,6 +1543,6 @@ if (loginForm) {
       console.error('Error during login:', err);
       alert('An error occurred during login. Please try again later.');
     })
-    .finally(() => setBusy(loginForm, false));
+    .finally ? Promise.resolve().then(() => setBusy(loginForm, false)) : setBusy(loginForm, false);
   });
 }
