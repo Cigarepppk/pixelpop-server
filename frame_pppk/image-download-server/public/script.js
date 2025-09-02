@@ -9,6 +9,9 @@ class PixelPopStudio {
     this.stream = null;
     this.isCapturing = false;
     this.timerValue = 3;
+    this.MAX_GALLERY = 50;
+    this._galleryCount = 0;        // tracked after each refresh
+    this._selectMode = false;      // gallery selection mode
 
     // canvas render state: used to prevent saving before layout is fully drawn
     this.isLayoutReady = false;
@@ -877,261 +880,332 @@ class PixelPopStudio {
 
   /* ───────────── Gallery (login-gated) ───────────── */
 
-  // List current user's photos
-  listMyPhotos() {
-    const token = localStorage.getItem('token');
-    if (!token) return Promise.resolve({ ok: false, items: [], error: 'no-token' });
+// List current user's photos
+listMyPhotos() {
+  const token = localStorage.getItem('token');
+  if (!token) return Promise.resolve({ ok: false, items: [], error: 'no-token' });
 
-    return this.fetchWith404Fallback(this.API_BASE, '/api/gallery/mine', {
-      headers: { Authorization: 'Bearer ' + token }
-    }, ['/gallery/mine'])
-    .then(res => {
-      const d = res._json || {};
-      return { ok: res.ok, items: d.items || [], error: d.error || (!res.ok ? `HTTP ${res.status}` : '') };
+  return this.fetchWith404Fallback(this.API_BASE, '/api/gallery/mine', {
+    headers: { Authorization: 'Bearer ' + token }
+  }, ['/gallery/mine'])
+  .then(res => {
+    const d = res._json || {};
+    return { ok: res.ok, items: d.items || [], error: d.error || (!res.ok ? `HTTP ${res.status}` : '') };
+  })
+  .catch(e => ({ ok: false, items: [], error: String(e) }));
+}
+
+// Save one image (dataURL) into user's private gallery
+savePhotoToGallery(dataURL) {
+  const token = localStorage.getItem('token');
+  if (!token) return Promise.resolve({ ok: false, error: 'no-token' });
+
+  return this.fetchWith404Fallback(this.API_BASE, '/api/gallery', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + token
+    },
+    body: JSON.stringify({
+      imageData: dataURL,
+      visibility: 'private',
+      fileName: `pixelpop-${Date.now()}.jpg`
     })
-    .catch(e => ({ ok: false, items: [], error: String(e) }));
-  }
+  }, ['/gallery'])
+  .then(res => {
+    const d = res._json || {};
+    const errorMsg = d.error || d.message || (res.ok ? '' : `HTTP ${res.status}`);
+    if (!res.ok) console.warn('[gallery POST] failed', { status: res.status, body: d });
+    return { ok: res.ok, item: d.item, error: errorMsg };
+  })
+  .catch(e => ({ ok: false, error: String(e) }));
+}
 
-  // Save one image (dataURL) into user's private gallery
-  savePhotoToGallery(dataURL) {
-    const token = localStorage.getItem('token');
-    if (!token) return Promise.resolve({ ok: false, error: 'no-token' });
+deletePhoto(photoId) {
+  const token = localStorage.getItem('token');
+  if (!token) return Promise.resolve(false);
 
-    return this.fetchWith404Fallback(this.API_BASE, '/api/gallery', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token
-      },
-      body: JSON.stringify({
-        imageData: dataURL,
-        visibility: 'private',
-        fileName: `pixelpop-${Date.now()}.jpg`
-      })
-    }, ['/gallery'])
-    .then(res => {
-      const d = res._json || {};
-      const errorMsg = d.error || d.message || (res.ok ? '' : `HTTP ${res.status}`);
-      if (!res.ok) console.warn('[gallery POST] failed', { status: res.status, body: d });
-      return { ok: res.ok, item: d.item, error: errorMsg };
-    })
-    .catch(e => ({ ok: false, error: String(e) }));
-  }
+  return this.fetchWith404Fallback(this.API_BASE, `/api/gallery/${photoId}`, {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer ' + token }
+  }, [`/gallery/${photoId}`])
+  .then(res => res.ok)
+  .catch(() => false);
+}
 
-  deletePhoto(photoId) {
-    const token = localStorage.getItem('token');
-    if (!token) return Promise.resolve(false);
+// Build a gallery card DOM node (reused)
+buildGalleryCard(it) {
+  if (!it || !it.url) return null;
 
-    return this.fetchWith404Fallback(this.API_BASE, `/api/gallery/${photoId}`, {
-      method: 'DELETE',
-      headers: { Authorization: 'Bearer ' + token }
-    }, [`/gallery/${photoId}`])
-    .then(res => res.ok)
-    .catch(() => false);
-  }
+  const card = document.createElement('div');
+  card.className = 'gallery-card';
+  if (it.id) card.dataset.id = it.id;
 
-  // Build a gallery card DOM node (reused)
-  buildGalleryCard(it) {
-    if (!it || !it.url) return null;
+  const img = document.createElement('img');
+  img.src = it.url;
+  img.alt = 'Your photo';
 
-    const card = document.createElement('div');
-    card.className = 'gallery-card';
+  // Tap image to toggle selection when in select mode (iPhone-like)
+  img.addEventListener('click', () => {
+    if (this._selectMode) card.classList.toggle('selected');
+  });
 
-    const img = document.createElement('img');
-    img.src = it.url;
-    img.alt = 'Your photo';
+  const meta = document.createElement('div');
+  meta.className = 'meta';
 
-    const meta = document.createElement('div');
-    meta.className = 'meta';
+  const span = document.createElement('span');
+  const time = new Date(it.createdAt || Date.now()).toLocaleString();
+  span.textContent = time;
 
-    const span = document.createElement('span');
-    const time = new Date(it.createdAt || Date.now()).toLocaleString();
-    span.textContent = time;
-
-    const del = document.createElement('button');
-    del.innerHTML = '<i class="fas fa-trash"></i>';
-    del.addEventListener('click', () => {
-      if (!confirm('Delete this photo?')) return;
-      this.deletePhoto(it.id).then(ok => { if (ok) card.remove(); });
-    });
-
-    meta.appendChild(span);
-    meta.appendChild(del);
-    card.appendChild(img);
-    card.appendChild(meta);
-    return card;
-  }
-
-  // Navigate to Gallery and insert a just-saved item at the top
-  goToGalleryAndShow(item) {
-    this.navigateToPage('gallery');
-
-    const grid  = document.getElementById('gallery-grid');
-    const empty = document.getElementById('gallery-empty');
-
-    // If grid exists, insert immediately; else just refresh
-    if (grid) {
-      if (empty) empty.style.display = 'none';
-      const card = this.buildGalleryCard(item);
-      if (card) {
-        if (grid.firstChild) grid.insertBefore(card, grid.firstChild);
-        else grid.appendChild(card);
-      } else {
-        this.refreshGallery();
+  const del = document.createElement('button');
+  del.innerHTML = '<i class="fas fa-trash"></i>';
+  del.addEventListener('click', () => {
+    if (!confirm('Delete this photo?')) return;
+    this.deletePhoto(it.id).then(ok => {
+      if (ok) {
+        card.remove();
+        // keep local count in sync
+        this._galleryCount = Math.max(0, (this._galleryCount || 0) - 1);
       }
+    });
+  });
+
+  meta.appendChild(span);
+  meta.appendChild(del);
+  card.appendChild(img);
+  card.appendChild(meta);
+  return card;
+}
+
+// Navigate to Gallery and insert a just-saved item at the top
+goToGalleryAndShow(item) {
+  this.navigateToPage('gallery');
+
+  const grid  = document.getElementById('gallery-grid');
+  const empty = document.getElementById('gallery-empty');
+
+  // If grid exists, insert immediately; else just refresh
+  if (grid) {
+    if (empty) empty.style.display = 'none';
+    const card = this.buildGalleryCard(item);
+    if (card) {
+      if (grid.firstChild) grid.insertBefore(card, grid.firstChild);
+      else grid.appendChild(card);
+      // increment local count when we show a newly added item
+      this._galleryCount = Math.min((this._galleryCount || 0) + 1, this.MAX_GALLERY);
     } else {
       this.refreshGallery();
     }
-  }
-
-  // Render gallery page
-  refreshGallery() {
-    const hint    = document.getElementById('gallery-login-hint');
-    const grid    = document.getElementById('gallery-grid');
-    const empty   = document.getElementById('gallery-empty');
-    const actions = document.getElementById('gallery-actions');
-
-    if (!(grid && empty && hint)) return;
-    grid.innerHTML = '';
-
-    this.verifyToken().then(isAuthed => {
-      if (!isAuthed) {
-        hint.style.display = 'block';
-        if (actions) actions.style.display = 'none';
-        empty.style.display = 'none';
-        return;
-      }
-
-      hint.style.display = 'none';
-      if (actions) actions.style.display = 'flex';
-
-      this.listMyPhotos().then(({ ok, items }) => {
-        if (!ok || !items || items.length === 0) {
-          empty.style.display = 'block';
-          return;
-        }
-        empty.style.display = 'none';
-
-        items.forEach(it => {
-          const card = this.buildGalleryCard(it);
-          if (card) grid.appendChild(card);
-        });
-      });
-    });
-  }
-
-  // Wire up gallery page buttons
-  setupGalleryUi() {
-    const refresh = document.getElementById('refresh-gallery');
-    const logout  = document.getElementById('logout-from-gallery');
-    if (refresh) refresh.addEventListener('click', () => this.refreshGallery());
-    if (logout)  logout.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.logout();
-      this.refreshGallery();
-    });
-  }
-
-  // Silently save final canvas to the user's gallery (if logged in)
-  maybeAutosaveToGallery() {
-    this.verifyToken()
-      .then(isAuthed => {
-        if (!isAuthed) return;
-
-        // wait for layout to finish rendering
-        if (this.isLayoutReady) return this._doAutosave();
-        const once = () => this._doAutosave();
-        document.addEventListener('pixelpop:layout-ready', once, { once: true });
-      })
-      .catch(e => console.warn('Autosave failed:', e));
-  }
-
-  // actual autosave logic split out so we can wait for readiness
-  _doAutosave() {
-    const finalCanvas = document.getElementById('final-canvas');
-    if (!finalCanvas) return;
-
-    const scale = 2;
-    const tmp = document.createElement('canvas');
-    tmp.width  = finalCanvas.width * scale;
-    tmp.height = finalCanvas.height * scale;
-    const ctx = tmp.getContext('2d');
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, tmp.width, tmp.height);
-
-    ctx.save();
-    ctx.scale(scale, scale);
-    ctx.drawImage(finalCanvas, 0, 0);
-    if (ctx.restore) ctx.restore();
-
-    const dataURL = tmp.toDataURL('image/jpeg', 0.95);
-    return this.savePhotoToGallery(dataURL);
-  }
-
-  // Manual save from Photobooth results — then jump to Gallery and show it
-  saveFinalToGallery() {
-    const btn = document.getElementById('save-gallery-btn');
-
-    const setBusy = (busy) => {
-      if (!btn) return;
-      if (busy) {
-        btn.disabled = true;
-        btn.dataset._old = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-      } else {
-        btn.disabled = false;
-        btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery';
-      }
-    };
-
-    const finalCanvas = document.getElementById('final-canvas');
-    if (!finalCanvas) {
-      alert('No photo to save yet.');
-      return;
-    }
-    if (!this.isLayoutReady) {
-      alert('Hang on — still rendering your photo…');
-      return;
-    }
-
-    setBusy(true);
-
-    const scale = 2;
-    const tmp = document.createElement('canvas');
-    tmp.width  = finalCanvas.width * scale;
-    tmp.height = finalCanvas.height * scale;
-    const ctx = tmp.getContext('2d');
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, tmp.width, tmp.height);
-
-    ctx.save();
-    ctx.scale(scale, scale);
-    ctx.drawImage(finalCanvas, 0, 0);
-    if (ctx.restore) ctx.restore();
-
-    const dataURL = tmp.toDataURL('image/jpeg', 0.95);
-
-    this.savePhotoToGallery(dataURL)
-      .then(({ ok, item, error }) => {
-        if (ok) {
-          // ensure we have something to show immediately
-          const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString() };
-          alert('Saved to your private gallery!');
-          this.goToGalleryAndShow(added);
-        } else {
-          alert('Save failed: ' + (error || 'Unknown error'));
-        }
-      })
-      .catch(err => {
-        console.warn('Save to gallery failed:', err);
-        alert('Save failed. Please try again.');
-      })
-      .finally(() => setBusy(false));
+  } else {
+    this.refreshGallery();
   }
 }
 
+// Render gallery page
+refreshGallery() {
+  const hint    = document.getElementById('gallery-login-hint');
+  const grid    = document.getElementById('gallery-grid');
+  const empty   = document.getElementById('gallery-empty');
+  const actions = document.getElementById('gallery-actions');
+
+  if (!(grid && empty && hint)) return;
+  grid.innerHTML = '';
+
+  // Ensure config/state exist even if constructor wasn't patched yet
+  if (typeof this.MAX_GALLERY === 'undefined') this.MAX_GALLERY = 50;
+  if (typeof this._galleryCount === 'undefined') this._galleryCount = 0;
+  if (typeof this._selectMode === 'undefined') this._selectMode = false;
+
+  this.verifyToken().then(isAuthed => {
+    if (!isAuthed) {
+      hint.style.display = 'block';
+      if (actions) actions.style.display = 'none';
+      empty.style.display = 'none';
+      return;
+    }
+
+    hint.style.display = 'none';
+    if (actions) actions.style.display = 'flex';
+
+    this.listMyPhotos().then(({ ok, items }) => {
+      if (!ok || !items || items.length === 0) { empty.style.display = 'block'; return; }
+      empty.style.display = 'none';
+
+      // Track count + show newest first
+      this._galleryCount = items.length;
+      items
+        .slice()
+        .sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0))
+        .forEach(it => {
+          const card = this.buildGalleryCard(it);
+          if (card) grid.appendChild(card);
+        });
+    });
+
+  });
+}
+
+// Wire up gallery page buttons
+setupGalleryUi() {
+  const refresh = document.getElementById('refresh-gallery');
+  const logout  = document.getElementById('logout-from-gallery');
+  const select  = document.getElementById('select-toggle');
+  const delSel  = document.getElementById('delete-selected');
+
+  if (refresh) refresh.addEventListener('click', () => this.refreshGallery());
+  if (logout)  logout.addEventListener('click', (e) => {
+    e.preventDefault();
+    this.logout();
+    this.refreshGallery();
+  });
+
+  // Ensure config/state exist
+  if (typeof this.MAX_GALLERY === 'undefined') this.MAX_GALLERY = 50;
+  if (typeof this._galleryCount === 'undefined') this._galleryCount = 0;
+  if (typeof this._selectMode === 'undefined') this._selectMode = false;
+
+  // Selection mode toggle
+  if (select) select.addEventListener('click', () => {
+    this._selectMode = !this._selectMode;
+    document.body.classList.toggle('gallery-select-mode', this._selectMode);
+    select.textContent = this._selectMode ? 'Cancel' : 'Select';
+
+    // Clear any previous selections when leaving select mode
+    if (!this._selectMode) {
+      document.querySelectorAll('.gallery-card.selected')
+        .forEach(el => el.classList.remove('selected'));
+    }
+    if (delSel) delSel.disabled = !this._selectMode;
+  });
+
+  // Delete selected
+  if (delSel) delSel.addEventListener('click', async () => {
+    if (!this._selectMode) return;
+    const chosen = Array.from(document.querySelectorAll('.gallery-card.selected'));
+    if (chosen.length === 0) return;
+    if (!confirm(`Delete ${chosen.length} photo(s)?`)) return;
+
+    for (const card of chosen) {
+      const id = card.dataset.id;
+      const ok = await this.deletePhoto(id);
+      if (ok) {
+        card.remove();
+        this._galleryCount = Math.max(0, this._galleryCount - 1);
+      }
+    }
+  });
+}
+
+// Silently save final canvas to the user's gallery (if logged in)
+maybeAutosaveToGallery() {
+  this.verifyToken()
+    .then(isAuthed => {
+      if (!isAuthed) return;
+
+      // wait for layout to finish rendering
+      if (this.isLayoutReady) return this._doAutosave();
+      const once = () => this._doAutosave();
+      document.addEventListener('pixelpop:layout-ready', once, { once: true });
+    })
+    .catch(e => console.warn('Autosave failed:', e));
+}
+
+// actual autosave logic split out so we can wait for readiness
+_doAutosave() {
+  const finalCanvas = document.getElementById('final-canvas');
+  if (!finalCanvas) return;
+
+  // Enforce 50-photo cap
+  if ((this._galleryCount || 0) >= this.MAX_GALLERY) {
+    alert('Gallery is full (50 photos). Please delete some photos first.');
+    return;
+  }
+
+  const scale = 2;
+  const tmp = document.createElement('canvas');
+  tmp.width  = finalCanvas.width * scale;
+  tmp.height = finalCanvas.height * scale;
+  const ctx = tmp.getContext('2d');
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, tmp.width, tmp.height);
+
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.drawImage(finalCanvas, 0, 0);
+  if (ctx.restore) ctx.restore();
+
+  const dataURL = tmp.toDataURL('image/jpeg', 0.95);
+  return this.savePhotoToGallery(dataURL);
+}
+
+// Manual save from Photobooth results — then jump to Gallery and show it
+saveFinalToGallery() {
+  const btn = document.getElementById('save-gallery-btn');
+
+  const setBusy = (busy) => {
+    if (!btn) return;
+    if (busy) {
+      btn.disabled = true;
+      btn.dataset._old = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery';
+    }
+  };
+
+  const finalCanvas = document.getElementById('final-canvas');
+  if (!finalCanvas) {
+    alert('No photo to save yet.');
+    return;
+  }
+  if (!this.isLayoutReady) {
+    alert('Hang on — still rendering your photo…');
+    return;
+  }
+
+  // Enforce 50-photo cap BEFORE doing work
+  if ((this._galleryCount || 0) >= this.MAX_GALLERY) {
+    alert('Gallery is full (50 photos). Please delete some photos first.');
+    return;
+  }
+
+  setBusy(true);
+
+  const scale = 2;
+  const tmp = document.createElement('canvas');
+  tmp.width  = finalCanvas.width * scale;
+  tmp.height = finalCanvas.height * scale;
+  const ctx = tmp.getContext('2d');
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, tmp.width, tmp.height);
+
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.drawImage(finalCanvas, 0, 0);
+  if (ctx.restore) ctx.restore();
+
+  const dataURL = tmp.toDataURL('image/jpeg', 0.95);
+
+  this.savePhotoToGallery(dataURL)
+    .then(({ ok, item, error }) => {
+      if (ok) {
+        const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString() };
+        alert('Saved to your private gallery!');
+        this.goToGalleryAndShow(added);
+      } else {
+        alert('Save failed: ' + (error || 'Unknown error'));
+      }
+    })
+    .catch(err => {
+      console.warn('Save to gallery failed:', err);
+      alert('Save failed. Please try again.');
+    })
+    .finally(() => setBusy(false));
+}
+}
 /* ────────────────────────────────────────────────────────────
    ERROR HANDLING UI
    ──────────────────────────────────────────────────────────── */

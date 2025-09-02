@@ -1504,3 +1504,68 @@ form{ width: 100%; }
   padding: 2rem 1rem;
 }
 .gallery-empty i{ font-size: 2.2rem; color: var(--secondary-pink); }
+/* --- iPhone-style Gallery --- */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); /* small, dense tiles */
+  gap: 4px; /* tight spacing like iOS Photos */
+  margin-top: 0.5rem;
+}
+
+/* Gallery card */
+.gallery-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: var(--box-shadow);
+}
+
+/* Image fills tile, cropped like iOS */
+.gallery-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1;   /* mostly square tiles */
+  object-fit: cover;     /* crops instead of squishing */
+  cursor: pointer;
+}
+
+/* Timestamp + delete overlay */
+.gallery-card .meta {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.35));
+  color: #fff;
+  font-size: 0.75rem;
+}
+
+/* Selection mode */
+body.gallery-select-mode .gallery-card {
+  cursor: pointer;
+}
+
+.gallery-card.selected {
+  outline: 3px solid var(--primary-pink);
+  outline-offset: -3px;
+}
+
+/* Actions row (Refresh, Select, Delete Selected, Logout) */
+.gallery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.gallery-sub {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}

@@ -500,33 +500,51 @@
                 </section>
             </div>
         </section>
-        <!-- Gallery Page -->
+   <!-- Gallery Page -->
 <section id="gallery-page" class="page">
   <div class="gallery-wrap">
     <div class="gallery-header">
       <h1>Your Gallery</h1>
       <p class="gallery-sub">Private to your account. Only visible when you’re logged in.</p>
+
+      <!-- Actions shown when logged in -->
       <div id="gallery-actions" class="gallery-actions" style="display:none;">
-        <button id="refresh-gallery" class="secondary-button">
+        <button id="refresh-gallery" class="secondary-button" aria-label="Refresh gallery">
           <i class="fas fa-rotate"></i> Refresh
         </button>
-        <button id="logout-from-gallery" class="secondary-button">
+        <button id="select-toggle" class="secondary-button" aria-label="Toggle selection mode">
+          <i class="fas fa-check-square"></i> Select
+        </button>
+        <button id="delete-selected" class="secondary-button" aria-label="Delete selected photos" disabled>
+          <i class="fas fa-trash"></i> Delete Selected
+        </button>
+        <button id="logout-from-gallery" class="secondary-button" aria-label="Log out">
           <i class="fas fa-sign-out-alt"></i> Logout
         </button>
       </div>
+
+      <!-- Login hint when not authenticated -->
       <div id="gallery-login-hint" class="gallery-hint" style="display:none;">
         <p>Please log in on the Home page to view your private gallery.</p>
       </div>
+
+      <!-- Max photos note -->
+      <p class="gallery-sub" style="text-align:center;margin-top:.25rem;">
+        You can store up to <strong>50 photos</strong>. Delete some if you hit the limit.
+      </p>
     </div>
 
+    <!-- Empty state -->
     <div id="gallery-empty" class="gallery-empty" style="display:none;">
       <i class="fas fa-images"></i>
       <p>No photos yet. Capture something in the Photo Booth!</p>
     </div>
 
-    <div id="gallery-grid" class="gallery-grid"></div>
+    <!-- Grid -->
+    <div id="gallery-grid" class="gallery-grid" role="list"></div>
   </div>
 </section>
+
 
     </main>
 

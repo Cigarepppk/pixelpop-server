@@ -1,4 +1,4 @@
-// PixelPop Studio - Main JavaScript File (No async/await)
+// PixelPop Studio - Main JavaScript File (No async/await) — FULLY CORRECTED
 class PixelPopStudio {
   constructor() {
     this.currentPage = 'home';
@@ -10,7 +10,10 @@ class PixelPopStudio {
     this.isCapturing = false;
     this.timerValue = 3;
 
-    // API base for uploads + auth
+    // canvas render state: used to prevent saving before layout is fully drawn
+    this.isLayoutReady = false;
+
+    // API base for uploads + auth (point to your backend)
     this.API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
 
     this.init();
@@ -28,15 +31,51 @@ class PixelPopStudio {
     this.setupGalleryUi();
   }
 
+  /* ────────────────────────────────────────────────────────────
+     Smart fetch with 404 fallback (helps if /api prefix differs)
+     ──────────────────────────────────────────────────────────── */
+  // Calls `${BASE}${path}`. If it 404s and the path starts with "/api/",
+  // it retries once without "/api/". You can also pass alternates.
+  fetchWith404Fallback(BASE, path, options, extraAlternates) {
+    const tryFetch = (url) =>
+      fetch(url, options).then(async (res) => {
+        let parsed = {};
+        try { parsed = await res.clone().json(); } catch {}
+        res._json = parsed;
+        return res;
+      });
+
+    const primary = `${BASE}${path}`;
+    const alternates = [];
+
+    if (path.startsWith('/api/')) {
+      alternates.push(`${BASE}${path.replace('/api/', '/')}`);
+    }
+    if (Array.isArray(extraAlternates)) {
+      extraAlternates.forEach(a => alternates.push(`${BASE}${a}`));
+    }
+
+    return tryFetch(primary).then((res) => {
+      if (res.status !== 404) return res;
+      if (!alternates.length) return res;
+      return tryFetch(alternates[0]).then((res2) =>
+        res2.status === 404 && alternates[1] ? tryFetch(alternates[1]) : res2
+      );
+    });
+  }
+
   // ============== Auth helpers ==============
   verifyToken() {
     const token = localStorage.getItem('token');
     if (!token) return Promise.resolve(false);
 
-    return fetch(this.API_BASE + '/api/auth/verify', {
+    return this.fetchWith404Fallback(this.API_BASE, '/api/auth/verify', {
       headers: { Authorization: 'Bearer ' + token }
-    })
-      .then(res => res.ok === true)
+    }, ['/auth/verify'])
+      .then(res => {
+        if (!res.ok) console.warn('[verifyToken]', res.status, res._json);
+        return res.ok === true;
+      })
       .catch(err => {
         console.error('verifyToken failed', err);
         return false;
@@ -208,30 +247,22 @@ class PixelPopStudio {
   // ============== Camera & capture ==============
   setupCameraControls() {
     const captureBtn = document.getElementById('capture-btn');
-    theStart: {
-      /* avoid accidental label collisions */
-    }
+    theStart: { /* avoid accidental label collisions */ }
     const startSessionBtn = document.getElementById('start-session');
     const resetSessionBtn = document.getElementById('reset-session');
 
     if (captureBtn) {
       captureBtn.addEventListener('click', () => {
-        if (!this.isCapturing) {
-          this.capturePhoto();
-        }
+        if (!this.isCapturing) this.capturePhoto();
       });
     }
 
     if (startSessionBtn) {
-      startSessionBtn.addEventListener('click', () => {
-        this.startPhotoSession();
-      });
+      startSessionBtn.addEventListener('click', () => this.startPhotoSession());
     }
 
     if (resetSessionBtn) {
-      resetSessionBtn.addEventListener('click', () => {
-        this.resetSession();
-      });
+      resetSessionBtn.addEventListener('click', () => this.resetSession());
     }
   }
 
@@ -264,20 +295,14 @@ class PixelPopStudio {
     if (downloadBtn) {
       downloadBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        requireLogin().then(ok => {
-          if (!ok) return;
-          this.downloadPhotos();
-        });
+        requireLogin().then(ok => { if (ok) this.downloadPhotos(); });
       });
     }
 
     if (printBtn) {
       printBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        requireLogin().then(ok => {
-          if (!ok) return;
-          this.printPhotos();
-        });
+        requireLogin().then(ok => { if (ok) this.printPhotos(); });
       });
     }
 
@@ -292,10 +317,7 @@ class PixelPopStudio {
     if (saveBtn) {
       saveBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        requireLogin().then(ok => {
-          if (!ok) return;
-          this.saveFinalToGallery();
-        });
+        requireLogin().then(ok => { if (ok) this.saveFinalToGallery(); });
       });
     }
   }
@@ -339,7 +361,7 @@ class PixelPopStudio {
   applyLiveFilter() {
     const cameraFeed = document.getElementById('camera-feed');
     if (!cameraFeed) return;
-    cameraFeed.className = '';                    // remove existing filters
+    cameraFeed.className = ''; // remove existing filters
     if (this.currentFilter !== 'none') {
       cameraFeed.classList.add(`filter-${this.currentFilter}`);
     }
@@ -505,10 +527,24 @@ class PixelPopStudio {
     this.maybeAutosaveToGallery();
   }
 
+  // mark layout ready when final canvas fully drawn
+  markLayoutReady() {
+    this.isLayoutReady = true;
+    const saveBtn = document.getElementById('save-gallery-btn');
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery';
+    }
+    document.dispatchEvent(new CustomEvent('pixelpop:layout-ready'));
+  }
+
   createFinalLayout() {
     const finalCanvas = document.getElementById('final-canvas');
     if (!finalCanvas) return;
     const ctx = finalCanvas.getContext('2d');
+
+    // reset ready flag before re-render
+    this.isLayoutReady = false;
 
     switch (this.currentLayout) {
       case 'single':     this.createSingleLayout(ctx, finalCanvas); break;
@@ -527,6 +563,7 @@ class PixelPopStudio {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    const total = this.capturedPhotos.length; let drawn = 0;
     this.capturedPhotos.forEach((photo, index) => {
       const img = new Image();
       img.onload = () => {
@@ -535,6 +572,7 @@ class PixelPopStudio {
         if (index === this.capturedPhotos.length - 1) {
           this.addLayoutTitle(ctx, canvas, 'PixelPop Studio');
         }
+        if (++drawn === total) this.markLayoutReady();
       };
       img.src = photo;
     });
@@ -549,12 +587,14 @@ class PixelPopStudio {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    const total = Math.min(2, this.capturedPhotos.length); let drawn = 0;
     this.capturedPhotos.slice(0, 2).forEach((photo, index) => {
       const img = new Image();
       img.onload = () => {
         const y = margin + (index * (photoHeight + margin));
         ctx.drawImage(img, margin, y, canvas.width - (margin * 2), photoHeight);
         if (index === 1) this.addLayoutTitle(ctx, canvas, 'PixelPop Studio');
+        if (++drawn === total) this.markLayoutReady();
       };
       img.src = photo;
     });
@@ -569,6 +609,7 @@ class PixelPopStudio {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    const total = this.capturedPhotos.length; let drawn = 0;
     this.capturedPhotos.forEach((photo, index) => {
       const img = new Image();
       img.onload = () => {
@@ -577,6 +618,7 @@ class PixelPopStudio {
         if (index === this.capturedPhotos.length - 1) {
           this.addLayoutTitle(ctx, canvas, 'PixelPop Studio');
         }
+        if (++drawn === total) this.markLayoutReady();
       };
       img.src = photo;
     });
@@ -585,13 +627,13 @@ class PixelPopStudio {
   createFourStripLayout(ctx, canvas) {
     canvas.width = 300;
     canvas.height = 740;
-
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const photoHeight = 160;
     const margin = 20;
 
+    const total = this.capturedPhotos.length; let drawn = 0;
     this.capturedPhotos.forEach((photo, index) => {
       const img = new Image();
       img.onload = () => {
@@ -600,6 +642,7 @@ class PixelPopStudio {
         if (index === this.capturedPhotos.length - 1) {
           this.addLayoutTitle(ctx, canvas, 'PixelPop Studio');
         }
+        if (++drawn === total) this.markLayoutReady();
       };
       img.src = photo;
     });
@@ -621,6 +664,13 @@ class PixelPopStudio {
       resultsSection.style.display = 'block';
       resultsSection.scrollIntoView({ behavior: 'smooth' });
     }
+
+    // while canvas renders, block Save and show hint
+    const saveBtn = document.getElementById('save-gallery-btn');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rendering…';
+    }
   }
 
   startPhotoSession() {
@@ -634,6 +684,7 @@ class PixelPopStudio {
 
   resetSession() {
     this.capturedPhotos = [];
+    this.isLayoutReady = false;
     const resultsSection = document.getElementById('photo-results');
     if (resultsSection) resultsSection.style.display = 'none';
   }
@@ -643,7 +694,9 @@ class PixelPopStudio {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // ---- Uploads + QR (photobooth results) ----
+  /* ───────────── Uploads + QR (photobooth results) ───────────── */
+
+  // Prefer HEAD; your backend implements HEAD /i/:id
   verifyPublicUrl(url) {
     return fetch(url, { method: 'HEAD', cache: 'no-store' })
       .then(r => r.ok)
@@ -651,20 +704,19 @@ class PixelPopStudio {
   }
 
   uploadImageToService(imageData, mode = 'view') {
-    return fetch(this.API_BASE + '/api/upload', {
+    return this.fetchWith404Fallback(this.API_BASE, '/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageData, fileName: `pixelpop-photo-${Date.now()}.jpg` })
+      body: JSON.stringify({ imageData, fileName: `pixelpop-photo-${Date.Now?.() || Date.now()}.jpg` })
+    }, ['/upload'])
+    .then(response => {
+      const data = response._json || {};
+      if (!response.ok) return null;
+      let qrUrl = data.url;
+      if (mode === 'view' && data.viewerUrl) qrUrl = data.viewerUrl;
+      if (mode === 'download' && data.downloadUrl) qrUrl = data.downloadUrl;
+      return qrUrl;
     })
-    .then(response =>
-      response.json().catch(() => ({})).then(data => {
-        if (!response.ok) return null;
-        let qrUrl = data.url;
-        if (mode === 'view' && data.viewerUrl) qrUrl = data.viewerUrl;
-        if (mode === 'download' && data.downloadUrl) qrUrl = data.downloadUrl;
-        return qrUrl;
-      })
-    )
     .catch(() => null);
   }
 
@@ -823,20 +875,20 @@ class PixelPopStudio {
     });
   }
 
-  // ======== Gallery (no async/await version) ========
+  /* ───────────── Gallery (login-gated) ───────────── */
 
   // List current user's photos
   listMyPhotos() {
     const token = localStorage.getItem('token');
     if (!token) return Promise.resolve({ ok: false, items: [], error: 'no-token' });
 
-    return fetch(this.API_BASE + '/api/gallery/mine', {
+    return this.fetchWith404Fallback(this.API_BASE, '/api/gallery/mine', {
       headers: { Authorization: 'Bearer ' + token }
+    }, ['/gallery/mine'])
+    .then(res => {
+      const d = res._json || {};
+      return { ok: res.ok, items: d.items || [], error: d.error || (!res.ok ? `HTTP ${res.status}` : '') };
     })
-    .then(res =>
-      res.json().catch(() => ({}))
-        .then(data => ({ ok: res.ok, items: data.items || [], error: data.error }))
-    )
     .catch(e => ({ ok: false, items: [], error: String(e) }));
   }
 
@@ -845,7 +897,7 @@ class PixelPopStudio {
     const token = localStorage.getItem('token');
     if (!token) return Promise.resolve({ ok: false, error: 'no-token' });
 
-    return fetch(this.API_BASE + '/api/gallery', {
+    return this.fetchWith404Fallback(this.API_BASE, '/api/gallery', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -856,11 +908,13 @@ class PixelPopStudio {
         visibility: 'private',
         fileName: `pixelpop-${Date.now()}.jpg`
       })
+    }, ['/gallery'])
+    .then(res => {
+      const d = res._json || {};
+      const errorMsg = d.error || d.message || (res.ok ? '' : `HTTP ${res.status}`);
+      if (!res.ok) console.warn('[gallery POST] failed', { status: res.status, body: d });
+      return { ok: res.ok, item: d.item, error: errorMsg };
     })
-    .then(res =>
-      res.json().catch(() => ({}))
-        .then(data => ({ ok: res.ok, item: data.item, error: data.error }))
-    )
     .catch(e => ({ ok: false, error: String(e) }));
   }
 
@@ -868,10 +922,10 @@ class PixelPopStudio {
     const token = localStorage.getItem('token');
     if (!token) return Promise.resolve(false);
 
-    return fetch(this.API_BASE + '/api/gallery/' + photoId, {
+    return this.fetchWith404Fallback(this.API_BASE, `/api/gallery/${photoId}`, {
       method: 'DELETE',
       headers: { Authorization: 'Bearer ' + token }
-    })
+    }, [`/gallery/${photoId}`])
     .then(res => res.ok)
     .catch(() => false);
   }
@@ -984,27 +1038,35 @@ class PixelPopStudio {
       .then(isAuthed => {
         if (!isAuthed) return;
 
-        const finalCanvas = document.getElementById('final-canvas');
-        if (!finalCanvas) return;
-
-        const scale = 2;
-        const tmp = document.createElement('canvas');
-        tmp.width  = finalCanvas.width * scale;
-        tmp.height = finalCanvas.height * scale;
-        const ctx = tmp.getContext('2d');
-
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, tmp.width, tmp.height);
-
-        ctx.save();
-        ctx.scale(scale, scale);
-        ctx.drawImage(finalCanvas, 0, 0);
-        if (ctx.restore) ctx.restore();
-
-        const dataURL = tmp.toDataURL('image/jpeg', 0.95);
-        return this.savePhotoToGallery(dataURL);
+        // wait for layout to finish rendering
+        if (this.isLayoutReady) return this._doAutosave();
+        const once = () => this._doAutosave();
+        document.addEventListener('pixelpop:layout-ready', once, { once: true });
       })
       .catch(e => console.warn('Autosave failed:', e));
+  }
+
+  // actual autosave logic split out so we can wait for readiness
+  _doAutosave() {
+    const finalCanvas = document.getElementById('final-canvas');
+    if (!finalCanvas) return;
+
+    const scale = 2;
+    const tmp = document.createElement('canvas');
+    tmp.width  = finalCanvas.width * scale;
+    tmp.height = finalCanvas.height * scale;
+    const ctx = tmp.getContext('2d');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, tmp.width, tmp.height);
+
+    ctx.save();
+    ctx.scale(scale, scale);
+    ctx.drawImage(finalCanvas, 0, 0);
+    if (ctx.restore) ctx.restore();
+
+    const dataURL = tmp.toDataURL('image/jpeg', 0.95);
+    return this.savePhotoToGallery(dataURL);
   }
 
   // Manual save from Photobooth results — then jump to Gallery and show it
@@ -1026,6 +1088,10 @@ class PixelPopStudio {
     const finalCanvas = document.getElementById('final-canvas');
     if (!finalCanvas) {
       alert('No photo to save yet.');
+      return;
+    }
+    if (!this.isLayoutReady) {
+      alert('Hang on — still rendering your photo…');
       return;
     }
 
@@ -1066,7 +1132,9 @@ class PixelPopStudio {
   }
 }
 
-// --- ERROR HANDLING ---
+/* ────────────────────────────────────────────────────────────
+   ERROR HANDLING UI
+   ──────────────────────────────────────────────────────────── */
 function showError(message) {
   const errorModal = document.getElementById('error-modal');
   const errorMessage = document.getElementById('error-message');
@@ -1080,7 +1148,9 @@ function closeErrorModal() {
   if (errorModal) errorModal.style.display = 'none';
 }
 
-// Initialize application + expose navigate helper
+/* ────────────────────────────────────────────────────────────
+   Initialize application + expose helpers
+   ──────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   const app = new PixelPopStudio();
   window.PixelPopAppNavigate = (page) => app.navigateToPage(page);
@@ -1090,9 +1160,9 @@ document.addEventListener('DOMContentLoaded', () => {
   app.updatePrivilegedButtonsState();
 });
 
-// ===============================
-// Frame page (Download + Print + QR) - Promise version
-// ===============================
+/* ────────────────────────────────────────────────────────────
+   Frame page (Download + Print + QR) - Promise version
+   ──────────────────────────────────────────────────────────── */
 const FRAME_API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
 const toAbsolute = (url) => (!url ? null : url.startsWith('http') ? url : `${FRAME_API_BASE}${url}`);
 
@@ -1103,19 +1173,31 @@ function frameVerifyPublicUrl(url) {
 }
 
 function frameUploadImageToService(imageData, mode = 'view') {
-  return fetch(`${FRAME_API_BASE}/api/upload`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageData, fileName: `framed-image-${Date.now()}.jpg` })
-  })
-  .then(res => res.json().catch(() => ({})).then(data => {
-    if (!res.ok) return null;
-    let url = data.url;
-    if (mode === 'view' && data.viewerUrl)       url = data.viewerUrl;
-    if (mode === 'download' && data.downloadUrl) url = data.downloadUrl;
-    return toAbsolute(url);
-  }))
-  .catch(() => null);
+  // reuse 404-fallback if available
+  const tryFetch = (path, alts) =>
+    (window.PixelPopApp
+      ? window.PixelPopApp.fetchWith404Fallback(FRAME_API_BASE, path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageData, fileName: `framed-image-${Date.now()}.jpg` })
+        }, alts)
+      : fetch(`${FRAME_API_BASE}${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageData, fileName: `framed-image-${Date.now()}.jpg` })
+        }).then(async res => { let j={};try{j=await res.clone().json()}catch{} res._json=j; return res; })
+    );
+
+  return tryFetch('/api/upload', ['/upload'])
+    .then(res => {
+      const data = res._json || {};
+      if (!res.ok) return null;
+      let url = data.url;
+      if (mode === 'view' && data.viewerUrl)       url = data.viewerUrl;
+      if (mode === 'download' && data.downloadUrl) url = data.downloadUrl;
+      return toAbsolute(url);
+    })
+    .catch(() => null);
 }
 
 function showQRCodeFrame(uploadUrl) {
@@ -1457,7 +1539,6 @@ document.addEventListener('DOMContentLoaded', () => {
               if (window.PixelPopApp && typeof window.PixelPopApp.goToGalleryAndShow === 'function') {
                 window.PixelPopApp.goToGalleryAndShow(item);
               } else {
-                // fallback: navigate then refresh
                 if (typeof window.PixelPopAppNavigate === 'function') window.PixelPopAppNavigate('gallery');
               }
             })
@@ -1473,10 +1554,11 @@ document.addEventListener('DOMContentLoaded', () => {
   setActionsVisibility();
 });
 
-// ===== Auth UI + API glue =====
+/* ────────────────────────────────────────────────────────────
+   Auth UI + API glue (login/register forms)
+   ──────────────────────────────────────────────────────────── */
 const API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
 
-// Safely parse JSON (Promise version)
 function safeJson(res) {
   return res.text().then(text => {
     try { return text ? JSON.parse(text) : {}; } catch { return {}; }
@@ -1500,7 +1582,7 @@ const loginBtn     = document.querySelector('.login-btn');
 if (registerBtn) registerBtn.addEventListener('click', () => container && container.classList.add('active'));
 if (loginBtn)    loginBtn.addEventListener('click', () => container && container.classList.remove('active'));
 
-// Registration (Promise version)
+// Registration (Promise version) with 404 fallback
 if (registerForm) {
   registerForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -1517,31 +1599,40 @@ if (registerForm) {
       return;
     }
 
-    fetch(API_BASE + '/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password })
-    })
-    .then(response => safeJson(response).then(data => ({ response, data })))
-    .then(({ response, data }) => {
-      if (response.ok) {
-        alert('Registration successful! Please log in.');
-        if (container) container.classList.remove('active');
-        if (registerForm.reset) registerForm.reset();
-      } else {
-        alert(`Registration failed: ${data.error || data.message || response.statusText}`);
-        console.error('Registration failed:', data);
-      }
-    })
-    .catch(err => {
-      console.error('Error during registration:', err);
-      alert('An error occurred during registration. Please try again later.');
-    })
-    .finally(() => setBusy(registerForm, false));
+    const doFetch = (path, alts) =>
+      (window.PixelPopApp
+        ? window.PixelPopApp.fetchWith404Fallback(API_BASE, path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password })
+          }, alts)
+        : fetch(API_BASE + path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password })
+          }).then(async r => { let j={}; try{j=await r.clone().json()}catch{} r._json=j; return r; })
+      );
+
+    doFetch('/signup', ['/api/signup'])
+      .then(({ ok, _json: data, status }) => {
+        if (ok) {
+          alert('Registration successful! Please log in.');
+          if (container) container.classList.remove('active');
+          if (registerForm.reset) registerForm.reset();
+        } else {
+          alert(`Registration failed: ${(data && (data.error || data.message)) || `HTTP ${status}`}`);
+          console.error('Registration failed:', data);
+        }
+      })
+      .catch(err => {
+        console.error('Error during registration:', err);
+        alert('An error occurred during registration. Please try again later.');
+      })
+      .finally(() => setBusy(registerForm, false));
   });
 }
 
-// Login (Promise version)
+// Login (Promise version) with 404 fallback
 if (loginForm) {
   loginForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -1550,37 +1641,44 @@ if (loginForm) {
     const username = e.target.username.value.trim();
     const password = e.target.password.value;
 
-    fetch(API_BASE + '/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    })
-    .then(response => safeJson(response).then(data => ({ response, data })))
-    .then(({ response, data }) => {
-      if (response.ok && data && data.token) {
-        localStorage.setItem('token', data.token);
-        alert('Login successful!');
+    const doFetch = (path, alts) =>
+      (window.PixelPopApp
+        ? window.PixelPopApp.fetchWith404Fallback(API_BASE, path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          }, alts)
+        : fetch(API_BASE + path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          }).then(async r => { let j={}; try{j=await r.clone().json()}catch{} r._json=j; return r; })
+      );
 
-        // reflect new privileges
-        if (window.PixelPopApp && window.PixelPopApp.updatePrivilegedButtonsState) {
-          window.PixelPopApp.updatePrivilegedButtonsState();
+    doFetch('/login', ['/api/login'])
+      .then(({ ok, _json: data, status }) => {
+        if (ok && data && data.token) {
+          localStorage.setItem('token', data.token);
+          alert('Login successful!');
+
+          if (window.PixelPopApp && window.PixelPopApp.updatePrivilegedButtonsState) {
+            window.PixelPopApp.updatePrivilegedButtonsState();
+          }
+
+          if (typeof window.PixelPopAppNavigate === 'function') {
+            window.PixelPopAppNavigate('layout');
+          }
+
+          if (loginForm.reset) loginForm.reset();
+        } else {
+          alert(`Login failed: ${(data && (data.error || data.message)) || `HTTP ${status}`}`);
+          console.error('Login failed:', data);
         }
-
-        // go to Photobooth
-        if (typeof window.PixelPopAppNavigate === 'function') {
-          window.PixelPopAppNavigate('layout');
-        }
-
-        if (loginForm.reset) loginForm.reset();
-      } else {
-        alert(`Login failed: ${data.error || response.statusText}`);
-        console.error('Login failed:', data);
-      }
-    })
-    .catch(err => {
-      console.error('Error during login:', err);
-      alert('An error occurred during login. Please try again later.');
-    })
-    .finally(() => setBusy(loginForm, false));
+      })
+      .catch(err => {
+        console.error('Error during login:', err);
+        alert('An error occurred during login. Please try again later.');
+      })
+      .finally(() => setBusy(loginForm, false));
   });
 }
