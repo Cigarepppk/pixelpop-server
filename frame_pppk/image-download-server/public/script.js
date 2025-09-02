@@ -1,4 +1,4 @@
-// PixelPop Studio - Main JavaScript File (No async/await)
+// PixelPop Studio - Main JavaScript File (No async/await) — FULL FIX
 class PixelPopStudio {
   constructor() {
     this.currentPage = 'home';
@@ -9,6 +9,9 @@ class PixelPopStudio {
     this.stream = null;
     this.isCapturing = false;
     this.timerValue = 3;
+
+    // NEW: canvas render state
+    this.isLayoutReady = false;
 
     // API base for uploads + auth
     this.API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
@@ -36,7 +39,10 @@ class PixelPopStudio {
     return fetch(this.API_BASE + '/api/auth/verify', {
       headers: { Authorization: 'Bearer ' + token }
     })
-      .then(res => res.ok === true)
+      .then(res => {
+        if (!res.ok) console.warn('[verifyToken] HTTP', res.status);
+        return res.ok === true;
+      })
       .catch(err => {
         console.error('verifyToken failed', err);
         return false;
@@ -505,10 +511,24 @@ class PixelPopStudio {
     this.maybeAutosaveToGallery();
   }
 
+  // NEW: mark layout ready when final canvas fully drawn
+  markLayoutReady() {
+    this.isLayoutReady = true;
+    const saveBtn = document.getElementById('save-gallery-btn');
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery';
+    }
+    document.dispatchEvent(new CustomEvent('pixelpop:layout-ready'));
+  }
+
   createFinalLayout() {
     const finalCanvas = document.getElementById('final-canvas');
     if (!finalCanvas) return;
     const ctx = finalCanvas.getContext('2d');
+
+    // reset ready flag before re-render
+    this.isLayoutReady = false;
 
     switch (this.currentLayout) {
       case 'single':     this.createSingleLayout(ctx, finalCanvas); break;
@@ -527,6 +547,7 @@ class PixelPopStudio {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    const total = this.capturedPhotos.length; let drawn = 0;
     this.capturedPhotos.forEach((photo, index) => {
       const img = new Image();
       img.onload = () => {
@@ -535,6 +556,7 @@ class PixelPopStudio {
         if (index === this.capturedPhotos.length - 1) {
           this.addLayoutTitle(ctx, canvas, 'PixelPop Studio');
         }
+        if (++drawn === total) this.markLayoutReady();
       };
       img.src = photo;
     });
@@ -549,12 +571,14 @@ class PixelPopStudio {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    const total = Math.min(2, this.capturedPhotos.length); let drawn = 0;
     this.capturedPhotos.slice(0, 2).forEach((photo, index) => {
       const img = new Image();
       img.onload = () => {
         const y = margin + (index * (photoHeight + margin));
         ctx.drawImage(img, margin, y, canvas.width - (margin * 2), photoHeight);
         if (index === 1) this.addLayoutTitle(ctx, canvas, 'PixelPop Studio');
+        if (++drawn === total) this.markLayoutReady();
       };
       img.src = photo;
     });
@@ -569,6 +593,7 @@ class PixelPopStudio {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    const total = this.capturedPhotos.length; let drawn = 0;
     this.capturedPhotos.forEach((photo, index) => {
       const img = new Image();
       img.onload = () => {
@@ -577,6 +602,7 @@ class PixelPopStudio {
         if (index === this.capturedPhotos.length - 1) {
           this.addLayoutTitle(ctx, canvas, 'PixelPop Studio');
         }
+        if (++drawn === total) this.markLayoutReady();
       };
       img.src = photo;
     });
@@ -592,6 +618,7 @@ class PixelPopStudio {
     const photoHeight = 160;
     const margin = 20;
 
+    const total = this.capturedPhotos.length; let drawn = 0;
     this.capturedPhotos.forEach((photo, index) => {
       const img = new Image();
       img.onload = () => {
@@ -600,6 +627,7 @@ class PixelPopStudio {
         if (index === this.capturedPhotos.length - 1) {
           this.addLayoutTitle(ctx, canvas, 'PixelPop Studio');
         }
+        if (++drawn === total) this.markLayoutReady();
       };
       img.src = photo;
     });
@@ -621,6 +649,13 @@ class PixelPopStudio {
       resultsSection.style.display = 'block';
       resultsSection.scrollIntoView({ behavior: 'smooth' });
     }
+
+    // while canvas renders, block Save and show hint
+    const saveBtn = document.getElementById('save-gallery-btn');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rendering…';
+    }
   }
 
   startPhotoSession() {
@@ -634,6 +669,7 @@ class PixelPopStudio {
 
   resetSession() {
     this.capturedPhotos = [];
+    this.isLayoutReady = false;
     const resultsSection = document.getElementById('photo-results');
     if (resultsSection) resultsSection.style.display = 'none';
   }
@@ -857,10 +893,13 @@ class PixelPopStudio {
         fileName: `pixelpop-${Date.now()}.jpg`
       })
     })
-    .then(res =>
-      res.json().catch(() => ({}))
-        .then(data => ({ ok: res.ok, item: data.item, error: data.error }))
-    )
+    .then(async res => {
+      let data = {};
+      try { data = await res.json(); } catch { /* non-JSON body */ }
+      const errorMsg = data.error || data.message || (res.ok ? '' : `HTTP ${res.status}`);
+      if (!res.ok) console.warn('[gallery POST] failed', { status: res.status, data });
+      return { ok: res.ok, item: data.item, error: errorMsg };
+    })
     .catch(e => ({ ok: false, error: String(e) }));
   }
 
@@ -984,27 +1023,35 @@ class PixelPopStudio {
       .then(isAuthed => {
         if (!isAuthed) return;
 
-        const finalCanvas = document.getElementById('final-canvas');
-        if (!finalCanvas) return;
-
-        const scale = 2;
-        const tmp = document.createElement('canvas');
-        tmp.width  = finalCanvas.width * scale;
-        tmp.height = finalCanvas.height * scale;
-        const ctx = tmp.getContext('2d');
-
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, tmp.width, tmp.height);
-
-        ctx.save();
-        ctx.scale(scale, scale);
-        ctx.drawImage(finalCanvas, 0, 0);
-        if (ctx.restore) ctx.restore();
-
-        const dataURL = tmp.toDataURL('image/jpeg', 0.95);
-        return this.savePhotoToGallery(dataURL);
+        // wait for layout to finish rendering
+        if (this.isLayoutReady) return this._doAutosave();
+        const once = () => this._doAutosave();
+        document.addEventListener('pixelpop:layout-ready', once, { once: true });
       })
       .catch(e => console.warn('Autosave failed:', e));
+  }
+
+  // NEW: actual autosave logic split out so we can wait for readiness
+  _doAutosave() {
+    const finalCanvas = document.getElementById('final-canvas');
+    if (!finalCanvas) return;
+
+    const scale = 2;
+    const tmp = document.createElement('canvas');
+    tmp.width  = finalCanvas.width * scale;
+    tmp.height = finalCanvas.height * scale;
+    const ctx = tmp.getContext('2d');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, tmp.width, tmp.height);
+
+    ctx.save();
+    ctx.scale(scale, scale);
+    ctx.drawImage(finalCanvas, 0, 0);
+    if (ctx.restore) ctx.restore();
+
+    const dataURL = tmp.toDataURL('image/jpeg', 0.95);
+    return this.savePhotoToGallery(dataURL);
   }
 
   // Manual save from Photobooth results — then jump to Gallery and show it
@@ -1026,6 +1073,10 @@ class PixelPopStudio {
     const finalCanvas = document.getElementById('final-canvas');
     if (!finalCanvas) {
       alert('No photo to save yet.');
+      return;
+    }
+    if (!this.isLayoutReady) {
+      alert('Hang on — still rendering your photo…');
       return;
     }
 

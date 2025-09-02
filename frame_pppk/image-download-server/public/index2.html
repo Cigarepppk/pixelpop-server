@@ -1,4 +1,4 @@
-<!--<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -22,6 +22,8 @@
                 <li><a href="#" data-page="home" class="nav-link active">Home</a></li>
                 <li><a href="#" data-page="about" class="nav-link">About</a></li>
                 <li><a href="#" data-page="layout" class="nav-link">Photo Booth</a></li>
+                <li><a href="#" data-page="gallery" class="nav-link">Gallery</a></li>
+
                 <li id="logout-item" style="display:none">
                   <a href="#" id="logout-link" class="nav-link">
                     <i class="fas fa-sign-out-alt"></i> Logout
@@ -381,6 +383,14 @@
                                 <i class="fas fa-print"></i>
                                 Print Photos
                             </button>
+
+                        <!-- inside .download-controls -->
+<button id="save-gallery-btn" class="secondary-button" title="Log in to use this">
+  <i class="fas fa-cloud-upload-alt"></i> Save to My Gallery
+</button>
+
+
+
                             <button id="new-session" class="secondary-button">
                                 <i class="fas fa-plus"></i>
                                 New Session
@@ -475,6 +485,7 @@
 
                         <button id="downloadBtn" style="margin-top:20px;display:none;" class="upload-btn" title="Log in to use this">Download Image</button>
                         <button id="printFrameBtn" style="margin-top:20px;display:none;" class="upload-btn" title="Log in to use this">Print</button>
+                       <button id="saveFrameToGalleryBtn" style="margin-top:20px;display:none;" class="upload-btn" title="Log in to use this">Save to My Gallery</button>
 
                         <!-- Frame QR -->
                         <section id="qr-section-frame" style="display:none; text-align:center; margin-top:20px;">
@@ -489,6 +500,34 @@
                 </section>
             </div>
         </section>
+        <!-- Gallery Page -->
+<section id="gallery-page" class="page">
+  <div class="gallery-wrap">
+    <div class="gallery-header">
+      <h1>Your Gallery</h1>
+      <p class="gallery-sub">Private to your account. Only visible when you’re logged in.</p>
+      <div id="gallery-actions" class="gallery-actions" style="display:none;">
+        <button id="refresh-gallery" class="secondary-button">
+          <i class="fas fa-rotate"></i> Refresh
+        </button>
+        <button id="logout-from-gallery" class="secondary-button">
+          <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+      </div>
+      <div id="gallery-login-hint" class="gallery-hint" style="display:none;">
+        <p>Please log in on the Home page to view your private gallery.</p>
+      </div>
+    </div>
+
+    <div id="gallery-empty" class="gallery-empty" style="display:none;">
+      <i class="fas fa-images"></i>
+      <p>No photos yet. Capture something in the Photo Booth!</p>
+    </div>
+
+    <div id="gallery-grid" class="gallery-grid"></div>
+  </div>
+</section>
+
     </main>
 
     <footer>
@@ -518,4 +557,3 @@
     <script src="script.js"></script>
 </body>
 </html>
--->
