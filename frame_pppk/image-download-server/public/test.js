@@ -1,4 +1,4 @@
-// PixelPop Studio - Main JavaScript File
+// PixelPop Studio - Main JavaScript File (Corrected)
 class PixelPopStudio {
   constructor() {
     this.currentPage = 'home';
@@ -28,14 +28,19 @@ class PixelPopStudio {
   }
 
   // ============== Auth helpers ==============
-  verifyToken() {
+  async verifyToken() {
     const token = localStorage.getItem('token');
-    if (!token) return Promise.resolve(false);
-    return fetch(`${this.API_BASE}/api/auth/verify`, {
-      headers: { Authorization: 'Bearer ' + token }
-    })
-      .then(res => res.ok)
-      .catch(() => false);
+    if (!token) return false;
+
+    try {
+      const res = await fetch(`${this.API_BASE}/api/auth/verify`, {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      return res.ok === true;
+    } catch (err) {
+      console.error('verifyToken failed', err);
+      return false;
+    }
   }
 
   updatePrivilegedButtonsState() {
@@ -46,7 +51,7 @@ class PixelPopStudio {
     const pr = document.getElementById('print-btn');
     [dl, pr].forEach(btn => {
       if (!btn) return;
-      btn.disabled = !hasToken;
+      // keep enabled; handlers will enforce login
       if (!hasToken) btn.setAttribute('title', 'Log in to use this');
       else btn.removeAttribute('title');
     });
@@ -56,9 +61,7 @@ class PixelPopStudio {
     const fpr = document.getElementById('printFrameBtn');
     [fdl, fpr].forEach(btn => {
       if (!btn) return;
-      // visibility still controlled by whether user picked photo+frame
-      // but when visible, disable if not logged in
-      btn.disabled = !hasToken;
+      // keep enabled; handlers will enforce login
       if (!hasToken) btn.setAttribute('title', 'Log in to use this');
       else btn.removeAttribute('title');
     });
@@ -234,30 +237,41 @@ class PixelPopStudio {
     }
   }
 
-  // Gate Download/Print here (photobooth results)
+  // ============== Photobooth result controls (LOGIN-GATED) ==============
   setupPhotoControls() {
-    const downloadBtn = document.getElementById('download-btn');
-    const printBtn = document.getElementById('print-btn');
-    const newSessionBtn = document.getElementById('new-session');
+    const downloadBtn  = document.getElementById('download-btn');
+    const printBtn     = document.getElementById('print-btn');
+    const newSessionBtn= document.getElementById('new-session');
+
+    const requireLogin = async () => {
+      const ok = await this.verifyToken();
+      if (!ok) {
+        console.warn('[PixelPop] verifyToken=false → showing alert');
+        alert('Please log in to continue.');
+        return false;
+      }
+      return true;
+    };
 
     if (downloadBtn) {
-      downloadBtn.addEventListener('click', async () => {
-        const ok = await this.verifyToken();
-        if (!ok) { alert('Please log in to download.'); return; }
+      downloadBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        if (!(await requireLogin())) return;
         this.downloadPhotos();
       });
     }
 
     if (printBtn) {
-      printBtn.addEventListener('click', async () => {
-        const ok = await this.verifyToken();
-        if (!ok) { alert('Please log in to print.'); return; }
+      printBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        if (!(await requireLogin())) return;
         this.printPhotos();
       });
     }
 
     if (newSessionBtn) {
-      newSessionBtn.addEventListener('click', () => {
+      newSessionBtn.addEventListener('click', (e) => {
+        e.preventDefault();
         this.startNewSession();
       });
     }
@@ -563,7 +577,7 @@ class PixelPopStudio {
       img.src = photo;
     });
   }
-/*
+
   addLayoutTitle(ctx, canvas, text) {
     ctx.save();
     ctx.fillStyle = '#111';
@@ -571,7 +585,7 @@ class PixelPopStudio {
     ctx.textAlign = 'center';
     ctx.fillText(text, canvas.width / 2, canvas.height - 8);
     ctx.restore();
-  }*/
+  }
 
   showResults() {
     const resultsSection = document.getElementById('photo-results');
@@ -918,6 +932,7 @@ function buildFramedOutput(userSrc, frameSrc) {
   });
 }
 
+// Frame page listeners
 document.addEventListener('DOMContentLoaded', () => {
   const fileInput   = document.getElementById('fileInput');
   const userPhoto   = document.getElementById('userPhoto');
@@ -944,12 +959,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (downloadBtn) {
       downloadBtn.style.display = ready ? 'inline-block' : 'none';
-      downloadBtn.disabled = !(ready && hasToken);
       downloadBtn.title = hasToken ? '' : 'Log in to use this';
     }
     if (printBtn) {
       printBtn.style.display = ready ? 'inline-block' : 'none';
-      printBtn.disabled = !(ready && hasToken);
       printBtn.title = hasToken ? '' : 'Log in to use this';
     }
   };
@@ -998,11 +1011,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Helper to check login on frame page with fallback
+  const requireLoginFrame = async () => {
+    const hasFn = typeof window.PixelPopApp?.verifyToken === 'function';
+    const ok = hasFn ? await window.PixelPopApp.verifyToken() : !!localStorage.getItem('token');
+    if (!ok) {
+      console.warn('[PixelPop Frame] verifyToken=false → showing alert');
+      alert('Please log in to download or print.');
+      return false;
+    }
+    return true;
+  };
+
   // Download + QR (LOGIN REQUIRED)
-  downloadBtn?.addEventListener('click', async () => {
-    const ok = await window.PixelPopApp?.verifyToken?.();
-    if (!ok) { alert('Please log in to download.'); return; }
-    if (!userPhotoSrc || !selectedFrameSrc) return;
+  downloadBtn?.addEventListener('click', async (e) => {
+    e.preventDefault();
+
+    if (!(await requireLoginFrame())) return;
+    if (!userPhotoSrc || !selectedFrameSrc) {
+      alert('Upload a photo and choose a frame first.');
+      return;
+    }
 
     const out = await buildFramedOutput(userPhotoSrc, selectedFrameSrc);
     if (!out) { alert('Could not compose framed image.'); return; }
@@ -1020,10 +1049,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Print + QR (LOGIN REQUIRED)
-  printBtn?.addEventListener('click', async () => {
-    const ok = await window.PixelPopApp?.verifyToken?.();
-    if (!ok) { alert('Please log in to print.'); return; }
-    if (!userPhotoSrc || !selectedFrameSrc) return;
+  printBtn?.addEventListener('click', async (e) => {
+    e.preventDefault();
+
+    if (!(await requireLoginFrame())) return;
+    if (!userPhotoSrc || !selectedFrameSrc) {
+      alert('Upload a photo and choose a frame first.');
+      return;
+    }
 
     const out = await buildFramedOutput(userPhotoSrc, selectedFrameSrc);
     if (!out) { alert('Could not compose framed image.'); return; }

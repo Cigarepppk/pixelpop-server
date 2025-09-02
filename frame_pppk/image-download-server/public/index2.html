@@ -1,0 +1,521 @@
+<!--<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PixelPop Studio</title>
+    <link rel="icon" href="logo.PNG">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+</head>
+<body>
+    <!-- Navigation Header -->
+    <header class="header">
+        <nav class="nav-container">
+            <div class="logo">
+                <img src="logo.PNG" alt="PixelPop Studio">
+                <span>PixelPop Studio</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#" data-page="home" class="nav-link active">Home</a></li>
+                <li><a href="#" data-page="about" class="nav-link">About</a></li>
+                <li><a href="#" data-page="layout" class="nav-link">Photo Booth</a></li>
+                <li id="logout-item" style="display:none">
+                  <a href="#" id="logout-link" class="nav-link">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                  </a>
+                </li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-content">
+        <!-- Home Page -->
+        <section id="home-page" class="page active">
+            <!-- Login/Register stays so users can log in to unlock Download/Print -->
+            <section id="login-page" class="login-page">
+                <div class="logincontainer">
+                    <div class="form-box login">
+                        <form id="login-form">
+                            <h1>Login</h1>
+                            <div class="input-box">
+                                <input type="text" name="username" placeholder="Username" required>
+                                <i class='bx bxs-user'></i>
+                            </div>
+                            <div class="input-box">
+                                <input type="password" name="password" placeholder="Password" required>
+                                <i class='bx bxs-lock-alt'></i>
+                            </div>
+                            <div class="forgot-link">
+                                <a href="#">Forgot Password?</a>
+                            </div>
+                            <button type="submit" class="btn">Login</button>
+                            <p>or login with social platforms</p>
+                            <div class="social-icons">
+                                <a href="https://accounts.google.com"><i class='bx bxl-google'></i></a>
+                                <a href="https://www.facebook.com"><i class='bx bxl-facebook'></i></a>
+                                <a href="https://www.instagram.com"><i class='bx bxl-instagram'></i></a>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="form-box register">
+                        <form id="register-form">
+                            <h1>Registration</h1>
+                            <div class="input-box">
+                                <input type="text" name="username" placeholder="Username" required>
+                                <i class='bx bxs-user'></i>
+                            </div>
+                            <div class="input-box">
+                                <input type="email" name="email" placeholder="Email" required>
+                                <i class='bx bxs-envelope'></i>
+                            </div>
+                            <div class="input-box">
+                                <input type="password" name="password" placeholder="Password" required>
+                                <i class='bx bxs-lock-alt'></i>
+                            </div>
+                            <div class="input-box">
+                                <input type="password" name="confirmPassword" placeholder="Confirm Password" required>
+                                <i class='bx bxs-lock-alt'></i>
+                            </div>
+                            <button type="submit" class="btn1">Register</button>
+                            <p>or register with social platforms</p>
+                            <div class="social-icons">
+                                <a href="https://accounts.google.com"><i class='bx bxl-google'></i></a>
+                                <a href="https://www.facebook.com"><i class='bx bxl-facebook'></i></a>
+                                <a href="https://www.instagram.com"><i class='bx bxl-instagram'></i></a>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="toggle-box">
+                        <div class="toggle-panel toggle-left">
+                            <h2>Hello, Welcome!</h2>
+                            <p>Don't have an account?</p>
+                            <button class="btn register-btn">Register</button>
+                        </div>
+
+                        <div class="toggle-panel toggle-right">
+                            <h2>Welcome Back!</h2>
+                            <p>Already have an account?</p>
+                            <button class="btn login-btn">Login</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="hero-section">
+                <!-- Left Gallery -->
+                <div class="gallery-grid-left">
+                    <div class="gallery-item"><img src="couple.jpg" alt="Gallery Image 1"></div>
+                    <div class="gallery-item"><img src="bp.jpg" alt="Gallery Image 2"></div>
+                </div>
+
+                <!-- Hero Content (center) -->
+                <div class="hero-content">
+                    <h1 class="hero-title">Capture the Fun with PixelPop!</h1>
+                    <p class="hero-subtitle">Your ultimate virtual photo booth experience – anywhere, anytime.</p>
+                    <button class="cta-button" data-page="layout">
+                        <i class="fas fa-camera"></i>
+                        Start Capturing
+                    </button>
+                </div>
+
+                <!-- Right Gallery -->
+                <div class="gallery-grid-right">
+                    <div class="gallery-item"><img src="friend.png" alt="Gallery Image 3"></div>
+                    <div class="gallery-item"><img src="friend2.jpg" alt="Gallery Image 4"></div>
+                </div>
+            </div>
+
+            <div class="features-section">
+                <h2>Why Choose PixelPop Studio?</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <i class="fas fa-magic"></i>
+                        <h3>Professional Filters</h3>
+                        <p>Apply stunning filters to enhance your photos</p>
+                    </div>
+                    <div class="feature-card">
+                        <i class="fas fa-th-large"></i>
+                        <h3>Multiple Layouts</h3>
+                        <p>Choose from 4 unique photo layout options</p>
+                    </div>
+                    <div class="feature-card">
+                        <i class="fas fa-download"></i>
+                        <h3>Instant Download</h3>
+                        <p>Download and print your photos immediately</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- About Page -->
+        <section id="about-page" class="page">
+            <div class="about-container">
+                <div class="about-header">
+                    <h1>About PixelPop Studio</h1>
+                    <p class="about-intro">Your premier destination for digital photobooth experiences</p>
+                </div>
+
+                <div class="about-content">
+                    <div class="about-section">
+                        <h2>What We Offer</h2>
+                        <p>PixelPop Studio is a state-of-the-art web-based photobooth application designed to bring professional photography experiences to your fingertips. Our platform combines cutting-edge web technologies with intuitive design to create memorable photo sessions.</p>
+                    </div>
+
+                    <div class="about-section">
+                        <h2>How to Use PixelPop Studio</h2>
+                        <div class="instructions">
+                            <div class="instruction-step">
+                                <div class="step-number">1</div>
+                                <div class="step-content">
+                                    <h3>Navigate to Photo Booth</h3>
+                                    <p>Click on "Photo Booth" in the navigation menu or use the "Start Capturing" button on the home page.</p>
+                                </div>
+                            </div>
+                            <div class="instruction-step">
+                                <div class="step-number">2</div>
+                                <div class="step-content">
+                                    <h3>Choose Your Layout</h3>
+                                    <p>Select from 4 different photo layouts including single, collage, strip, and grid options.</p>
+                                </div>
+                            </div>
+                            <div class="instruction-step">
+                                <div class="step-number">3</div>
+                                <div class="step-content">
+                                    <h3>Customize Your Photos</h3>
+                                    <p>Pick from various borders and apply creative filters to enhance your photos.</p>
+                                </div>
+                            </div>
+                            <div class="instruction-step">
+                                <div class="step-number">4</div>
+                                <div class="step-content">
+                                    <h3>Set Timer & Capture</h3>
+                                    <p>Use the timer feature to get ready for your shot, then capture your perfect moment.</p>
+                                </div>
+                            </div>
+                            <div class="instruction-step">
+                                <div class="step-number">5</div>
+                                <div class="step-content">
+                                    <h3>Download & Print</h3>
+                                    <p>Save your completed photo session and print or share your memories.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="about-section">
+                        <h2>Features</h2>
+                        <ul class="features-list">
+                            <li><i class="fas fa-check"></i> Real-time camera preview</li>
+                            <li><i class="fas fa-check"></i> Multiple photo layouts</li>
+                            <li><i class="fas fa-check"></i> Professional filters and effects</li>
+                            <li><i class="fas fa-check"></i> Customizable borders</li>
+                            <li><i class="fas fa-check"></i> Timer functionality</li>
+                            <li><i class="fas fa-check"></i> High-quality downloads</li>
+                            <li><i class="fas fa-check"></i> Mobile-responsive design</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Layout/Photo Booth Page -->
+        <section id="layout-page" class="page">
+            <div class="photobooth-container">
+                <div class="photobooth-header">
+                    <h1>Photo Booth Studio</h1>
+                    <p>Create your perfect photo experience</p>
+                </div>
+
+                <!-- Layout Selection -->
+                <div class="layout-selection">
+                    <h3>Choose Your Layout</h3>
+                    <div class="layout-grid">
+                        <div class="layout-option active" data-layout="single">
+                            <div class="layout-preview">
+                                <div class="preview-single"></div>
+                            </div>
+                            <span>Single</span>
+                        </div>
+                        <div class="layout-option" data-layout="twostrip">
+                            <div class="layout-preview">
+                                <div class="preview-twostrip">
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                </div>
+                            </div>
+                            <span>TwoStrip</span>
+                        </div>
+                        <div class="layout-option" data-layout="threestrip">
+                            <div class="layout-preview">
+                                <div class="preview-threestrip">
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                </div>
+                            </div>
+                            <span>ThreeStrip</span>
+                        </div>
+                        <div class="layout-option" data-layout="fourstrip">
+                            <div class="layout-preview">
+                                <div class="preview-fourstrip">
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                    <div class="strip-item"></div>
+                                </div>
+                            </div>
+                            <span>FourStrip</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Camera and Controls -->
+                <div class="camera-section">
+                    <div class="camera-container">
+                        <video id="camera-feed" autoplay playsinline></video>
+                        <canvas id="photo-canvas" style="display: none;"></canvas>
+                        <div class="camera-overlay">
+                            <div class="timer-display" id="timer-display" style="display: none;">3</div>
+                            <div class="capture-button-container">
+                                <button id="capture-btn" class="capture-button">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Border Selection -->
+                    <div class="border-selection">
+                        <h4>Choose Border</h4>
+                        <div class="border-options">
+                            <div class="border-option active" data-border="none">
+                                <div class="border-preview no-border"></div>
+                                <span>None</span>
+                            </div>
+                            <div class="border-option" data-border="classic">
+                                <div class="border-preview classic-border"></div>
+                                <span>Classic</span>
+                            </div>
+                            <div class="border-option" data-border="modern">
+                                <div class="border-preview modern-border"></div>
+                                <span>Modern</span>
+                            </div>
+                            <div class="border-option" data-border="vintage">
+                                <div class="border-preview vintage-border"></div>
+                                <span>Vintage</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Selection -->
+                    <div class="filter-selection">
+                        <h4>Apply Filters</h4>
+                        <div class="filter-options">
+                            <div class="filter-option active" data-filter="none">
+                                <div class="filter-preview normal"></div>
+                                <span>Normal</span>
+                            </div>
+                            <div class="filter-option" data-filter="sepia">
+                                <div class="filter-preview sepia"></div>
+                                <span>Sepia</span>
+                            </div>
+                            <div class="filter-option" data-filter="grayscale">
+                                <div class="filter-preview grayscale"></div>
+                                <span>B&W</span>
+                            </div>
+                            <div class="filter-option" data-filter="vintage">
+                                <div class="filter-preview vintage"></div>
+                                <span>Vintage</span>
+                            </div>
+                            <div class="filter-option" data-filter="bright">
+                                <div class="filter-preview bright"></div>
+                                <span>Bright</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timer and Controls -->
+                    <div class="photo-controls">
+                        <div class="timer-controls">
+                            <label for="timer-select">Timer:</label>
+                            <select id="timer-select">
+                                <option value="0">No Timer</option>
+                                <option value="3" selected>3 seconds</option>
+                                <option value="5">5 seconds</option>
+                                <option value="10">10 seconds</option>
+                            </select>
+                        </div>
+                        <button id="start-session" class="primary-button">
+                            <i class="fas fa-play"></i>
+                            Start Session
+                        </button>
+                        <button id="reset-session" class="secondary-button">
+                            <i class="fas fa-redo"></i>
+                            Reset
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Photo Results -->
+                <div class="photo-results" id="photo-results" style="display: none;">
+                    <h3>Your Photos</h3>
+                    <div class="results-container">
+                        <canvas id="final-canvas"></canvas>
+                        <div class="download-controls">
+                            <button id="download-btn" class="primary-button" title="Log in to use this">
+                                <i class="fas fa-download"></i>
+                                Download Photos
+                            </button>
+                            <button id="print-btn" class="secondary-button" title="Log in to use this">
+                                <i class="fas fa-print"></i>
+                                Print Photos
+                            </button>
+                            <button id="new-session" class="secondary-button">
+                                <i class="fas fa-plus"></i>
+                                New Session
+                            </button>
+
+                            <!-- QR Code Section -->
+                            <section id="qr-section" style="display:none; text-align:center; margin-top:20px;">
+                                <canvas id="qr-code"></canvas>
+                                <div><a id="qr-link" target="_blank" rel="noopener">Open image</a></div>
+                                <div id="qr-actions" style="display:none; gap:8px; margin-top:8px;">
+                                    <button id="copy-link">Copy link</button>
+                                    <button id="download-qr">Download QR</button>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Frame Composer -->
+                <section class="frame-content">
+                    <div class="container">
+                        <h1 class="frmcho">Photo Frame Choosing</h1>
+                        <p class="frmdesc">Upload a photo and choose a frame to create your masterpiece!</p>
+
+                        <div class="search-container">
+                            <input type="text" id="frameSearch" placeholder="Search for a frame...">
+                        </div>
+
+                        <div class="upload-area">
+                            <label for="fileInput" class="upload-btn">Choose Photo</label>
+                            <input type="file" id="fileInput" accept="image/*">
+                        </div>
+
+                        <div class="frame-selector">
+                            <div class="frame-item">
+                                <img src="cas.png" alt="CAS Frame" class="frame-thumb" data-frame="cas.png">
+                                <p class="frame-name">CAS Frame</p>
+                            </div>
+                            <div class="frame-item">
+                                <img src="blackpink.png" alt="Blackpink Frame" class="frame-thumb" data-frame="blackpink.png">
+                                <p class="frame-name">Blackpink Frame</p>
+                            </div>
+                            <div class="frame-item">
+                                <img src="fogfbloom.PNG" alt="Fragrant Flowers Bloom Frame" class="frame-thumb" data-frame="fogfbloom.PNG">
+                                <p class="frame-name">Fragrant Flowers Bloom Frame 1</p>
+                            </div>
+                            <div class="frame-item">
+                                <img src="htooeainthin.png" alt="Htoo Eain Thin Frame" class="frame-thumb" data-frame="htooeainthin.png">
+                                <p class="frame-name">Htoo Eain Thin Frame</p>
+                            </div>
+                            <div class="frame-item">
+                                <img src="thesmith.png" alt="The Smiths Frame" class="frame-thumb" data-frame="thesmith.png">
+                                <p class="frame-name">The Smiths Frame</p>
+                            </div>
+                            <div class="frame-item">
+                                <img src="TVgirl.png" alt="TV Girl Frame" class="frame-thumb" data-frame="TVgirl.png">
+                                <p class="frame-name">TV Girl Frame</p>
+                            </div>
+                            <div class="frame-item">
+                                <img src="fogfbloom2.PNG" alt="Fragrant Flowers Bloom Frame 2" class="frame-thumb" data-frame="fogfbloom2.PNG">
+                                <p class="frame-name">Fragrant Flowers Bloom Frame 2</p>
+                            </div>
+                            <div class="frame-item">
+                                <img src="demonslayer1.PNG" alt="Demon Slayer Frame" class="frame-thumb" data-frame="demonslayer1.PNG">
+                                <p class="frame-name">Demon Slayer Frame 1</p>
+                            </div>
+                            <div class="frame-item">
+                                <img src="demonslayer2.PNG" alt="Demon Slayer Frame 2" class="frame-thumb" data-frame="demonslayer2.PNG">
+                                <p class="frame-name">Demon Slayer Frame 2</p>
+                            </div>
+                            <div class="frame-item">
+                                <img src="attackontitan.PNG" alt="Attack on Titan Frame" class="frame-thumb" data-frame="attackontitan.PNG">
+                                <p class="frame-name">Attack on Titan Frame</p>
+                            </div>
+                            <div class="frame-item">
+                                <img src="haikyuu.PNG" alt="Haikyuu Frame" class="frame-thumb" data-frame="haikyuu.PNG">
+                                <p class="frame-name">Haikyuu Frame</p>
+                            </div>
+                            <div class="frame-item">
+                                <img src="fogfbloom3.PNG" alt="Fragrant Flowers Bloom Frame 3" class="frame-thumb" data-frame="fogfbloom3.PNG">
+                                <p class="frame-name">Fragrant Flowers Bloom Frame 3</p>
+                            </div>
+                        </div>
+
+                        <div class="photo-frame-container">
+                            <div class="photo-inner-container" id="photoInnerContainer">
+                                <img id="userPhoto" class="user-photo" src="" alt="Your uploaded photo">
+                            </div>
+                            <img id="frameImage" class="frame-image" src="" alt="Selected frame">
+                            <div id="initialMessage" class="message-box">Upload a photo to begin!</div>
+                        </div>
+
+                        <button id="downloadBtn" style="margin-top:20px;display:none;" class="upload-btn" title="Log in to use this">Download Image</button>
+                        <button id="printFrameBtn" style="margin-top:20px;display:none;" class="upload-btn" title="Log in to use this">Print</button>
+
+                        <!-- Frame QR -->
+                        <section id="qr-section-frame" style="display:none; text-align:center; margin-top:20px;">
+                          <canvas id="qr-code-frame" width="300" height="300"></canvas>
+                          <p><a id="qr-link-frame" href="#" target="_blank" rel="noopener noreferrer">Open / Download image</a></p>
+                          <div id="qr-actions-frame" style="display:none; gap:8px; margin-top:8px;">
+                            <button id="copy-link-frame">Copy link</button>
+                            <button id="download-qr-frame">Download QR</button>
+                          </div>
+                        </section>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>© 2025 PixelPop Studio. All rights reserved.</p>
+        <div class="social-icons">
+            <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook"></i></a>
+            <a href="https://instagram.com" target="_blank"><i class="fab fa-instagram"></i></a>
+            <a href="https://twitter.com" target="_blank"><i class="fab fa-twitter"></i></a>
+        </div>
+    </footer>
+
+    <div class="loading-overlay" id="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>Initializing camera...</p>
+    </div>
+
+    <div class="error-modal" id="error-modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Camera Access Required</h3>
+            <p id="error-message">Please allow camera access to use the photobooth feature.</p>
+            <button class="primary-button" onclick="closeErrorModal()">OK</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js" defer></script>
+    <script src="script.js"></script>
+</body>
+</html>
+-->

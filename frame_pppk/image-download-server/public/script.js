@@ -1,4 +1,4 @@
-// PixelPop Studio - Main JavaScript File (Corrected)
+// PixelPop Studio - Main JavaScript File (No async/await)
 class PixelPopStudio {
   constructor() {
     this.currentPage = 'home';
@@ -25,22 +25,22 @@ class PixelPopStudio {
     this.setupTimerControls();
     this.setupPhotoControls();
     this.setupMobileMenu();
+    this.setupGalleryUi();
   }
 
   // ============== Auth helpers ==============
-  async verifyToken() {
+  verifyToken() {
     const token = localStorage.getItem('token');
-    if (!token) return false;
+    if (!token) return Promise.resolve(false);
 
-    try {
-      const res = await fetch(`${this.API_BASE}/api/auth/verify`, {
-        headers: { Authorization: 'Bearer ' + token }
+    return fetch(this.API_BASE + '/api/auth/verify', {
+      headers: { Authorization: 'Bearer ' + token }
+    })
+      .then(res => res.ok === true)
+      .catch(err => {
+        console.error('verifyToken failed', err);
+        return false;
       });
-      return res.ok === true;
-    } catch (err) {
-      console.error('verifyToken failed', err);
-      return false;
-    }
   }
 
   updatePrivilegedButtonsState() {
@@ -133,6 +133,11 @@ class PixelPopStudio {
     }
 
     this.currentPage = page;
+
+    // load private gallery when user opens it
+    if (page === 'gallery') {
+      this.refreshGallery();
+    }
 
     // Update nav active state
     const links = document.querySelectorAll('.nav-link');
@@ -232,7 +237,7 @@ class PixelPopStudio {
     const timerSelect = document.getElementById('timer-select');
     if (timerSelect) {
       timerSelect.addEventListener('change', (e) => {
-        this.timerValue = parseInt(e.target.value);
+        this.timerValue = parseInt(e.target.value, 10);
       });
     }
   }
@@ -243,29 +248,33 @@ class PixelPopStudio {
     const printBtn     = document.getElementById('print-btn');
     const newSessionBtn= document.getElementById('new-session');
 
-    const requireLogin = async () => {
-      const ok = await this.verifyToken();
-      if (!ok) {
-        console.warn('[PixelPop] verifyToken=false → showing alert');
-        alert('Please log in to continue.');
-        return false;
-      }
-      return true;
-    };
+    const requireLogin = () =>
+      this.verifyToken().then(ok => {
+        if (!ok) {
+          console.warn('[PixelPop] verifyToken=false → showing alert');
+          alert('Please log in to continue.');
+          return false;
+        }
+        return true;
+      });
 
     if (downloadBtn) {
-      downloadBtn.addEventListener('click', async (e) => {
+      downloadBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        if (!(await requireLogin())) return;
-        this.downloadPhotos();
+        requireLogin().then(ok => {
+          if (!ok) return;
+          this.downloadPhotos();
+        });
       });
     }
 
     if (printBtn) {
-      printBtn.addEventListener('click', async (e) => {
+      printBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        if (!(await requireLogin())) return;
-        this.printPhotos();
+        requireLogin().then(ok => {
+          if (!ok) return;
+          this.printPhotos();
+        });
       });
     }
 
@@ -277,33 +286,33 @@ class PixelPopStudio {
     }
   }
 
-  async initializeCamera() {
+  initializeCamera() {
     const loadingOverlay = document.getElementById('loading-overlay');
     const cameraFeed = document.getElementById('camera-feed');
 
     if (loadingOverlay) loadingOverlay.style.display = 'flex';
 
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user'
-        },
-        audio: false
-      });
-
+    navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        facingMode: 'user'
+      },
+      audio: false
+    })
+    .then(stream => {
+      this.stream = stream;
       if (cameraFeed) {
         cameraFeed.srcObject = this.stream;
         cameraFeed.play();
       }
-
       if (loadingOverlay) loadingOverlay.style.display = 'none';
-    } catch (error) {
+    })
+    .catch(error => {
       console.error('Camera access error:', error);
       showError('Camera access denied. Please allow camera permission and try again.');
       if (loadingOverlay) loadingOverlay.style.display = 'none';
-    }
+    });
   }
 
   stopCamera() {
@@ -322,21 +331,24 @@ class PixelPopStudio {
     }
   }
 
-  async capturePhoto() {
+  capturePhoto() {
     if (this.isCapturing) return;
     this.isCapturing = true;
 
+    const afterTimer = () => {
+      const photo = this.takeSnapshot();
+      if (photo) {
+        this.capturedPhotos.push(photo);
+        this.checkSessionComplete();
+      }
+      this.isCapturing = false;
+    };
+
     if (this.timerValue > 0) {
-      await this.startTimer();
+      this.startTimer().then(afterTimer);
+    } else {
+      afterTimer();
     }
-
-    const photo = this.takeSnapshot();
-    if (photo) {
-      this.capturedPhotos.push(photo);
-      this.checkSessionComplete();
-    }
-
-    this.isCapturing = false;
   }
 
   startTimer() {
@@ -476,6 +488,7 @@ class PixelPopStudio {
   completeSession() {
     this.createFinalLayout();
     this.showResults();
+    this.maybeAutosaveToGallery();
   }
 
   createFinalLayout() {
@@ -578,6 +591,7 @@ class PixelPopStudio {
     });
   }
 
+  /* Optional title
   addLayoutTitle(ctx, canvas, text) {
     ctx.save();
     ctx.fillStyle = '#111';
@@ -585,7 +599,7 @@ class PixelPopStudio {
     ctx.textAlign = 'center';
     ctx.fillText(text, canvas.width / 2, canvas.height - 8);
     ctx.restore();
-  }
+  } */
 
   showResults() {
     const resultsSection = document.getElementById('photo-results');
@@ -616,28 +630,28 @@ class PixelPopStudio {
   }
 
   // ---- Uploads + QR (photobooth results) ----
-  async verifyPublicUrl(url) {
-    try { const r = await fetch(url, { method: 'HEAD', cache: 'no-store' }); return r.ok; }
-    catch { return false; }
+  verifyPublicUrl(url) {
+    return fetch(url, { method: 'HEAD', cache: 'no-store' })
+      .then(r => r.ok)
+      .catch(() => false);
   }
 
-  async uploadImageToService(imageData, mode = 'view') {
-    try {
-      const response = await fetch(`${this.API_BASE}/api/upload`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageData, fileName: `pixelpop-photo-${Date.now()}.jpg` })
-      });
-      const data = await response.json();
-      if (!response.ok) return null;
-
-      let qrUrl = data.url;
-      if (mode === 'view' && data.viewerUrl) qrUrl = data.viewerUrl;
-      if (mode === 'download' && data.downloadUrl) qrUrl = data.downloadUrl;
-      return qrUrl;
-    } catch {
-      return null;
-    }
+  uploadImageToService(imageData, mode = 'view') {
+    return fetch(this.API_BASE + '/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageData, fileName: `pixelpop-photo-${Date.now()}.jpg` })
+    })
+    .then(response =>
+      response.json().catch(() => ({})).then(data => {
+        if (!response.ok) return null;
+        let qrUrl = data.url;
+        if (mode === 'view' && data.viewerUrl) qrUrl = data.viewerUrl;
+        if (mode === 'download' && data.downloadUrl) qrUrl = data.downloadUrl;
+        return qrUrl;
+      })
+    )
+    .catch(() => null);
   }
 
   showQRCodeResult(uploadUrl) {
@@ -679,10 +693,11 @@ class PixelPopStudio {
 
     actions.style.display = 'inline-flex';
 
-    copyBtn.onclick = async () => {
-      try { await navigator.clipboard.writeText(uploadUrl); copyBtn.textContent = 'Copied!'; }
-      catch { copyBtn.textContent = 'Copy failed'; }
-      setTimeout(() => copyBtn.textContent = 'Copy link', 1200);
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(uploadUrl)
+        .then(() => { copyBtn.textContent = 'Copied!'; })
+        .catch(() => { copyBtn.textContent = 'Copy failed'; })
+        .finally(() => setTimeout(() => copyBtn.textContent = 'Copy link', 1200));
     };
 
     dlBtn.onclick = () => {
@@ -693,7 +708,7 @@ class PixelPopStudio {
     };
   }
 
-  async downloadPhotos() {
+  downloadPhotos() {
     const finalCanvas = document.getElementById('final-canvas');
     if (!finalCanvas) return;
 
@@ -706,31 +721,33 @@ class PixelPopStudio {
     mirrorCanvas.height = h;
     const ctx = mirrorCanvas.getContext('2d');
 
-    ctx.save(); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); ctx.restore?.();
+    ctx.save(); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); ctx.restore();
 
     ctx.save();
     ctx.scale(scale, scale);
     ctx.translate(finalCanvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
-    ctx.restore?.();
+    ctx.restore();
 
-    mirrorCanvas.toBlob(async (blob) => {
+    mirrorCanvas.toBlob((blob) => {
       const dataURL = mirrorCanvas.toDataURL('image/jpeg', 1.0);
-      const qrUrl = await this.uploadImageToService(dataURL, 'view');
+      this.uploadImageToService(dataURL, 'view').then(qrUrl => {
+        const link = document.createElement('a');
+        link.download = `pixelpop-photos-${Date.now()}.jpg`;
+        link.href = URL.createObjectURL(blob);
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(link.href), 250);
 
-      const link = document.createElement('a');
-      link.download = `pixelpop-photos-${Date.now()}.jpg`;
-      link.href = URL.createObjectURL(blob);
-      document.body.appendChild(link); link.click(); document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(link.href), 250);
-
-      if (qrUrl && await this.verifyPublicUrl(qrUrl)) this.showQRCodeResult(qrUrl);
-      else if (qrUrl) this.showQRCodeResult(qrUrl);
+        if (qrUrl) {
+          this.verifyPublicUrl(qrUrl).then(() => this.showQRCodeResult(qrUrl))
+            .catch(() => this.showQRCodeResult(qrUrl));
+        }
+      });
     }, 'image/jpeg', 1.0);
   }
 
-  async printPhotos() {
+  printPhotos() {
     const finalCanvas = document.getElementById('final-canvas');
     if (!finalCanvas) return;
 
@@ -743,14 +760,14 @@ class PixelPopStudio {
     mirrorCanvas.height = h;
     const ctx = mirrorCanvas.getContext('2d');
 
-    ctx.save(); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); ctx.restore?.();
+    ctx.save(); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); ctx.restore();
 
     ctx.save();
     ctx.scale(scale, scale);
     ctx.translate(finalCanvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
-    ctx.restore?.();
+    ctx.restore();
 
     const dataURL = mirrorCanvas.toDataURL('image/jpeg', 1.0);
 
@@ -784,9 +801,165 @@ class PixelPopStudio {
       alert('Please allow pop-ups to print.');
     }
 
-    const qrUrl = await this.uploadImageToService(dataURL, 'view');
-    if (qrUrl && await this.verifyPublicUrl(qrUrl)) this.showQRCodeResult(qrUrl);
-    else if (qrUrl) this.showQRCodeResult(qrUrl);
+    this.uploadImageToService(dataURL, 'view').then(qrUrl => {
+      if (qrUrl) {
+        this.verifyPublicUrl(qrUrl).then(() => this.showQRCodeResult(qrUrl))
+          .catch(() => this.showQRCodeResult(qrUrl));
+      }
+    });
+  }
+
+  // ======== Gallery (no async/await version) ========
+
+  // List current user's photos
+  listMyPhotos() {
+    const token = localStorage.getItem('token');
+    if (!token) return Promise.resolve({ ok: false, items: [], error: 'no-token' });
+
+    return fetch(this.API_BASE + '/api/gallery/mine', {
+      headers: { Authorization: 'Bearer ' + token }
+    })
+    .then(res =>
+      res.json().catch(() => ({}))
+        .then(data => ({ ok: res.ok, items: data.items || [], error: data.error }))
+    )
+    .catch(e => ({ ok: false, items: [], error: String(e) }));
+  }
+
+  // Save one image (dataURL) into user's private gallery
+  savePhotoToGallery(dataURL) {
+    const token = localStorage.getItem('token');
+    if (!token) return Promise.resolve({ ok: false, error: 'no-token' });
+
+    return fetch(this.API_BASE + '/api/gallery', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token
+      },
+      body: JSON.stringify({
+        imageData: dataURL,
+        visibility: 'private',
+        fileName: `pixelpop-${Date.now()}.jpg`
+      })
+    })
+    .then(res =>
+      res.json().catch(() => ({}))
+        .then(data => ({ ok: res.ok, item: data.item, error: data.error }))
+    )
+    .catch(e => ({ ok: false, error: String(e) }));
+  }
+
+  deletePhoto(photoId) {
+    const token = localStorage.getItem('token');
+    if (!token) return Promise.resolve(false);
+
+    return fetch(this.API_BASE + '/api/gallery/' + photoId, {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + token }
+    })
+    .then(res => res.ok)
+    .catch(() => false);
+  }
+
+  // Render gallery page
+  refreshGallery() {
+    const hint    = document.getElementById('gallery-login-hint');
+    const grid    = document.getElementById('gallery-grid');
+    const empty   = document.getElementById('gallery-empty');
+    const actions = document.getElementById('gallery-actions');
+
+    if (!(grid && empty && hint)) return;
+    grid.innerHTML = '';
+
+    this.verifyToken().then(isAuthed => {
+      if (!isAuthed) {
+        hint.style.display = 'block';
+        if (actions) actions.style.display = 'none';
+        empty.style.display = 'none';
+        return;
+      }
+
+      hint.style.display = 'none';
+      if (actions) actions.style.display = 'flex';
+
+      this.listMyPhotos().then(({ ok, items }) => {
+        if (!ok || !items || items.length === 0) {
+          empty.style.display = 'block';
+          return;
+        }
+        empty.style.display = 'none';
+
+        items.forEach(it => {
+          const card = document.createElement('div');
+          card.className = 'gallery-card';
+
+          const img = document.createElement('img');
+          img.src = it.url;
+          img.alt = 'Your photo';
+
+          const meta = document.createElement('div');
+          meta.className = 'meta';
+
+          const span = document.createElement('span');
+          span.textContent = new Date(it.createdAt || Date.now()).toLocaleString();
+
+          const del = document.createElement('button');
+          del.innerHTML = '<i class="fas fa-trash"></i>';
+          del.addEventListener('click', () => {
+            if (!confirm('Delete this photo?')) return;
+            this.deletePhoto(it.id).then(ok => { if (ok) card.remove(); });
+          });
+
+          meta.appendChild(span);
+          meta.appendChild(del);
+          card.appendChild(img);
+          card.appendChild(meta);
+          grid.appendChild(card);
+        });
+      });
+    });
+  }
+
+  // Wire up gallery page buttons
+  setupGalleryUi() {
+    const refresh = document.getElementById('refresh-gallery');
+    const logout  = document.getElementById('logout-from-gallery');
+    if (refresh) refresh.addEventListener('click', () => this.refreshGallery());
+    if (logout)  logout.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.logout();
+      this.refreshGallery();
+    });
+  }
+
+  // Silently save final canvas to the user's gallery (if logged in)
+  maybeAutosaveToGallery() {
+    this.verifyToken()
+      .then(isAuthed => {
+        if (!isAuthed) return;
+
+        const finalCanvas = document.getElementById('final-canvas');
+        if (!finalCanvas) return;
+
+        const scale = 2;
+        const tmp = document.createElement('canvas');
+        tmp.width  = finalCanvas.width * scale;
+        tmp.height = finalCanvas.height * scale;
+        const ctx = tmp.getContext('2d');
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, tmp.width, tmp.height);
+
+        ctx.save();
+        ctx.scale(scale, scale);
+        ctx.drawImage(finalCanvas, 0, 0);
+        if (ctx.restore) ctx.restore();
+
+        const dataURL = tmp.toDataURL('image/jpeg', 0.95);
+        return this.savePhotoToGallery(dataURL);
+      })
+      .catch(e => console.warn('Autosave failed:', e));
   }
 }
 
@@ -815,32 +988,31 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ===============================
-// Frame page (Download + Print + QR)
+// Frame page (Download + Print + QR) - Promise version
 // ===============================
 const FRAME_API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
 const toAbsolute = (url) => (!url ? null : url.startsWith('http') ? url : `${FRAME_API_BASE}${url}`);
 
-async function verifyPublicUrl(url) {
-  try { const r = await fetch(url, { method: 'HEAD', cache: 'no-store' }); return r.ok; }
-  catch { return false; }
+function frameVerifyPublicUrl(url) {
+  return fetch(url, { method: 'HEAD', cache: 'no-store' })
+    .then(r => r.ok)
+    .catch(() => false);
 }
 
-async function uploadImageToService(imageData, mode = 'view') {
-  try {
-    const res = await fetch(`${FRAME_API_BASE}/api/upload`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageData, fileName: `framed-image-${Date.now()}.jpg` })
-    });
-    const data = await res.json().catch(() => ({}));
+function frameUploadImageToService(imageData, mode = 'view') {
+  return fetch(`${FRAME_API_BASE}/api/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageData, fileName: `framed-image-${Date.now()}.jpg` })
+  })
+  .then(res => res.json().catch(() => ({})).then(data => {
     if (!res.ok) return null;
     let url = data.url;
     if (mode === 'view' && data.viewerUrl)       url = data.viewerUrl;
     if (mode === 'download' && data.downloadUrl) url = data.downloadUrl;
     return toAbsolute(url);
-  } catch (e) {
-    return null;
-  }
+  }))
+  .catch(() => null);
 }
 
 function showQRCodeFrame(uploadUrl) {
@@ -874,10 +1046,11 @@ function showQRCodeFrame(uploadUrl) {
 
   if (actions && copyBtn && dlBtn) {
     actions.style.display = 'inline-flex';
-    copyBtn.onclick = async () => {
-      try { await navigator.clipboard.writeText(uploadUrl); copyBtn.textContent = 'Copied!'; }
-      catch { copyBtn.textContent = 'Copy failed'; }
-      setTimeout(() => (copyBtn.textContent = 'Copy link'), 1200);
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(uploadUrl)
+        .then(() => { copyBtn.textContent = 'Copied!'; })
+        .catch(() => { copyBtn.textContent = 'Copy failed'; })
+        .finally(() => setTimeout(() => (copyBtn.textContent = 'Copy link'), 1200));
     };
     dlBtn.onclick = () => {
       const dataUrl = canvas.toDataURL('image/png');
@@ -968,21 +1141,23 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // Upload photo
-  fileInput?.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      userPhotoSrc = String(ev.target.result);
-      if (userPhoto) {
-        userPhoto.src = userPhotoSrc;
-        userPhoto.style.opacity = 1;
-      }
-      setActionsVisibility();
-      if (!selectedFrameSrc) showMessage('Now choose a frame!');
-    };
-    reader.readAsDataURL(file);
-  });
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        userPhotoSrc = String(ev.target.result);
+        if (userPhoto) {
+          userPhoto.src = userPhotoSrc;
+          userPhoto.style.opacity = 1;
+        }
+        setActionsVisibility();
+        if (!selectedFrameSrc) showMessage('Now choose a frame!');
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 
   // Choose frame
   frameItems.forEach(item => {
@@ -991,7 +1166,7 @@ document.addEventListener('DOMContentLoaded', () => {
       item.classList.add('selected');
 
       const thumb = item.querySelector('.frame-thumb');
-      selectedFrameSrc = thumb?.getAttribute('data-frame') || thumb?.src || '';
+      selectedFrameSrc = (thumb && (thumb.getAttribute('data-frame') || thumb.src)) || '';
 
       if (frameImage && selectedFrameSrc) {
         frameImage.src = selectedFrameSrc;
@@ -1003,99 +1178,124 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Search frames
-  frameSearch?.addEventListener('keyup', (event) => {
-    const term = (event.target.value || '').toLowerCase();
-    frameItems.forEach(item => {
-      const alt = (item.querySelector('.frame-thumb')?.alt || '').toLowerCase();
-      item.style.display = alt.includes(term) ? 'flex' : 'none';
+  if (frameSearch) {
+    frameSearch.addEventListener('keyup', (event) => {
+      const term = (event.target.value || '').toLowerCase();
+      frameItems.forEach(item => {
+        const thumb = item.querySelector('.frame-thumb');
+        const alt = (thumb && thumb.alt) ? thumb.alt.toLowerCase() : '';
+        item.style.display = alt.includes(term) ? 'flex' : 'none';
+      });
     });
-  });
+  }
 
-  // Helper to check login on frame page with fallback
-  const requireLoginFrame = async () => {
-    const hasFn = typeof window.PixelPopApp?.verifyToken === 'function';
-    const ok = hasFn ? await window.PixelPopApp.verifyToken() : !!localStorage.getItem('token');
-    if (!ok) {
-      console.warn('[PixelPop Frame] verifyToken=false → showing alert');
-      alert('Please log in to download or print.');
-      return false;
-    }
-    return true;
+  // Helper to check login on frame page with fallback (Promise-based)
+  const requireLoginFrame = () => {
+    const hasFn = window.PixelPopApp && typeof window.PixelPopApp.verifyToken === 'function';
+    const p = hasFn ? window.PixelPopApp.verifyToken() : Promise.resolve(!!localStorage.getItem('token'));
+    return p.then(ok => {
+      if (!ok) {
+        console.warn('[PixelPop Frame] verifyToken=false → showing alert');
+        alert('Please log in to download or print.');
+        return false;
+      }
+      return true;
+    });
   };
 
   // Download + QR (LOGIN REQUIRED)
-  downloadBtn?.addEventListener('click', async (e) => {
-    e.preventDefault();
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', (e) => {
+      e.preventDefault();
 
-    if (!(await requireLoginFrame())) return;
-    if (!userPhotoSrc || !selectedFrameSrc) {
-      alert('Upload a photo and choose a frame first.');
-      return;
-    }
+      requireLoginFrame().then(ok => {
+        if (!ok) return;
+        if (!userPhotoSrc || !selectedFrameSrc) {
+          alert('Upload a photo and choose a frame first.');
+          return;
+        }
 
-    const out = await buildFramedOutput(userPhotoSrc, selectedFrameSrc);
-    if (!out) { alert('Could not compose framed image.'); return; }
+        buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
+          if (!out) { alert('Could not compose framed image.'); return; }
 
-    const a = document.createElement('a');
-    a.download = `framed-image-${Date.now()}.jpg`;
-    a.href = URL.createObjectURL(out.blob);
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 250);
+          const a = document.createElement('a');
+          a.download = `framed-image-${Date.now()}.jpg`;
+          a.href = URL.createObjectURL(out.blob);
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 250);
 
-    const qrUrl = await uploadImageToService(out.dataURL, 'view');
-    if (qrUrl) { try { await verifyPublicUrl(qrUrl); } catch {} showQRCodeFrame(qrUrl); }
+          frameUploadImageToService(out.dataURL, 'view').then(qrUrl => {
+            if (qrUrl) {
+              frameVerifyPublicUrl(qrUrl)
+                .then(() => showQRCodeFrame(qrUrl))
+                .catch(() => showQRCodeFrame(qrUrl));
+            }
+          });
 
-    showMessage('Image downloaded in original HD quality!');
-  });
+          showMessage('Image downloaded in original HD quality!');
+        });
+      });
+    });
+  }
 
   // Print + QR (LOGIN REQUIRED)
-  printBtn?.addEventListener('click', async (e) => {
-    e.preventDefault();
+  if (printBtn) {
+    printBtn.addEventListener('click', (e) => {
+      e.preventDefault();
 
-    if (!(await requireLoginFrame())) return;
-    if (!userPhotoSrc || !selectedFrameSrc) {
-      alert('Upload a photo and choose a frame first.');
-      return;
-    }
+      requireLoginFrame().then(ok => {
+        if (!ok) return;
+        if (!userPhotoSrc || !selectedFrameSrc) {
+          alert('Upload a photo and choose a frame first.');
+          return;
+        }
 
-    const out = await buildFramedOutput(userPhotoSrc, selectedFrameSrc);
-    if (!out) { alert('Could not compose framed image.'); return; }
+        buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
+          if (!out) { alert('Could not compose framed image.'); return; }
 
-    const w = window.open('', '_blank');
-    if (w) {
-      w.document.write(`
-        <html>
-          <head>
-            <title>PixelPop Framed Photo</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1" />
-            <style>
-              @media print { html, body { height: 100%; } img { page-break-inside: avoid; } }
-              html, body { margin:0; }
-              body { display:flex; justify-content:center; align-items:center; min-height:100vh; background:#fff; }
-              img { max-width:100%; max-height:100vh; height:auto; }
-            </style>
-          </head>
-          <body>
-            <img src="${out.dataURL}" alt="Framed Photo"/>
-            <script>
-              const img = document.querySelector('img');
-              if (img && !img.complete) img.addEventListener('load', () => window.print());
-              else window.print();
-              window.addEventListener('afterprint', () => window.close());
-            <\/script>
-          </body>
-        </html>
-      `);
-      w.document.close();
-    } else {
-      alert('Please allow pop-ups to print.');
-    }
+          const w = window.open('', '_blank');
+          if (w) {
+            w.document.write(`
+              <html>
+                <head>
+                  <title>PixelPop Framed Photo</title>
+                  <meta name="viewport" content="width=device-width, initial-scale=1" />
+                  <style>
+                    @media print { html, body { height: 100%; } img { page-break-inside: avoid; } }
+                    html, body { margin:0; }
+                    body { display:flex; justify-content:center; align-items:center; min-height:100vh; background:#fff; }
+                    img { max-width:100%; max-height:100vh; height:auto; }
+                  </style>
+                </head>
+                <body>
+                  <img src="${out.dataURL}" alt="Framed Photo"/>
+                  <script>
+                    const img = document.querySelector('img');
+                    if (img && !img.complete) img.addEventListener('load', () => window.print());
+                    else window.print();
+                    window.addEventListener('afterprint', () => window.close());
+                  <\/script>
+                </body>
+              </html>
+            `);
+            w.document.close();
+          } else {
+            alert('Please allow pop-ups to print.');
+          }
 
-    const qrUrl = await uploadImageToService(out.dataURL, 'view');
-    if (qrUrl) { try { await verifyPublicUrl(qrUrl); } catch {} showQRCodeFrame(qrUrl); }
+          frameUploadImageToService(out.dataURL, 'view').then(qrUrl => {
+            if (qrUrl) {
+              frameVerifyPublicUrl(qrUrl)
+                .then(() => showQRCodeFrame(qrUrl))
+                .catch(() => showQRCodeFrame(qrUrl));
+            }
+          });
 
-    showMessage('Ready to print. QR generated!');
-  });
+          showMessage('Ready to print. QR generated!');
+        });
+      });
+    });
+  }
 
   // init display state
   showMessage('Upload a photo to begin!');
@@ -1105,10 +1305,11 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===== Auth UI + API glue =====
 const API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
 
-// Safely parse JSON
-async function safeJson(res) {
-  const text = await res.text();
-  try { return text ? JSON.parse(text) : {}; } catch { return {}; }
+// Safely parse JSON (Promise version)
+function safeJson(res) {
+  return res.text().then(text => {
+    try { return text ? JSON.parse(text) : {}; } catch { return {}; }
+  });
 }
 
 function setBusy(form, busy) {
@@ -1118,95 +1319,97 @@ function setBusy(form, busy) {
 }
 
 // Get elements
-const loginForm   = document.getElementById('login-form');
+const loginForm    = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const container    = document.querySelector('.logincontainer');
 const registerBtn  = document.querySelector('.register-btn');
 const loginBtn     = document.querySelector('.login-btn');
 
 // Toggle UI
-registerBtn?.addEventListener('click', () => container?.classList.add('active'));
-loginBtn?.addEventListener('click', () => container?.classList.remove('active'));
+if (registerBtn) registerBtn.addEventListener('click', () => container && container.classList.add('active'));
+if (loginBtn)    loginBtn.addEventListener('click', () => container && container.classList.remove('active'));
 
-// Registration
-registerForm?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  setBusy(registerForm, true);
+// Registration (Promise version)
+if (registerForm) {
+  registerForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    setBusy(registerForm, true);
 
-  const username = e.target.username.value.trim();
-  const email = e.target.email.value.trim();
-  const password = e.target.password.value;
-  const confirmPassword = e.target.confirmPassword.value;
+    const username = e.target.username.value.trim();
+    const email = e.target.email.value.trim();
+    const password = e.target.password.value;
+    const confirmPassword = e.target.confirmPassword.value;
 
-  if (password !== confirmPassword) {
-    alert('Passwords do not match!');
-    setBusy(registerForm, false);
-    return;
-  }
+    if (password !== confirmPassword) {
+      alert('Passwords do not match!');
+      setBusy(registerForm, false);
+      return;
+    }
 
-  try {
-    const response = await fetch(`${API_BASE}/signup`, {
+    fetch(API_BASE + '/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, email, password })
-    });
+    })
+    .then(response => safeJson(response).then(data => ({ response, data })))
+    .then(({ response, data }) => {
+      if (response.ok) {
+        alert('Registration successful! Please log in.');
+        if (container) container.classList.remove('active');
+        if (registerForm.reset) registerForm.reset();
+      } else {
+        alert(`Registration failed: ${data.error || data.message || response.statusText}`);
+        console.error('Registration failed:', data);
+      }
+    })
+    .catch(err => {
+      console.error('Error during registration:', err);
+      alert('An error occurred during registration. Please try again later.');
+    })
+    .finally(() => setBusy(registerForm, false));
+  });
+}
 
-    const data = await safeJson(response);
+// Login (Promise version)
+if (loginForm) {
+  loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    setBusy(loginForm, true);
 
-    if (response.ok) {
-      alert('Registration successful! Please log in.');
-      container?.classList.remove('active');
-      registerForm.reset?.();
-    } else {
-      alert(`Registration failed: ${data.error || data.message || response.statusText}`);
-      console.error('Registration failed:', data);
-    }
-  } catch (err) {
-    console.error('Error during registration:', err);
-    alert('An error occurred during registration. Please try again later.');
-  } finally {
-    setBusy(registerForm, false);
-  }
-});
+    const username = e.target.username.value.trim();
+    const password = e.target.password.value;
 
-// Login
-loginForm?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  setBusy(loginForm, true);
-
-  const username = e.target.username.value.trim();
-  const password = e.target.password.value;
-
-  try {
-    const response = await fetch(`${API_BASE}/login`, {
+    fetch(API_BASE + '/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
-    });
+    })
+    .then(response => safeJson(response).then(data => ({ response, data })))
+    .then(({ response, data }) => {
+      if (response.ok && data && data.token) {
+        localStorage.setItem('token', data.token);
+        alert('Login successful!');
 
-    const data = await safeJson(response);
+        // reflect new privileges
+        if (window.PixelPopApp && window.PixelPopApp.updatePrivilegedButtonsState) {
+          window.PixelPopApp.updatePrivilegedButtonsState();
+        }
 
-    if (response.ok && data?.token) {
-      localStorage.setItem('token', data.token);
-      alert('Login successful!');
+        // go to Photobooth
+        if (typeof window.PixelPopAppNavigate === 'function') {
+          window.PixelPopAppNavigate('layout');
+        }
 
-      // reflect new privileges
-      window.PixelPopApp?.updatePrivilegedButtonsState?.();
-
-      // go to Photobooth
-      if (typeof window.PixelPopAppNavigate === 'function') {
-        window.PixelPopAppNavigate('layout');
+        if (loginForm.reset) loginForm.reset();
+      } else {
+        alert(`Login failed: ${data.error || data.message || response.statusText}`);
+        console.error('Login failed:', data);
       }
-
-      loginForm.reset?.();
-    } else {
-      alert(`Login failed: ${data.error || data.message || response.statusText}`);
-      console.error('Login failed:', data);
-    }
-  } catch (err) {
-    console.error('Error during login:', err);
-    alert('An error occurred during login. Please try again later.');
-  } finally {
-    setBusy(loginForm, false);
-  }
-});
+    })
+    .catch(err => {
+      console.error('Error during login:', err);
+      alert('An error occurred during login. Please try again later.');
+    })
+    .finally(() => setBusy(loginForm, false));
+  });
+}
