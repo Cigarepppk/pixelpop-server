@@ -654,9 +654,10 @@ class PixelPopStudio {
   // used by layout creators above
   addLayoutTitle(ctx, canvas, text) {
     ctx.save();
-    ctx.fillStyle = '#111';
-    ctx.font = 'bold 16px Inter, sans-serif';
+    ctx.fillStyle = 'rgba(248, 249, 245, 1)';
+    ctx.font = '12px';
     ctx.textAlign = 'center';
+    ctx.scale(-1,1);
     ctx.fillText(text, canvas.width / 2, canvas.height - 8);
     ctx.restore();
   }
