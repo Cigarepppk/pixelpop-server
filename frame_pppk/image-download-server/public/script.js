@@ -651,7 +651,7 @@ class PixelPopStudio {
     });
   }
 
-  /*// used by layout creators above
+  // used by layout creators above
   addLayoutTitle(ctx, canvas, text) {
     ctx.save();
     ctx.fillStyle = '#111';
@@ -659,7 +659,7 @@ class PixelPopStudio {
     ctx.textAlign = 'center';
     ctx.fillText(text, canvas.width / 2, canvas.height - 8);
     ctx.restore();
-  }*/
+  }
 
   showResults() {
     const resultsSection = document.getElementById('photo-results');
