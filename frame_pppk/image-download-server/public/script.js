@@ -731,18 +731,18 @@ class PixelPopStudio {
     if (!(qrSection && qrCanvas && qrLink && uploadUrl)) return;
 
     qrSection.style.display = 'block';
-    qrCanvas.width = 100; qrCanvas.height = 100;
+    qrCanvas.width = 200; qrCanvas.height = 200;
     qrCanvas.style.background = 'white';
 
     if (typeof QRious === 'function') {
       new QRious({
         element: qrCanvas,
         value: uploadUrl,
-        size: 100,
+        size: 200,
         level: 'H',
         background: 'white',
         foreground: 'black',
-        padding: 16
+        padding: 0
       });
     }
 
