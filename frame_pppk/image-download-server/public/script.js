@@ -731,14 +731,14 @@ class PixelPopStudio {
     if (!(qrSection && qrCanvas && qrLink && uploadUrl)) return;
 
     qrSection.style.display = 'block';
-    qrCanvas.width = 200; qrCanvas.height = 200;
+    qrCanvas.width = 150; qrCanvas.height = 150;
     qrCanvas.style.background = 'white';
 
     if (typeof QRious === 'function') {
       new QRious({
         element: qrCanvas,
         value: uploadUrl,
-        size: 200,
+        size: 150,
         level: 'H',
         background: 'white',
         foreground: 'black',
@@ -1285,17 +1285,17 @@ function showQRCodeFrame(uploadUrl) {
   if (!(section && canvas && link) || !uploadUrl) return;
 
   section.style.display = 'block';
-  canvas.width = 300; canvas.height = 300;
+  canvas.width = 150; canvas.height = 150;
 
   if (typeof QRious === 'function') {
     new QRious({
       element: canvas,
       value: uploadUrl,
-      size: 300,
+      size: 150,
       level: 'H',
       background: 'white',
       foreground: 'black',
-      padding: 16
+      padding: 0
     });
   }
 
