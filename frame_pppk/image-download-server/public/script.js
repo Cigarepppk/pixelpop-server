@@ -731,14 +731,14 @@ class PixelPopStudio {
     if (!(qrSection && qrCanvas && qrLink && uploadUrl)) return;
 
     qrSection.style.display = 'block';
-    qrCanvas.width = 300; qrCanvas.height = 300;
+    qrCanvas.width = 100; qrCanvas.height = 100;
     qrCanvas.style.background = 'white';
 
     if (typeof QRious === 'function') {
       new QRious({
         element: qrCanvas,
         value: uploadUrl,
-        size: 300,
+        size: 100,
         level: 'H',
         background: 'white',
         foreground: 'black',
