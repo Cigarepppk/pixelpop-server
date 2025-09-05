@@ -1282,13 +1282,71 @@ deletePhoto(photoId) {
 /* ========= Helpers ========= */
 _buildAbsUrl(u) { return !u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)); }
 
-_downloadWithAuth(url, saveBlob) {
+_downloadWithAuth(url, saveBlob, it) {
   const token = localStorage.getItem('token');
   if (!url || !token) return alert('Unable to download. Please log in again.');
   fetch(url, { headers: { Authorization: 'Bearer ' + token } })
     .then(r => r.ok ? r.blob() : Promise.reject())
+    // NEW: maybe mirror blob before saving
+    .then(blob => this._maybeMirrorBlobForDownload(it, blob))
     .then(saveBlob)
     .catch(() => alert('Download failed. Please try again.'));
+}
+
+/**
+ * NEW: If the item is tagged as mirrored, flip the blob horizontally before saving.
+ * Returns a Promise<Blob>.
+ */
+_maybeMirrorBlobForDownload(it, blob) {
+  const needsMirror = !!(it && (it._mirrored || it.mirrored));
+  if (!needsMirror) return Promise.resolve(blob);
+
+  // Try createImageBitmap first (faster), fallback to HTMLImageElement if not supported
+  const makeBitmap = ('createImageBitmap' in window)
+    ? createImageBitmap(blob).then(imgBitmap => ({ w: imgBitmap.width, h: imgBitmap.height, src: imgBitmap, type: 'bitmap' }))
+    : new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight, src: img, type: 'img' });
+        img.onerror = reject;
+        img.src = URL.createObjectURL(blob);
+      });
+
+  return makeBitmap.then(({ w, h, src, type }) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+
+    // Mirror horizontally
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+    if (type === 'bitmap') {
+      ctx.drawImage(src, 0, 0, w, h);
+    } else {
+      ctx.drawImage(src, 0, 0);
+      // Revoke object URL created above
+      if (src && src.src && src.src.startsWith('blob:')) {
+        try { URL.revokeObjectURL(src.src); } catch {}
+      }
+    }
+
+    return new Promise((resolve) => {
+      // Keep original format if possible; default to JPEG
+      const mime = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/jpeg';
+      if (canvas.toBlob) {
+        canvas.toBlob(b => resolve(b || blob), mime, 0.95);
+      } else {
+        // Very old fallback
+        const dataURL = canvas.toDataURL(mime, 0.95);
+        // Convert dataURL back to Blob
+        const byteStr = atob(dataURL.split(',')[1]);
+        const len = byteStr.length;
+        const u8 = new Uint8Array(len);
+        for (let i = 0; i < len; i++) u8[i] = byteStr.charCodeAt(i);
+        resolve(new Blob([u8], { type: mime }));
+      }
+    });
+  }).catch(() => blob); // if anything fails, return the original blob unmodified
 }
 
 _downloadPhoto(it) {
@@ -1308,10 +1366,12 @@ _downloadPhoto(it) {
   if (pub) {
     fetch(pub, { mode: 'cors' })
       .then(r => r.ok ? r.blob() : Promise.reject())
+      // NEW: maybe mirror before saving
+      .then(blob => this._maybeMirrorBlobForDownload(it, blob))
       .then(saveBlob)
-      .catch(() => this._downloadWithAuth(sec, saveBlob));
+      .catch(() => this._downloadWithAuth(sec, saveBlob, it));
   } else {
-    this._downloadWithAuth(sec, saveBlob);
+    this._downloadWithAuth(sec, saveBlob, it);
   }
 }
 
@@ -1327,6 +1387,11 @@ buildGalleryCard(it, index) {
   img.src = this._buildAbsUrl(it.url);
   img.alt = it.fileName || 'Your photo';
   img.loading = 'lazy';
+
+  // Mirror only items tagged _mirrored (client) or mirrored (server)
+  if (it._mirrored || it.mirrored) {
+    img.classList.add('mirrored');
+  }
 
   img.addEventListener('click', () => {
     if (this._selectMode) {
@@ -1440,6 +1505,17 @@ setupGalleryUi() {
   const logout  = document.getElementById('logout-from-gallery');
   const select  = document.getElementById('select-toggle');
   const delSel  = document.getElementById('delete-selected');
+
+  // Inject minimal CSS for mirroring, once
+  if (!document.getElementById('gallery-mirror-css')) {
+    const style = document.createElement('style');
+    style.id = 'gallery-mirror-css';
+    style.textContent = `
+      /* Mirror only items explicitly tagged as mirrored */
+      img.mirrored { transform: scaleX(-1); }
+    `;
+    document.head.appendChild(style);
+  }
 
   if (refresh) refresh.addEventListener('click', () => this.refreshGallery());
   if (logout)  logout.addEventListener('click', (e) => { e.preventDefault(); this.logout(); this.refreshGallery(); });
@@ -1563,6 +1639,9 @@ updateLightboxImage() {
   imgEl.src = tryPublic || trySecure || '';
   imgEl.alt = it.fileName || 'Photo';
 
+  // Mirror this slide only if tagged
+  imgEl.classList.toggle('mirrored', !!(it._mirrored || it.mirrored));
+
   // If the image requires auth, fetch with token and swap in a blob URL
   imgEl.onerror = () => {
     const token = localStorage.getItem('token');
@@ -1582,13 +1661,13 @@ updateLightboxImage() {
 _setInitialViewFit() {
   // No zoom math — CSS centers & contains the image.
   const img = document.getElementById('lightbox-img');
-  if (img) img.style.transform = 'none';
+  if (img) img.style.transform = ''; // keep class-based mirroring
 }
 
 _resetZoomState() {
   // No-zoom: ensure no transform state.
   const img = document.getElementById('lightbox-img');
-  if (img) img.style.transform = 'none';
+  if (img) img.style.transform = ''; // keep class-based mirroring
   this._z = 1; this._tx = 0; this._ty = 0;
 }
 
@@ -1625,7 +1704,12 @@ _doAutosave() {
   ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, tmp.width, tmp.height);
   ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
   const dataURL = tmp.toDataURL('image/jpeg', 0.95);
-  return this.savePhotoToGallery(dataURL);
+
+  // Tag autosaved result as mirrored in UI
+  return this.savePhotoToGallery(dataURL).then((res) => {
+    if (res && res.ok && res.item) res.item._mirrored = true;
+    return res;
+  });
 }
 
 saveFinalToGallery() {
@@ -1655,6 +1739,7 @@ saveFinalToGallery() {
     .then(({ ok, item, error }) => {
       if (ok) {
         const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString() };
+        added._mirrored = true; // mark manual photo-result saves as mirrored
         alert('Saved to your private gallery!');
         this.goToGalleryAndShow(added);
       } else {

@@ -1533,10 +1533,7 @@ form{ width: 100%; }
   margin-top: 0.5rem;
   
 }
-#gallery-grid img,
-#lightbox-img{
-    transform: scaleX(-1);
-}
+
 
 /* Gallery card */
 .gallery-card {
