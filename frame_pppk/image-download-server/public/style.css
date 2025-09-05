@@ -1577,9 +1577,9 @@ body.gallery-select-mode .gallery-card {
 }
 
 .gallery-card.selected {
-  outline: 4px solid #22c55e;        /* bright green ring */
+  outline: 4px solid #9b0b5f;        /* bright green ring */
   outline-offset: 2px;
-  box-shadow: 0 0 0 3px rgba(34,197,94,.25);
+  box-shadow: 0 0 0 3px rgba(202, 82, 132, 0.25);
 }
 
 .gallery-card.selected img {
@@ -1595,7 +1595,7 @@ body.gallery-select-mode .gallery-card {
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  background: #22c55e;
+  background: #c52294;
   color: #fff;
   font: 700 18px/28px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
   text-align: center;
