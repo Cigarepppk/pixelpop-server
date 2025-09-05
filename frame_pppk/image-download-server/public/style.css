@@ -1609,18 +1609,23 @@ body.gallery-select-mode .gallery-card {
   touch-action: auto;              /* was: none — no gesture handling needed */
 }
 
-/* Pure CSS fit — no JS transforms */
+/* Lightbox image: fit & center; no forced transform */
 .lightbox-stage img {
-  max-width: 95vw;                 /* contain within viewport */
+  max-width: 95vw;
   max-height: 95vh;
   object-fit: contain;
   user-select: none;
-  cursor: default;                 /* was: grab */
-  transform: none !important;      /* ignore any leftover inline transforms */
+  cursor: default;
   will-change: auto;
   display: block;
+}
+
+/* Only mirror when JS toggles the class for photo-result items */
+#lightbox-img.mirrored,
+#lightbox .lightbox-stage img.mirrored {
   transform: scaleX(-1);
 }
+
 
 /* Counter (kept) */
 .lightbox-meta {
