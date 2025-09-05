@@ -1507,7 +1507,7 @@ form{ width: 100%; }
 }
 .gallery-card img{
   width: 100%; height: auto; object-fit: cover; display:block;
-  transform: scaleX(-1);
+  
 }
 .gallery-card .meta{
   display:flex; justify-content:space-between; align-items:center;
@@ -1531,7 +1531,7 @@ form{ width: 100%; }
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); /* small, dense tiles */
   gap: 4px; /* tight spacing like iOS Photos */
   margin-top: 0.5rem;
-  transform: scaleX(-1);
+  
 }
 
 /* Gallery card */
@@ -1551,7 +1551,7 @@ form{ width: 100%; }
   aspect-ratio: 1 / 1;   /* mostly square tiles */
   object-fit: cover;     /* crops instead of squishing */
   cursor: pointer;
-  transform: scaleX(-1);
+  
 }
 
 /* Timestamp + delete overlay */
