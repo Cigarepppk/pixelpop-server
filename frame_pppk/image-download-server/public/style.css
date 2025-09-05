@@ -1434,6 +1434,8 @@ form{ width: 100%; }
 
 
 .logout-btn {
+    color: purple;
+    align-items: center;
     display: flex;
   background: none;
   border: none;
@@ -1443,7 +1445,7 @@ form{ width: 100%; }
 }
 .logout-btn:hover {
      opacity: 0.8;
-     color: var(--light-pink);
+     color:var(--accent-pink);
  }
 .logout-icon {
   font-size: 1.2rem;
