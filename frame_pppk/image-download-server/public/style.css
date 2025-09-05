@@ -1573,3 +1573,20 @@ body.gallery-select-mode .gallery-card {
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
+
+/* ===== Lightbox (Gallery viewer) ===== */
+.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.9);
+  display: none; align-items: center; justify-content: center; z-index: 1000; }
+.lightbox.open { display: flex; }
+.lightbox-stage { max-width: 92vw; max-height: 82vh; display: flex; align-items: center; justify-content: center; }
+.lightbox-stage img { max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; }
+.lightbox-meta { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 16px; align-items: center; color: #fff; font-size: 14px; opacity: .9; }
+.lb-download { padding: 6px 10px; border: 1px solid #fff3; border-radius: 8px; color: #fff; text-decoration: none; }
+.lb-download:hover { background: #fff1; }
+.lb-btn { position: fixed; top: 50%; transform: translateY(-50%); background: none; border: 0; color: #fff;
+  font-size: 38px; cursor: pointer; padding: 10px 14px; line-height: 1; opacity: .8; }
+.lb-btn:hover { opacity: 1; }
+.lb-prev { left: 20px; } .lb-next { right: 20px; }
+.lb-close { top: 18px; right: 18px; transform: none; font-size: 42px; opacity: .9; }
+@media (max-width: 640px) { .lb-btn { font-size: 32px; } .lb-close { font-size: 36px; } }

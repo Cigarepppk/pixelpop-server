@@ -882,7 +882,7 @@ class PixelPopStudio {
   /* ───────────── Gallery (login-gated) ───────────── */
 
 // List current user's photos
-listMyPhotos() {
+/*listMyPhotos() {
   const token = localStorage.getItem('token');
   if (!token) return Promise.resolve({ ok: false, items: [], error: 'no-token' });
 
@@ -1207,10 +1207,14 @@ saveFinalToGallery() {
     .finally(() => setBusy(false));
 }
 }
+*/
+
+
+
 /* ────────────────────────────────────────────────────────────
    ERROR HANDLING UI
    ──────────────────────────────────────────────────────────── */
-function showError(message) {
+/*function showError(message) {
   const errorModal = document.getElementById('error-modal');
   const errorMessage = document.getElementById('error-message');
   if (errorModal && errorMessage) {
@@ -1221,6 +1225,487 @@ function showError(message) {
 function closeErrorModal() {
   const errorModal = document.getElementById('error-modal');
   if (errorModal) errorModal.style.display = 'none';
+}*/
+/* ───────────── Gallery (login-gated) ───────────── */
+
+// List current user's photos
+listMyPhotos() {
+  const token = localStorage.getItem('token');
+  if (!token) return Promise.resolve({ ok: false, items: [], error: 'no-token' });
+
+  return this.fetchWith404Fallback(this.API_BASE, '/api/gallery/mine', {
+    headers: { Authorization: 'Bearer ' + token }
+  }, ['/gallery/mine'])
+  .then(res => {
+    const d = res._json || {};
+    return { ok: res.ok, items: d.items || [], error: d.error || (!res.ok ? `HTTP ${res.status}` : '') };
+  })
+  .catch(e => ({ ok: false, items: [], error: String(e) }));
+}
+
+// Save one image (dataURL) into user's private gallery
+savePhotoToGallery(dataURL) {
+  const token = localStorage.getItem('token');
+  if (!token) return Promise.resolve({ ok: false, error: 'no-token' });
+
+  return this.fetchWith404Fallback(this.API_BASE, '/api/gallery', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + token
+    },
+    body: JSON.stringify({
+      imageData: dataURL,
+      visibility: 'private',
+      fileName: `pixelpop-${Date.now()}.jpg`
+    })
+  }, ['/gallery'])
+  .then(res => {
+    const d = res._json || {};
+    const errorMsg = d.error || d.message || (res.ok ? '' : `HTTP ${res.status}`);
+    if (!res.ok) console.warn('[gallery POST] failed', { status: res.status, body: d });
+    return { ok: res.ok, item: d.item, error: errorMsg };
+  })
+  .catch(e => ({ ok: false, error: String(e) }));
+}
+
+deletePhoto(photoId) {
+  const token = localStorage.getItem('token');
+  if (!token) return Promise.resolve(false);
+
+  return this.fetchWith404Fallback(this.API_BASE, `/api/gallery/${photoId}`, {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer ' + token }
+  }, [`/gallery/${photoId}`])
+  .then(res => res.ok)
+  .catch(() => false);
+}
+
+/* ---------- helpers for URLs & downloads ---------- */
+_buildAbsUrl(u) {
+  if (!u) return '';
+  return u.startsWith('http') ? u : (this.API_BASE + u);
+}
+_downloadWithAuth(url, saveBlob) {
+  const token = localStorage.getItem('token');
+  if (!url || !token) return alert('Unable to download. Please log in again.');
+  fetch(url, { headers: { Authorization: 'Bearer ' + token } })
+    .then(r => r.ok ? r.blob() : Promise.reject())
+    .then(saveBlob)
+    .catch(() => alert('Download failed. Please try again.'));
+}
+_downloadPhoto(it) {
+  const pub = this._buildAbsUrl(it.urlPublic || it.url || '');
+  const sec = this._buildAbsUrl(it.secureUrl || it.url || '');
+  const filename = it.fileName || `photo-${it.id || Date.now()}.jpg`;
+
+  const saveBlob = (blob) => {
+    const a = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  if (pub) {
+    fetch(pub, { mode: 'cors' })
+      .then(r => r.ok ? r.blob() : Promise.reject())
+      .then(saveBlob)
+      .catch(() => this._downloadWithAuth(sec, saveBlob));
+  } else {
+    this._downloadWithAuth(sec, saveBlob);
+  }
+}
+
+// Build a gallery card DOM node (reused)
+buildGalleryCard(it, index) {
+  if (!it || !it.url) return null;
+
+  const card = document.createElement('div');
+  card.className = 'gallery-card';
+  if (it.id) card.dataset.id = it.id;
+
+  const img = document.createElement('img');
+  img.src = this._buildAbsUrl(it.url);
+  img.alt = it.fileName || 'Your photo';
+  if (it.fileName) img.dataset.filename = it.fileName;
+
+  // Click: select in select-mode; otherwise open viewer
+  img.addEventListener('click', () => {
+    if (this._selectMode) {
+      card.classList.toggle('selected');
+    } else {
+      this.openLightbox(index);
+    }
+  });
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+
+  const span = document.createElement('span');
+  const time = new Date(it.createdAt || Date.now()).toLocaleString();
+  span.textContent = time;
+
+  // Download button
+  const btnDl = document.createElement('button');
+  btnDl.innerHTML = '<i class="fas fa-download"></i>';
+  btnDl.title = 'Download';
+  btnDl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    this._downloadPhoto(it);
+  });
+
+  // Delete
+  const del = document.createElement('button');
+  del.innerHTML = '<i class="fas fa-trash"></i>';
+  del.title = 'Delete';
+  del.addEventListener('click', () => {
+    if (!confirm('Delete this photo?')) return;
+    this.deletePhoto(it.id).then(ok => {
+      if (ok) {
+        card.remove();
+        // keep local count in sync
+        this._galleryCount = Math.max(0, (this._galleryCount || 0) - 1);
+      }
+    });
+  });
+
+  meta.appendChild(span);
+  meta.appendChild(btnDl);
+  meta.appendChild(del);
+  card.appendChild(img);
+  card.appendChild(meta);
+  return card;
+}
+
+// Navigate to Gallery and insert a just-saved item at the top
+goToGalleryAndShow(item) {
+  this.navigateToPage('gallery');
+
+  const grid  = document.getElementById('gallery-grid');
+  const empty = document.getElementById('gallery-empty');
+
+  // If grid exists, insert immediately; else just refresh
+  if (grid) {
+    if (empty) empty.style.display = 'none';
+    const card = this.buildGalleryCard(item, 0);
+    if (card) {
+      if (grid.firstChild) grid.insertBefore(card, grid.firstChild);
+      else grid.appendChild(card);
+      // increment local count when we show a newly added item
+      this._galleryCount = Math.min((this._galleryCount || 0) + 1, this.MAX_GALLERY);
+
+      // also keep the lightbox navigation list in sync
+      if (!Array.isArray(this._galleryItems)) this._galleryItems = [];
+      this._galleryItems.unshift(item);
+    } else {
+      this.refreshGallery();
+    }
+  } else {
+    this.refreshGallery();
+  }
+}
+
+// Render gallery page
+refreshGallery() {
+  const hint    = document.getElementById('gallery-login-hint');
+  const grid    = document.getElementById('gallery-grid');
+  const empty   = document.getElementById('gallery-empty');
+  const actions = document.getElementById('gallery-actions');
+
+  if (!(grid && empty && hint)) return;
+  grid.innerHTML = '';
+
+  // Ensure config/state exist even if constructor wasn't patched yet
+  if (typeof this.MAX_GALLERY === 'undefined') this.MAX_GALLERY = 50;
+  if (typeof this._galleryCount === 'undefined') this._galleryCount = 0;
+  if (typeof this._selectMode === 'undefined') this._selectMode = false;
+
+  this.verifyToken().then(isAuthed => {
+    if (!isAuthed) {
+      hint.style.display = 'block';
+      if (actions) actions.style.display = 'none';
+      empty.style.display = 'none';
+      return;
+    }
+
+    hint.style.display = 'none';
+    if (actions) actions.style.display = 'flex';
+
+    this.listMyPhotos().then(({ ok, items }) => {
+      if (!ok || !items || items.length === 0) { empty.style.display = 'block'; return; }
+      empty.style.display = 'none';
+
+      // Track count + store items + show newest first
+      this._galleryCount = items.length;
+
+      const sorted = items
+        .slice()
+        .sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0));
+
+      // store for lightbox navigation
+      this._galleryItems = sorted;
+
+      sorted.forEach((it, index) => {
+        const card = this.buildGalleryCard(it, index);
+        if (card) grid.appendChild(card);
+      });
+    });
+
+  });
+}
+
+// Wire up gallery page buttons + Lightbox controls
+setupGalleryUi() {
+  const refresh = document.getElementById('refresh-gallery');
+  const logout  = document.getElementById('logout-from-gallery');
+  const select  = document.getElementById('select-toggle');
+  const delSel  = document.getElementById('delete-selected');
+
+  if (refresh) refresh.addEventListener('click', () => this.refreshGallery());
+  if (logout)  logout.addEventListener('click', (e) => {
+    e.preventDefault();
+    this.logout();
+    this.refreshGallery();
+  });
+
+  // Ensure config/state exist
+  if (typeof this.MAX_GALLERY === 'undefined') this.MAX_GALLERY = 50;
+  if (typeof this._galleryCount === 'undefined') this._galleryCount = 0;
+  if (typeof this._selectMode === 'undefined') this._selectMode = false;
+
+  // Selection mode toggle
+  if (select) select.addEventListener('click', () => {
+    this._selectMode = !this._selectMode;
+    document.body.classList.toggle('gallery-select-mode', this._selectMode);
+    select.textContent = this._selectMode ? 'Cancel' : 'Select';
+
+    // Clear any previous selections when leaving select mode
+    if (!this._selectMode) {
+      document.querySelectorAll('.gallery-card.selected')
+        .forEach(el => el.classList.remove('selected'));
+    }
+    if (delSel) delSel.disabled = !this._selectMode;
+  });
+
+  // Delete selected
+  if (delSel) delSel.addEventListener('click', async () => {
+    if (!this._selectMode) return;
+    const chosen = Array.from(document.querySelectorAll('.gallery-card.selected'));
+    if (chosen.length === 0) return;
+    if (!confirm(`Delete ${chosen.length} photo(s)?`)) return;
+
+    for (const card of chosen) {
+      const id = card.dataset.id;
+      const ok = await this.deletePhoto(id);
+      if (ok) {
+        card.remove();
+        this._galleryCount = Math.max(0, this._galleryCount - 1);
+      }
+    }
+  });
+
+  /* ----- Lightbox controls (HTML must exist in index.html) ----- */
+  const lb = document.getElementById('lightbox');
+  if (lb) {
+    lb.querySelector('.lb-close')?.addEventListener('click', () => this.closeLightbox());
+    lb.querySelector('.lb-next')?.addEventListener('click', () => this.nextLightbox(+1));
+    lb.querySelector('.lb-prev')?.addEventListener('click', () => this.nextLightbox(-1));
+
+    // Click backdrop to close (ignore clicks on stage or control buttons)
+    lb.addEventListener('click', (e) => {
+      const onStage = e.target.closest('.lightbox-stage');
+      const onBtn = e.target.closest('.lb-btn') || e.target.id === 'lightbox-download';
+      if (!onStage && !onBtn) this.closeLightbox();
+    });
+
+    // Keyboard: Esc + arrows
+    document.addEventListener('keydown', (e) => {
+      if (!lb.classList.contains('open')) return;
+      if (e.key === 'Escape') this.closeLightbox();
+      if (e.key === 'ArrowRight') this.nextLightbox(+1);
+      if (e.key === 'ArrowLeft') this.nextLightbox(-1);
+    });
+
+    // Touch swipe
+    let touchX = null;
+    lb.addEventListener('touchstart', (e) => { touchX = e.changedTouches[0].clientX; }, { passive: true });
+    lb.addEventListener('touchend', (e) => {
+      if (touchX == null) return;
+      const dx = e.changedTouches[0].clientX - touchX;
+      if (Math.abs(dx) > 40) this.nextLightbox(dx < 0 ? +1 : -1);
+      touchX = null;
+    }, { passive: true });
+  }
+}
+
+/* ----- Lightbox implementation ----- */
+openLightbox(index = 0) {
+  if (!this._galleryItems || !this._galleryItems.length) return;
+  this._currentLight = Math.max(0, Math.min(index, this._galleryItems.length - 1));
+  const lb = document.getElementById('lightbox');
+  if (!lb) return;
+  lb.classList.add('open');
+  lb.setAttribute('aria-hidden', 'false');
+  this.updateLightboxImage();
+}
+closeLightbox() {
+  const lb = document.getElementById('lightbox');
+  if (!lb) return;
+  lb.classList.remove('open');
+  lb.setAttribute('aria-hidden', 'true');
+}
+nextLightbox(delta = 1) {
+  const len = this._galleryItems?.length || 0;
+  if (!len) return;
+  this._currentLight = (this._currentLight + delta + len) % len;
+  this.updateLightboxImage();
+}
+updateLightboxImage() {
+  const imgEl = document.getElementById('lightbox-img');
+  const counterEl = document.getElementById('lightbox-counter');
+  const dlEl = document.getElementById('lightbox-download');
+  if (!(imgEl && counterEl && dlEl)) return;
+
+  const it = this._galleryItems[this._currentLight] || {};
+  const tryPublic = this._buildAbsUrl(it.urlPublic || it.url || '');
+  const trySecure = this._buildAbsUrl(it.secureUrl || it.url || '');
+
+  counterEl.textContent = `${this._currentLight + 1} / ${this._galleryItems.length}`;
+  imgEl.src = tryPublic || trySecure || '';
+  imgEl.alt = it.fileName || 'Photo';
+
+  // default download (public URL). If image is protected, we replace with blob on error below.
+  dlEl.href = tryPublic || '#';
+  dlEl.setAttribute('download', it.fileName || `photo-${it.id || (this._currentLight+1)}.jpg`);
+
+  // If the image requires auth, fetch with token and swap in a blob URL
+  imgEl.onerror = () => {
+    const token = localStorage.getItem('token');
+    if (!token || !trySecure) return;
+    fetch(trySecure, { headers: { Authorization: 'Bearer ' + token } })
+      .then(r => r.ok ? r.blob() : Promise.reject())
+      .then(blob => {
+        const blobUrl = URL.createObjectURL(blob);
+        imgEl.src = blobUrl;
+        dlEl.href = blobUrl; // allow download of private images too
+      })
+      .catch(() => { /* ignore */ });
+  };
+}
+
+// Silently save final canvas to the user's gallery (if logged in)
+maybeAutosaveToGallery() {
+  this.verifyToken()
+    .then(isAuthed => {
+      if (!isAuthed) return;
+
+      // wait for layout to finish rendering
+      if (this.isLayoutReady) return this._doAutosave();
+      const once = () => this._doAutosave();
+      document.addEventListener('pixelpop:layout-ready', once, { once: true });
+    })
+    .catch(e => console.warn('Autosave failed:', e));
+}
+
+// actual autosave logic split out so we can wait for readiness
+_doAutosave() {
+  const finalCanvas = document.getElementById('final-canvas');
+  if (!finalCanvas) return;
+
+  // Enforce 50-photo cap
+  if ((this._galleryCount || 0) >= this.MAX_GALLERY) {
+    alert('Gallery is full (50 photos). Please delete some photos first.');
+    return;
+  }
+
+  const scale = 2;
+  const tmp = document.createElement('canvas');
+  tmp.width  = finalCanvas.width * scale;
+  tmp.height = finalCanvas.height * scale;
+  const ctx = tmp.getContext('2d');
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, tmp.width, tmp.height);
+
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.drawImage(finalCanvas, 0, 0);
+  if (ctx.restore) ctx.restore();
+
+  const dataURL = tmp.toDataURL('image/jpeg', 0.95);
+  return this.savePhotoToGallery(dataURL);
+}
+
+// Manual save from Photobooth results — then jump to Gallery and show it
+saveFinalToGallery() {
+  const btn = document.getElementById('save-gallery-btn');
+
+  const setBusy = (busy) => {
+    if (!btn) return;
+    if (busy) {
+      btn.disabled = true;
+      btn.dataset._old = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery';
+    }
+  };
+
+  const finalCanvas = document.getElementById('final-canvas');
+  if (!finalCanvas) {
+    alert('No photo to save yet.');
+    return;
+  }
+  if (!this.isLayoutReady) {
+    alert('Hang on — still rendering your photo…');
+    return;
+  }
+
+  // Enforce 50-photo cap BEFORE doing work
+  if ((this._galleryCount || 0) >= this.MAX_GALLERY) {
+    alert('Gallery is full (50 photos). Please delete some photos first.');
+    return;
+  }
+
+  setBusy(true);
+
+  const scale = 2;
+  const tmp = document.createElement('canvas');
+  tmp.width  = finalCanvas.width * scale;
+  tmp.height = finalCanvas.height * scale;
+  const ctx = tmp.getContext('2d');
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, tmp.width, tmp.height);
+
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.drawImage(finalCanvas, 0, 0);
+  if (ctx.restore) ctx.restore();
+
+  const dataURL = tmp.toDataURL('image/jpeg', 0.95);
+
+  this.savePhotoToGallery(dataURL)
+    .then(({ ok, item, error }) => {
+      if (ok) {
+        const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString() };
+        alert('Saved to your private gallery!');
+        this.goToGalleryAndShow(added);
+      } else {
+        alert('Save failed: ' + (error || 'Unknown error'));
+      }
+    })
+    .catch(err => {
+      console.warn('Save to gallery failed:', err);
+      alert('Save failed. Please try again.');
+    })
+    .finally(() => setBusy(false));
+}
 }
 
 /* ────────────────────────────────────────────────────────────
