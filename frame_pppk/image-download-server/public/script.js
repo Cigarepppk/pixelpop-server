@@ -1229,7 +1229,7 @@ function closeErrorModal() {
 
 /* ───────────── Gallery (login-gated) ───────────── */
 
-// --- API calls ---
+/* ========= API ========= */
 listMyPhotos() {
   const token = localStorage.getItem('token');
   if (!token) return Promise.resolve({ ok: false, items: [], error: 'no-token' });
@@ -1281,8 +1281,9 @@ deletePhoto(photoId) {
   .catch(() => false);
 }
 
-// --- URL + download helpers ---
+/* ========= Helpers ========= */
 _buildAbsUrl(u) { return !u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)); }
+
 _downloadWithAuth(url, saveBlob) {
   const token = localStorage.getItem('token');
   if (!url || !token) return alert('Unable to download. Please log in again.');
@@ -1291,7 +1292,9 @@ _downloadWithAuth(url, saveBlob) {
     .then(saveBlob)
     .catch(() => alert('Download failed. Please try again.'));
 }
+
 _downloadPhoto(it) {
+  // Card-level download (still allowed)
   const pub = this._buildAbsUrl(it.urlFull || it.originalUrl || it.urlPublic || it.url || '');
   const sec = this._buildAbsUrl(it.secureUrl || it.urlFull || it.url || '');
   const filename = it.fileName || `photo-${it.id || Date.now()}.jpg`;
@@ -1314,7 +1317,7 @@ _downloadPhoto(it) {
   }
 }
 
-// --- Card builder ---
+/* ========= Cards ========= */
 buildGalleryCard(it, index) {
   if (!it || !it.url) return null;
 
@@ -1368,7 +1371,7 @@ buildGalleryCard(it, index) {
   return card;
 }
 
-// --- After save: show immediately ---
+/* ========= Navigate to gallery after save ========= */
 goToGalleryAndShow(item) {
   this.navigateToPage('gallery');
   const grid  = document.getElementById('gallery-grid');
@@ -1390,7 +1393,7 @@ goToGalleryAndShow(item) {
   }
 }
 
-// --- Render gallery ---
+/* ========= Render gallery ========= */
 refreshGallery() {
   const hint    = document.getElementById('gallery-login-hint');
   const grid    = document.getElementById('gallery-grid');
@@ -1433,7 +1436,7 @@ refreshGallery() {
   });
 }
 
-// --- UI wiring + lightbox (no visible buttons) ---
+/* ========= UI wiring + Lightbox ========= */
 setupGalleryUi() {
   const refresh = document.getElementById('refresh-gallery');
   const logout  = document.getElementById('logout-from-gallery');
@@ -1470,13 +1473,25 @@ setupGalleryUi() {
     }
   });
 
-  // Lightbox overlay
+  // Lightbox overlay + controls
   const lb = document.getElementById('lightbox');
   if (lb) {
-    // mount at body to avoid clipping by transformed ancestors
+    // Ensure overlay is at body level (avoids clipping by transformed ancestors)
     if (lb.parentElement !== document.body) document.body.appendChild(lb);
 
-    // keyboard: Esc / arrows
+    // Visible buttons: close / prev / next
+    lb.querySelector('.lb-close')?.addEventListener('click', () => this.closeLightbox());
+    lb.querySelector('.lb-next')?.addEventListener('click', () => this.nextLightbox(+1));
+    lb.querySelector('.lb-prev')?.addEventListener('click', () => this.nextLightbox(-1));
+
+    // Click backdrop to close (ignore stage or control buttons)
+    lb.addEventListener('click', (e) => {
+      const onStage = e.target.closest('.lightbox-stage');
+      const onBtn = e.target.closest('.lb-btn');
+      if (!onStage && !onBtn) this.closeLightbox();
+    });
+
+    // Keyboard: Esc + arrows
     document.addEventListener('keydown', (e) => {
       if (!lb.classList.contains('open')) return;
       if (e.key === 'Escape') this.closeLightbox();
@@ -1484,21 +1499,18 @@ setupGalleryUi() {
       if (e.key === 'ArrowLeft') this.nextLightbox(-1);
     });
 
-    const stage = lb.querySelector('.lightbox-stage');
-    if (stage) {
-      // click zones: left third = prev, right third = next, middle = close
-      stage.addEventListener('click', (e) => {
-        if (this._z > 1 || e.detail > 1) return; // ignore when zoomed or double-click (used for zoom)
-        const rect = stage.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        if (x < rect.width / 3) this.nextLightbox(-1);
-        else if (x > (2 * rect.width) / 3) this.nextLightbox(+1);
-        else this.closeLightbox();
-      });
-    }
+    // Touch swipe
+    let touchX = null;
+    lb.addEventListener('touchstart', (e) => { touchX = e.changedTouches[0].clientX; }, { passive: true });
+    lb.addEventListener('touchend', (e) => {
+      if (touchX == null) return;
+      const dx = e.changedTouches[0].clientX - touchX;
+      if (Math.abs(dx) > 40) this.nextLightbox(dx < 0 ? +1 : -1);
+      touchX = null;
+    }, { passive: true });
   }
 
-  // Zoom/pan gestures
+  // Zoom/pan gestures (image area)
   this._setupZoomHandlers();
 
   // Re-fit on resize
@@ -1508,7 +1520,7 @@ setupGalleryUi() {
   });
 }
 
-// --- Lightbox core (no visible controls) ---
+/* ========= Lightbox core ========= */
 openLightbox(index = 0) {
   if (!this._galleryItems || !this._galleryItems.length) return;
   this._currentLight = Math.max(0, Math.min(index, this._galleryItems.length - 1));
@@ -1518,20 +1530,24 @@ openLightbox(index = 0) {
   lb.setAttribute('aria-hidden', 'false');
   this.updateLightboxImage();
 }
+
 closeLightbox() {
   const lb = document.getElementById('lightbox');
   if (!lb) return;
   lb.classList.remove('open');
   lb.setAttribute('aria-hidden', 'true');
 }
+
 nextLightbox(delta = 1) {
   const len = this._galleryItems?.length || 0;
   if (!len) return;
   this._currentLight = (this._currentLight + delta + len) % len;
   this.updateLightboxImage();
 }
+
 updateLightboxImage() {
   const imgEl = document.getElementById('lightbox-img');
+  const counterEl = document.getElementById('lightbox-counter');
   if (!imgEl) return;
 
   const it = this._galleryItems[this._currentLight] || {};
@@ -1542,11 +1558,15 @@ updateLightboxImage() {
   const tryPublic = fullPref || abs(it.urlPublic || it.url || '');
   const trySecure = abs(it.secureUrl || it.urlFull || it.url || '');
 
+  if (counterEl) counterEl.textContent = `${this._currentLight + 1} / ${this._galleryItems.length}`;
+
+  // Fit & center after the image loads
   imgEl.onload = () => this._setInitialViewFit();
+
   imgEl.src = tryPublic || trySecure || '';
   imgEl.alt = it.fileName || 'Photo';
 
-  // auth-fallback -> blob
+  // If the image requires auth, fetch with token and swap in a blob URL
   imgEl.onerror = () => {
     const token = localStorage.getItem('token');
     if (!token || !trySecure) return;
@@ -1561,7 +1581,7 @@ updateLightboxImage() {
   };
 }
 
-// --- Fit + Zoom/Pan helpers ---
+/* ========= Fit + Zoom / Pan ========= */
 _setInitialViewFit() {
   const stage = document.querySelector('#lightbox .lightbox-stage');
   const img = document.getElementById('lightbox-img');
@@ -1571,31 +1591,36 @@ _setInitialViewFit() {
   const iw = img.naturalWidth, ih = img.naturalHeight;
   if (!iw || !ih || !vw || !vh) return;
 
+  // contain; do not upscale above 1x for crispness
   const s = Math.min(vw / iw, vh / ih);
   this._z = Math.min(1, s > 0 ? s : 1);
 
+  // center
   const cw = iw * this._z, ch = ih * this._z;
   this._tx = (vw - cw) / 2;
   this._ty = (vh - ch) / 2;
 
   img.style.transform = `translate3d(${this._tx}px, ${this._ty}px, 0) scale(${this._z})`;
 }
+
 _resetZoomState() {
   this._z = 1; this._tx = 0; this._ty = 0; this._px = 0; this._py = 0;
   const img = document.getElementById('lightbox-img');
   if (img) img.style.transform = 'translate3d(0,0,0) scale(1)';
 }
+
 _applyTransform() {
   const img = document.getElementById('lightbox-img');
   if (!img) return;
   img.style.transform = `translate3d(${this._tx}px, ${this._ty}px, 0) scale(${this._z})`;
 }
+
 _setupZoomHandlers() {
   const stage = document.querySelector('#lightbox .lightbox-stage');
   const img = document.getElementById('lightbox-img');
   if (!(stage && img)) return;
 
-  // Wheel zoom
+  // Wheel zoom around cursor
   stage.addEventListener('wheel', (e) => {
     e.preventDefault();
     const rect = img.getBoundingClientRect();
@@ -1608,7 +1633,7 @@ _setupZoomHandlers() {
     this._z = newZ; this._applyTransform();
   }, { passive: false });
 
-  // Double-click zoom toggle
+  // Double-click toggle 1x <-> 2.5x at cursor
   stage.addEventListener('dblclick', (e) => {
     const rect = img.getBoundingClientRect();
     const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
@@ -1619,7 +1644,7 @@ _setupZoomHandlers() {
     this._z = targetZ; this._applyTransform();
   });
 
-  // Pan (pointer)
+  // Drag to pan (only when zoomed)
   let dragging = false;
   stage.addEventListener('pointerdown', (e) => {
     dragging = true; this._px = e.clientX; this._py = e.clientY;
@@ -1635,7 +1660,7 @@ _setupZoomHandlers() {
   stage.addEventListener('pointerup', endPan);
   stage.addEventListener('pointercancel', () => { dragging = false; });
 
-  // Pinch (two-finger)
+  // Two-finger pinch zoom
   let p1 = null, p2 = null, baseZ = 1, baseD = 0, cx = 0, cy = 0;
   stage.addEventListener('pointerdown', (e) => {
     if (!p1) p1 = e;
@@ -1644,8 +1669,8 @@ _setupZoomHandlers() {
       const d = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
       baseD = Math.max(1, d);
       const r = img.getBoundingClientRect();
-      cx = ((p1.clientX + p2.clientX)/2) - r.left;
-      cy = ((p1.clientY + p2.clientY)/2) - r.top;
+      cx = ((p1.clientX + p2.clientX) / 2) - r.left;
+      cy = ((p1.clientY + p2.clientY) / 2) - r.top;
     }
   });
   stage.addEventListener('pointermove', (e) => {
@@ -1665,7 +1690,7 @@ _setupZoomHandlers() {
   stage.addEventListener('pointercancel', () => { p1 = p2 = null; });
 }
 
-// --- Autosave & manual save (unchanged) ---
+/* ========= Autosave + Manual save ========= */
 maybeAutosaveToGallery() {
   this.verifyToken().then(isAuthed => {
     if (!isAuthed) return;
