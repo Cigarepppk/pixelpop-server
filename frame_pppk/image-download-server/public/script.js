@@ -1626,7 +1626,8 @@ nextLightbox(delta = 1) {
 }
 
 updateLightboxImage() {
-  const imgEl = document.getElementById('lightbox-img');
+  // Be tolerant if the element id changes in markup
+  const imgEl = document.getElementById('lightbox-img') || document.querySelector('#lightbox img');
   const counterEl = document.getElementById('lightbox-counter');
   if (!imgEl) return;
 
@@ -1640,14 +1641,26 @@ updateLightboxImage() {
 
   if (counterEl) counterEl.textContent = `${this._currentLight + 1} / ${this._galleryItems.length}`;
 
-  // Fit & center after the image loads
-  imgEl.onload = () => this._setInitialViewFit();
+  // Mirror ONLY if this item is a photo-result
+  const shouldMirror = this._isMirrored(it);
 
+  // Helper so we re-apply after every load (public or auth-blob)
+  const applyMirror = () => {
+    // keep the class for consistency…
+    imgEl.classList.toggle('mirrored', shouldMirror);
+    // …but enforce with inline transform so nothing overrides it
+    imgEl.style.transform = shouldMirror ? 'scaleX(-1)' : '';
+  };
+
+  // Fit & mirror after the image loads
+  imgEl.onload = () => {
+    this._setInitialViewFit?.();
+    applyMirror();
+  };
+
+  // Set src/alt
   imgEl.src = tryPublic || trySecure || '';
   imgEl.alt = it.fileName || 'Photo';
-
-  // Mirror in LIGHTBOX iff photo-result
-  imgEl.classList.toggle('mirrored', this._isMirrored(it));
 
   // If the image requires auth, fetch with token and swap in a blob URL
   imgEl.onerror = () => {
@@ -1657,12 +1670,19 @@ updateLightboxImage() {
       .then(r => r.ok ? r.blob() : Promise.reject())
       .then(blob => {
         const blobUrl = URL.createObjectURL(blob);
-        imgEl.onload = () => this._setInitialViewFit();
+        imgEl.onload = () => {
+          this._setInitialViewFit?.();
+          applyMirror();
+        };
         imgEl.src = blobUrl;
       })
       .catch(() => {});
   };
+
+  // Apply immediately in case the image is cached and onload won't fire
+  applyMirror();
 }
+
 
 /* ========= Fit (no zoom/pan) ========= */
 _setInitialViewFit() {
