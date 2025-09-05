@@ -133,6 +133,7 @@ body {
 /* Main Content */
 .main-content {
     min-height: calc(100vh - 80px);
+    
 }
 
 .page {
@@ -953,6 +954,12 @@ footer {
     }
 }
 
+.photobooth-container{
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
 /* Animation Classes */
 .fade-in {
     animation: fadeIn 0.5s ease-in;
@@ -1193,6 +1200,7 @@ footer {
 }
 
 
+
 @import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 
 *{
@@ -1204,7 +1212,14 @@ footer {
     list-style: none;
 }
 
-
+.loginposition{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    
+    
+}
 
 .logincontainer{
     
@@ -1216,6 +1231,7 @@ footer {
     border-radius: 30px;
     box-shadow: 0 0 30px rgba(0, 0, 0, .2);
     overflow: hidden;
+    
 }
 
     .logincontainer h1{
