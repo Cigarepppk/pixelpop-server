@@ -1287,23 +1287,21 @@ _downloadWithAuth(url, saveBlob, it) {
   if (!url || !token) return alert('Unable to download. Please log in again.');
   fetch(url, { headers: { Authorization: 'Bearer ' + token } })
     .then(r => r.ok ? r.blob() : Promise.reject())
-    // NEW: maybe mirror blob before saving
-    .then(blob => this._maybeMirrorBlobForDownload(it, blob))
+    .then(blob => this._maybeMirrorBlobForDownload(it, blob)) // mirror only if photo-result
     .then(saveBlob)
     .catch(() => alert('Download failed. Please try again.'));
 }
 
 /**
- * NEW: If the item is tagged as mirrored, flip the blob horizontally before saving.
- * Returns a Promise<Blob>.
+ * If item is a photo-result (tagged), mirror blob before saving.
+ * Otherwise return the original blob.
  */
 _maybeMirrorBlobForDownload(it, blob) {
   const needsMirror = !!(it && (it._mirrored || it.mirrored));
   if (!needsMirror) return Promise.resolve(blob);
 
-  // Try createImageBitmap first (faster), fallback to HTMLImageElement if not supported
-  const makeBitmap = ('createImageBitmap' in window)
-    ? createImageBitmap(blob).then(imgBitmap => ({ w: imgBitmap.width, h: imgBitmap.height, src: imgBitmap, type: 'bitmap' }))
+  const toBitmap = ('createImageBitmap' in window)
+    ? createImageBitmap(blob).then(bmp => ({ w: bmp.width, h: bmp.height, src: bmp, type: 'bitmap' }))
     : new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight, src: img, type: 'img' });
@@ -1311,46 +1309,33 @@ _maybeMirrorBlobForDownload(it, blob) {
         img.src = URL.createObjectURL(blob);
       });
 
-  return makeBitmap.then(({ w, h, src, type }) => {
+  return toBitmap.then(({ w, h, src, type }) => {
     const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
+    canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext('2d');
-
-    // Mirror horizontally
     ctx.translate(w, 0);
     ctx.scale(-1, 1);
-    if (type === 'bitmap') {
-      ctx.drawImage(src, 0, 0, w, h);
-    } else {
+    if (type === 'bitmap') ctx.drawImage(src, 0, 0, w, h);
+    else {
       ctx.drawImage(src, 0, 0);
-      // Revoke object URL created above
-      if (src && src.src && src.src.startsWith('blob:')) {
-        try { URL.revokeObjectURL(src.src); } catch {}
-      }
+      try { if (src.src?.startsWith('blob:')) URL.revokeObjectURL(src.src); } catch {}
     }
-
-    return new Promise((resolve) => {
-      // Keep original format if possible; default to JPEG
+    return new Promise(resolve => {
       const mime = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/jpeg';
-      if (canvas.toBlob) {
-        canvas.toBlob(b => resolve(b || blob), mime, 0.95);
-      } else {
-        // Very old fallback
+      if (canvas.toBlob) canvas.toBlob(b => resolve(b || blob), mime, 0.95);
+      else {
         const dataURL = canvas.toDataURL(mime, 0.95);
-        // Convert dataURL back to Blob
         const byteStr = atob(dataURL.split(',')[1]);
-        const len = byteStr.length;
-        const u8 = new Uint8Array(len);
-        for (let i = 0; i < len; i++) u8[i] = byteStr.charCodeAt(i);
+        const u8 = new Uint8Array(byteStr.length);
+        for (let i = 0; i < byteStr.length; i++) u8[i] = byteStr.charCodeAt(i);
         resolve(new Blob([u8], { type: mime }));
       }
     });
-  }).catch(() => blob); // if anything fails, return the original blob unmodified
+  }).catch(() => blob); // if anything fails, fallback to original blob
 }
 
 _downloadPhoto(it) {
-  // Card-level download (still allowed)
+  // Prefer public URL, fallback to secure-with-auth; then mirror only if tagged
   const pub = this._buildAbsUrl(it.urlFull || it.originalUrl || it.urlPublic || it.url || '');
   const sec = this._buildAbsUrl(it.secureUrl || it.urlFull || it.url || '');
   const filename = it.fileName || `photo-${it.id || Date.now()}.jpg`;
@@ -1366,7 +1351,6 @@ _downloadPhoto(it) {
   if (pub) {
     fetch(pub, { mode: 'cors' })
       .then(r => r.ok ? r.blob() : Promise.reject())
-      // NEW: maybe mirror before saving
       .then(blob => this._maybeMirrorBlobForDownload(it, blob))
       .then(saveBlob)
       .catch(() => this._downloadWithAuth(sec, saveBlob, it));
@@ -1375,7 +1359,7 @@ _downloadPhoto(it) {
   }
 }
 
-/* ========= Cards ========= */
+/* ========= Cards (GRID) ========= */
 buildGalleryCard(it, index) {
   if (!it || !it.url) return null;
 
@@ -1388,10 +1372,8 @@ buildGalleryCard(it, index) {
   img.alt = it.fileName || 'Your photo';
   img.loading = 'lazy';
 
-  // Mirror only items tagged _mirrored (client) or mirrored (server)
-  if (it._mirrored || it.mirrored) {
-    img.classList.add('mirrored');
-  }
+  // Mirror in GRID only for photo-result items
+  if (it._mirrored || it.mirrored) img.classList.add('mirrored');
 
   img.addEventListener('click', () => {
     if (this._selectMode) {
@@ -1506,13 +1488,13 @@ setupGalleryUi() {
   const select  = document.getElementById('select-toggle');
   const delSel  = document.getElementById('delete-selected');
 
-  // Inject minimal CSS for mirroring, once
+  // Inject minimal CSS: mirror only grid images tagged as mirrored
   if (!document.getElementById('gallery-mirror-css')) {
     const style = document.createElement('style');
     style.id = 'gallery-mirror-css';
     style.textContent = `
-      /* Mirror only items explicitly tagged as mirrored */
-      img.mirrored { transform: scaleX(-1); }
+      /* Mirror only grid thumbnails that are photo-result saves */
+      #gallery-grid img.mirrored { transform: scaleX(-1); }
     `;
     document.head.appendChild(style);
   }
@@ -1550,22 +1532,18 @@ setupGalleryUi() {
   // Lightbox overlay + controls
   const lb = document.getElementById('lightbox');
   if (lb) {
-    // Ensure overlay is at body level (avoids clipping by transformed ancestors)
     if (lb.parentElement !== document.body) document.body.appendChild(lb);
 
-    // Visible buttons: close / prev / next
     lb.querySelector('.lb-close')?.addEventListener('click', () => this.closeLightbox());
     lb.querySelector('.lb-next')?.addEventListener('click', () => this.nextLightbox(+1));
     lb.querySelector('.lb-prev')?.addEventListener('click', () => this.nextLightbox(-1));
 
-    // Click backdrop to close (ignore stage or control buttons)
     lb.addEventListener('click', (e) => {
       const onStage = e.target.closest('.lightbox-stage');
       const onBtn = e.target.closest('.lb-btn');
       if (!onStage && !onBtn) this.closeLightbox();
     });
 
-    // Keyboard: Esc + arrows
     document.addEventListener('keydown', (e) => {
       if (!lb.classList.contains('open')) return;
       if (e.key === 'Escape') this.closeLightbox();
@@ -1573,7 +1551,6 @@ setupGalleryUi() {
       if (e.key === 'ArrowLeft') this.nextLightbox(-1);
     });
 
-    // Touch swipe
     let touchX = null;
     lb.addEventListener('touchstart', (e) => { touchX = e.changedTouches[0].clientX; }, { passive: true });
     lb.addEventListener('touchend', (e) => {
@@ -1584,9 +1561,7 @@ setupGalleryUi() {
     }, { passive: true });
   }
 
-  // NOTE: zoom/pan DISABLED — do NOT call _setupZoomHandlers().
-
-  // Re-fit on resize (no transform math; just ensure clean state)
+  // Re-fit on resize
   window.addEventListener('resize', () => {
     const open = document.getElementById('lightbox')?.classList.contains('open');
     if (open) this._setInitialViewFit();
@@ -1639,7 +1614,7 @@ updateLightboxImage() {
   imgEl.src = tryPublic || trySecure || '';
   imgEl.alt = it.fileName || 'Photo';
 
-  // Mirror this slide only if tagged
+  // Mirror in LIGHTBOX only if this is a photo-result item
   imgEl.classList.toggle('mirrored', !!(it._mirrored || it.mirrored));
 
   // If the image requires auth, fetch with token and swap in a blob URL
@@ -1659,15 +1634,14 @@ updateLightboxImage() {
 
 /* ========= Fit (no zoom/pan) ========= */
 _setInitialViewFit() {
-  // No zoom math — CSS centers & contains the image.
+  // Let CSS class control mirroring; don't override with inline transforms
   const img = document.getElementById('lightbox-img');
-  if (img) img.style.transform = ''; // keep class-based mirroring
+  if (img) img.style.transform = '';
 }
 
 _resetZoomState() {
-  // No-zoom: ensure no transform state.
   const img = document.getElementById('lightbox-img');
-  if (img) img.style.transform = ''; // keep class-based mirroring
+  if (img) img.style.transform = '';
   this._z = 1; this._tx = 0; this._ty = 0;
 }
 
@@ -1680,6 +1654,7 @@ _setupZoomHandlers() {
 }
 
 /* ========= Autosave + Manual save ========= */
+/* Tag photo-result saves so UI knows to mirror + download-mirror */
 maybeAutosaveToGallery() {
   this.verifyToken().then(isAuthed => {
     if (!isAuthed) return;
@@ -1705,7 +1680,7 @@ _doAutosave() {
   ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
   const dataURL = tmp.toDataURL('image/jpeg', 0.95);
 
-  // Tag autosaved result as mirrored in UI
+  // Tag autosaved item as a photo-result (mirrored in UI + mirrored download)
   return this.savePhotoToGallery(dataURL).then((res) => {
     if (res && res.ok && res.item) res.item._mirrored = true;
     return res;
@@ -1739,7 +1714,7 @@ saveFinalToGallery() {
     .then(({ ok, item, error }) => {
       if (ok) {
         const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString() };
-        added._mirrored = true; // mark manual photo-result saves as mirrored
+        added._mirrored = true; // mark as photo-result
         alert('Saved to your private gallery!');
         this.goToGalleryAndShow(added);
       } else {
@@ -1750,6 +1725,12 @@ saveFinalToGallery() {
     .finally(() => setBusy(false));
 }
 }
+
+/* ====== CSS note (already injected in setupGalleryUi) ======
+#gallery-grid img.mirrored { transform: scaleX(-1); }
+Lightbox mirroring uses the same .mirrored class toggled on #lightbox-img
+============================================================= */
+
 
 /* ────────────────────────────────────────────────────────────
    Initialize application + expose helpers
