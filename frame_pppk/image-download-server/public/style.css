@@ -1573,24 +1573,31 @@ body.gallery-select-mode .gallery-card {
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
-/* ===== Lightbox (Gallery viewer) ===== */
+/* ===== Lightbox (Gallery viewer) — NO ZOOM ===== */
 .lightbox {
   position: fixed; inset: 0; background: rgba(0,0,0,.9);
   display: none; align-items: center; justify-content: center; z-index: 1000;
 }
 .lightbox.open { display: flex; }
 
-/* Fill the viewport so we can center/fit properly */
+/* Fill the viewport and center the image */
 .lightbox-stage {
   width: 100vw; height: 100vh;
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden; touch-action: none;
+  overflow: hidden;
+  touch-action: auto;              /* was: none — no gesture handling needed */
 }
 
-/* We fit via JS transforms */
+/* Pure CSS fit — no JS transforms */
 .lightbox-stage img {
-  max-width: none; max-height: none; object-fit: unset; user-select: none;
-  cursor: grab; will-change: transform;
+  max-width: 95vw;                 /* contain within viewport */
+  max-height: 95vh;
+  object-fit: contain;
+  user-select: none;
+  cursor: default;                 /* was: grab */
+  transform: none !important;      /* ignore any leftover inline transforms */
+  will-change: auto;
+  display: block;
 }
 
 /* Counter (kept) */
@@ -1600,7 +1607,7 @@ body.gallery-select-mode .gallery-card {
   font-size: 14px; opacity: .9;
 }
 
-/* Visible navigation buttons */
+/* Visible navigation buttons (kept) */
 .lb-btn {
   position: fixed; top: 50%; transform: translateY(-50%);
   background: none; border: 0; color: #fff; font-size: 38px;
@@ -1614,6 +1621,9 @@ body.gallery-select-mode .gallery-card {
 /* Remove/hide the buttons you don't want */
 .lb-download,
 #lightbox-fit-toggle { display: none !important; }
+
+/* Optional: lock page scroll when lightbox open (toggle this class in JS) */
+body.lb-open { overflow: hidden; }
 
 @media (max-width: 640px) {
   .lb-btn { font-size: 32px; }

@@ -1227,8 +1227,6 @@ function closeErrorModal() {
   if (errorModal) errorModal.style.display = 'none';
 }*/
 
-/* ───────────── Gallery (login-gated) ───────────── */
-
 /* ========= API ========= */
 listMyPhotos() {
   const token = localStorage.getItem('token');
@@ -1510,10 +1508,9 @@ setupGalleryUi() {
     }, { passive: true });
   }
 
-  // Zoom/pan gestures (image area)
-  this._setupZoomHandlers();
+  // NOTE: zoom/pan DISABLED — do NOT call _setupZoomHandlers().
 
-  // Re-fit on resize
+  // Re-fit on resize (no transform math; just ensure clean state)
   window.addEventListener('resize', () => {
     const open = document.getElementById('lightbox')?.classList.contains('open');
     if (open) this._setInitialViewFit();
@@ -1581,113 +1578,26 @@ updateLightboxImage() {
   };
 }
 
-/* ========= Fit + Zoom / Pan ========= */
+/* ========= Fit (no zoom/pan) ========= */
 _setInitialViewFit() {
-  const stage = document.querySelector('#lightbox .lightbox-stage');
+  // No zoom math — CSS centers & contains the image.
   const img = document.getElementById('lightbox-img');
-  if (!(stage && img)) return;
-
-  const vw = stage.clientWidth, vh = stage.clientHeight;
-  const iw = img.naturalWidth, ih = img.naturalHeight;
-  if (!iw || !ih || !vw || !vh) return;
-
-  // contain; do not upscale above 1x for crispness
-  const s = Math.min(vw / iw, vh / ih);
-  this._z = Math.min(1, s > 0 ? s : 1);
-
-  // center
-  const cw = iw * this._z, ch = ih * this._z;
-  this._tx = (vw - cw) / 2;
-  this._ty = (vh - ch) / 2;
-
-  img.style.transform = `translate3d(${this._tx}px, ${this._ty}px, 0) scale(${this._z})`;
+  if (img) img.style.transform = 'none';
 }
 
 _resetZoomState() {
-  this._z = 1; this._tx = 0; this._ty = 0; this._px = 0; this._py = 0;
+  // No-zoom: ensure no transform state.
   const img = document.getElementById('lightbox-img');
-  if (img) img.style.transform = 'translate3d(0,0,0) scale(1)';
+  if (img) img.style.transform = 'none';
+  this._z = 1; this._tx = 0; this._ty = 0;
 }
 
 _applyTransform() {
-  const img = document.getElementById('lightbox-img');
-  if (!img) return;
-  img.style.transform = `translate3d(${this._tx}px, ${this._ty}px, 0) scale(${this._z})`;
+  // No-zoom: nothing to apply.
 }
 
 _setupZoomHandlers() {
-  const stage = document.querySelector('#lightbox .lightbox-stage');
-  const img = document.getElementById('lightbox-img');
-  if (!(stage && img)) return;
-
-  // Wheel zoom around cursor
-  stage.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const rect = img.getBoundingClientRect();
-    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-    const k = e.deltaY < 0 ? 1.1 : 0.9;
-    const newZ = Math.min(8, Math.max(1, this._z * k));
-    const dz = newZ / this._z;
-    this._tx = cx - dz * (cx - this._tx);
-    this._ty = cy - dz * (cy - this._ty);
-    this._z = newZ; this._applyTransform();
-  }, { passive: false });
-
-  // Double-click toggle 1x <-> 2.5x at cursor
-  stage.addEventListener('dblclick', (e) => {
-    const rect = img.getBoundingClientRect();
-    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-    const targetZ = (this._z > 1.2) ? 1 : 2.5;
-    const dz = targetZ / this._z;
-    this._tx = cx - dz * (cx - this._tx);
-    this._ty = cy - dz * (cy - this._ty);
-    this._z = targetZ; this._applyTransform();
-  });
-
-  // Drag to pan (only when zoomed)
-  let dragging = false;
-  stage.addEventListener('pointerdown', (e) => {
-    dragging = true; this._px = e.clientX; this._py = e.clientY;
-    stage.setPointerCapture(e.pointerId);
-  });
-  stage.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - this._px, dy = e.clientY - this._py;
-    this._px = e.clientX; this._py = e.clientY;
-    if (this._z > 1) { this._tx += dx; this._ty += dy; this._applyTransform(); }
-  });
-  const endPan = (e) => { dragging = false; try { stage.releasePointerCapture(e.pointerId); } catch {} };
-  stage.addEventListener('pointerup', endPan);
-  stage.addEventListener('pointercancel', () => { dragging = false; });
-
-  // Two-finger pinch zoom
-  let p1 = null, p2 = null, baseZ = 1, baseD = 0, cx = 0, cy = 0;
-  stage.addEventListener('pointerdown', (e) => {
-    if (!p1) p1 = e;
-    else if (!p2) {
-      p2 = e; baseZ = this._z;
-      const d = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
-      baseD = Math.max(1, d);
-      const r = img.getBoundingClientRect();
-      cx = ((p1.clientX + p2.clientX) / 2) - r.left;
-      cy = ((p1.clientY + p2.clientY) / 2) - r.top;
-    }
-  });
-  stage.addEventListener('pointermove', (e) => {
-    if (p1 && p2) {
-      if (e.pointerId === p1.pointerId) p1 = e;
-      if (e.pointerId === p2.pointerId) p2 = e;
-      const d = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
-      const newZ = Math.min(8, Math.max(1, baseZ * (d / baseD)));
-      const dz = newZ / this._z;
-      this._tx = cx - dz * (cx - this._tx);
-      this._ty = cy - dz * (cy - this._ty);
-      this._z = newZ; this._applyTransform();
-    }
-  });
-  const clearPinch = (e) => { if (p2 && e.pointerId === p2.pointerId) p2 = null; else if (p1 && e.pointerId === p1.pointerId) p1 = p2, p2 = null; };
-  stage.addEventListener('pointerup', clearPinch);
-  stage.addEventListener('pointercancel', () => { p1 = p2 = null; });
+  // No-zoom: intentionally left blank (no wheel/dblclick/pinch/drag listeners).
 }
 
 /* ========= Autosave + Manual save ========= */
