@@ -1229,7 +1229,7 @@ function closeErrorModal() {
 
 /* ───────────── Gallery (login-gated) ───────────── */
 
-/* ========= API ========= */
+/* ===== API ===== */
 listMyPhotos() {
   const token = localStorage.getItem('token');
   if (!token) return Promise.resolve({ ok: false, items: [], error: 'no-token' });
@@ -1281,7 +1281,7 @@ deletePhoto(photoId) {
   .catch(() => false);
 }
 
-/* ========= Helpers ========= */
+/* ===== Helpers ===== */
 _buildAbsUrl(u) { return !u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)); }
 
 _downloadWithAuth(url, saveBlob) {
@@ -1294,7 +1294,7 @@ _downloadWithAuth(url, saveBlob) {
 }
 
 _downloadPhoto(it) {
-  // Card-level download (still allowed)
+  // Card-level download (viewer download removed by request)
   const pub = this._buildAbsUrl(it.urlFull || it.originalUrl || it.urlPublic || it.url || '');
   const sec = this._buildAbsUrl(it.secureUrl || it.urlFull || it.url || '');
   const filename = it.fileName || `photo-${it.id || Date.now()}.jpg`;
@@ -1317,7 +1317,7 @@ _downloadPhoto(it) {
   }
 }
 
-/* ========= Cards ========= */
+/* ===== Cards ===== */
 buildGalleryCard(it, index) {
   if (!it || !it.url) return null;
 
@@ -1371,7 +1371,7 @@ buildGalleryCard(it, index) {
   return card;
 }
 
-/* ========= Navigate to gallery after save ========= */
+/* ===== After save: show immediately ===== */
 goToGalleryAndShow(item) {
   this.navigateToPage('gallery');
   const grid  = document.getElementById('gallery-grid');
@@ -1393,7 +1393,7 @@ goToGalleryAndShow(item) {
   }
 }
 
-/* ========= Render gallery ========= */
+/* ===== Render gallery ===== */
 refreshGallery() {
   const hint    = document.getElementById('gallery-login-hint');
   const grid    = document.getElementById('gallery-grid');
@@ -1436,7 +1436,7 @@ refreshGallery() {
   });
 }
 
-/* ========= UI wiring + Lightbox ========= */
+/* ===== UI wiring + Lightbox ===== */
 setupGalleryUi() {
   const refresh = document.getElementById('refresh-gallery');
   const logout  = document.getElementById('logout-from-gallery');
@@ -1476,10 +1476,24 @@ setupGalleryUi() {
   // Lightbox overlay + controls
   const lb = document.getElementById('lightbox');
   if (lb) {
-    // Ensure overlay is at body level (avoids clipping by transformed ancestors)
+    // Ensure overlay sits under <body> (avoids right-side clipping)
     if (lb.parentElement !== document.body) document.body.appendChild(lb);
 
-    // Visible buttons: close / prev / next
+    // Mark body as "open" to disable background scroll
+    lb.addEventListener('transitionstart', () => {
+      if (lb.classList.contains('open')) {
+        document.documentElement.classList.add('lb-open');
+        document.body.classList.add('lb-open');
+      }
+    });
+    lb.addEventListener('transitionend', () => {
+      if (!lb.classList.contains('open')) {
+        document.documentElement.classList.remove('lb-open');
+        document.body.classList.remove('lb-open');
+      }
+    });
+
+    // Buttons: close / prev / next
     lb.querySelector('.lb-close')?.addEventListener('click', () => this.closeLightbox());
     lb.querySelector('.lb-next')?.addEventListener('click', () => this.nextLightbox(+1));
     lb.querySelector('.lb-prev')?.addEventListener('click', () => this.nextLightbox(-1));
@@ -1510,7 +1524,7 @@ setupGalleryUi() {
     }, { passive: true });
   }
 
-  // Zoom/pan gestures (image area)
+  // Zoom/pan gestures
   this._setupZoomHandlers();
 
   // Re-fit on resize
@@ -1520,7 +1534,7 @@ setupGalleryUi() {
   });
 }
 
-/* ========= Lightbox core ========= */
+/* ===== Lightbox core ===== */
 openLightbox(index = 0) {
   if (!this._galleryItems || !this._galleryItems.length) return;
   this._currentLight = Math.max(0, Math.min(index, this._galleryItems.length - 1));
@@ -1560,13 +1574,16 @@ updateLightboxImage() {
 
   if (counterEl) counterEl.textContent = `${this._currentLight + 1} / ${this._galleryItems.length}`;
 
-  // Fit & center after the image loads
-  imgEl.onload = () => this._setInitialViewFit();
+  // 2-phase fit to avoid layout races
+  imgEl.onload = () => {
+    this._setInitialViewFit();                       // first pass (image metrics ready)
+    requestAnimationFrame(() => this._setInitialViewFit()); // second pass after layout
+  };
 
   imgEl.src = tryPublic || trySecure || '';
   imgEl.alt = it.fileName || 'Photo';
 
-  // If the image requires auth, fetch with token and swap in a blob URL
+  // Auth fallback → blob
   imgEl.onerror = () => {
     const token = localStorage.getItem('token');
     if (!token || !trySecure) return;
@@ -1574,39 +1591,40 @@ updateLightboxImage() {
       .then(r => r.ok ? r.blob() : Promise.reject())
       .then(blob => {
         const blobUrl = URL.createObjectURL(blob);
-        imgEl.onload = () => this._setInitialViewFit();
+        imgEl.onload = () => {
+          this._setInitialViewFit();
+          requestAnimationFrame(() => this._setInitialViewFit());
+        };
         imgEl.src = blobUrl;
       })
       .catch(() => {});
   };
 }
 
-/* ========= Fit + Zoom / Pan ========= */
+/* ===== Fit + Zoom/Pan ===== */
 _setInitialViewFit() {
   const stage = document.querySelector('#lightbox .lightbox-stage');
   const img = document.getElementById('lightbox-img');
   if (!(stage && img)) return;
 
+  // reset to neutral before measuring
+  img.style.transform = 'translate3d(0,0,0) scale(1)';
+  this._z = 1; this._tx = 0; this._ty = 0;
+
   const vw = stage.clientWidth, vh = stage.clientHeight;
   const iw = img.naturalWidth, ih = img.naturalHeight;
   if (!iw || !ih || !vw || !vh) return;
 
-  // contain; do not upscale above 1x for crispness
+  // contain, never upscale above 1x
   const s = Math.min(vw / iw, vh / ih);
   this._z = Math.min(1, s > 0 ? s : 1);
 
-  // center
+  // center the scaled image
   const cw = iw * this._z, ch = ih * this._z;
   this._tx = (vw - cw) / 2;
   this._ty = (vh - ch) / 2;
 
   img.style.transform = `translate3d(${this._tx}px, ${this._ty}px, 0) scale(${this._z})`;
-}
-
-_resetZoomState() {
-  this._z = 1; this._tx = 0; this._ty = 0; this._px = 0; this._py = 0;
-  const img = document.getElementById('lightbox-img');
-  if (img) img.style.transform = 'translate3d(0,0,0) scale(1)';
 }
 
 _applyTransform() {
@@ -1669,8 +1687,8 @@ _setupZoomHandlers() {
       const d = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
       baseD = Math.max(1, d);
       const r = img.getBoundingClientRect();
-      cx = ((p1.clientX + p2.clientX) / 2) - r.left;
-      cy = ((p1.clientY + p2.clientY) / 2) - r.top;
+      cx = ((p1.clientX + p2.clientX)/2) - r.left;
+      cy = ((p1.clientY + p2.clientY)/2) - r.top;
     }
   });
   stage.addEventListener('pointermove', (e) => {
@@ -1690,7 +1708,7 @@ _setupZoomHandlers() {
   stage.addEventListener('pointercancel', () => { p1 = p2 = null; });
 }
 
-/* ========= Autosave + Manual save ========= */
+/* ===== Autosave + Manual save (unchanged) ===== */
 maybeAutosaveToGallery() {
   this.verifyToken().then(isAuthed => {
     if (!isAuthed) return;
@@ -1755,7 +1773,6 @@ saveFinalToGallery() {
     .finally(() => setBusy(false));
 }
 }
-
 /* ────────────────────────────────────────────────────────────
    Initialize application + expose helpers
    ──────────────────────────────────────────────────────────── */
