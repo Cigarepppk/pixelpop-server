@@ -1207,6 +1207,7 @@ footer {
 
 
 .logincontainer{
+    
     position: relative;
     width: 850px;
     height: 550px;
@@ -1433,6 +1434,7 @@ form{ width: 100%; }
 
 
 .logout-btn {
+    display: flex;
   background: none;
   border: none;
   font: inherit;
