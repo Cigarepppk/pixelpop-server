@@ -1590,3 +1590,7 @@ body.gallery-select-mode .gallery-card {
 .lb-prev { left: 20px; } .lb-next { right: 20px; }
 .lb-close { top: 18px; right: 18px; transform: none; font-size: 42px; opacity: .9; }
 @media (max-width: 640px) { .lb-btn { font-size: 32px; } .lb-close { font-size: 36px; } }
+/* Lightbox zoom/pan */
+.lightbox-stage { overflow: hidden; touch-action: none; } /* enable manual panning */
+.lightbox-stage img { cursor: grab; }
+.lightbox-stage img:active { cursor: grabbing; }

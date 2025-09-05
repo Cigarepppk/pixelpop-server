@@ -1226,6 +1226,7 @@ function closeErrorModal() {
   const errorModal = document.getElementById('error-modal');
   if (errorModal) errorModal.style.display = 'none';
 }*/
+
 /* ───────────── Gallery (login-gated) ───────────── */
 
 // List current user's photos
@@ -1295,8 +1296,9 @@ _downloadWithAuth(url, saveBlob) {
     .catch(() => alert('Download failed. Please try again.'));
 }
 _downloadPhoto(it) {
-  const pub = this._buildAbsUrl(it.urlPublic || it.url || '');
-  const sec = this._buildAbsUrl(it.secureUrl || it.url || '');
+  // Prefer true full-res if available
+  const pub = this._buildAbsUrl(it.urlFull || it.originalUrl || it.urlPublic || it.url || '');
+  const sec = this._buildAbsUrl(it.secureUrl || it.urlFull || it.url || '');
   const filename = it.fileName || `photo-${it.id || Date.now()}.jpg`;
 
   const saveBlob = (blob) => {
@@ -1329,7 +1331,7 @@ buildGalleryCard(it, index) {
   if (it.id) card.dataset.id = it.id;
 
   const img = document.createElement('img');
-  img.src = this._buildAbsUrl(it.url);
+  img.src = this._buildAbsUrl(it.url);               // display/thumbnail URL
   img.alt = it.fileName || 'Your photo';
   if (it.fileName) img.dataset.filename = it.fileName;
 
@@ -1540,6 +1542,9 @@ setupGalleryUi() {
       touchX = null;
     }, { passive: true });
   }
+
+  // Enable zoom/pan gestures in the lightbox
+  this._setupZoomHandlers();
 }
 
 /* ----- Lightbox implementation ----- */
@@ -1571,15 +1576,19 @@ updateLightboxImage() {
   if (!(imgEl && counterEl && dlEl)) return;
 
   const it = this._galleryItems[this._currentLight] || {};
-  const tryPublic = this._buildAbsUrl(it.urlPublic || it.url || '');
-  const trySecure = this._buildAbsUrl(it.secureUrl || it.url || '');
+  const abs = (u) => (!u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)));
+
+  // Prefer true full-res if backend provides it
+  const fullPref = abs(it.urlFull || it.originalUrl || it.urlHigh || '');
+  const tryPublic = abs(it.urlPublic || it.url || '') || fullPref;
+  const trySecure = abs(it.secureUrl || it.url || it.urlFull || '');
 
   counterEl.textContent = `${this._currentLight + 1} / ${this._galleryItems.length}`;
-  imgEl.src = tryPublic || trySecure || '';
+  imgEl.src = fullPref || tryPublic || trySecure || '';
   imgEl.alt = it.fileName || 'Photo';
 
-  // default download (public URL). If image is protected, we replace with blob on error below.
-  dlEl.href = tryPublic || '#';
+  // default download (public/full). If protected, blob fallback below.
+  dlEl.href = fullPref || tryPublic || '#';
   dlEl.setAttribute('download', it.fileName || `photo-${it.id || (this._currentLight+1)}.jpg`);
 
   // If the image requires auth, fetch with token and swap in a blob URL
@@ -1595,6 +1604,114 @@ updateLightboxImage() {
       })
       .catch(() => { /* ignore */ });
   };
+
+  // Reset zoom for each new image
+  this._resetZoomState();
+}
+
+/* ----- Zoom & Pan (wheel / double-click / drag / pinch) ----- */
+_resetZoomState() {
+  this._z = 1;              // scale
+  this._tx = 0; this._ty = 0; // translate
+  this._px = 0; this._py = 0; // last pointer pos
+  const img = document.getElementById('lightbox-img');
+  if (img) img.style.transform = 'translate3d(0,0,0) scale(1)';
+}
+_applyTransform() {
+  const img = document.getElementById('lightbox-img');
+  if (!img) return;
+  img.style.transform = `translate3d(${this._tx}px, ${this._ty}px, 0) scale(${this._z})`;
+}
+_setupZoomHandlers() {
+  const stage = document.querySelector('#lightbox .lightbox-stage');
+  const img = document.getElementById('lightbox-img');
+  if (!(stage && img)) return;
+
+  // Wheel zoom around cursor
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = img.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    const k = e.deltaY < 0 ? 1.1 : 0.9;
+    const newZ = Math.min(8, Math.max(1, this._z * k));
+    const dz = newZ / this._z;
+    this._tx = cx - dz * (cx - this._tx);
+    this._ty = cy - dz * (cy - this._ty);
+    this._z = newZ;
+    this._applyTransform();
+  }, { passive: false });
+
+  // Double-click toggle 1x <-> 2.5x at cursor
+  stage.addEventListener('dblclick', (e) => {
+    const rect = img.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    const targetZ = (this._z > 1.2) ? 1 : 2.5;
+    const dz = targetZ / this._z;
+    this._tx = cx - dz * (cx - this._tx);
+    this._ty = cy - dz * (cy - this._ty);
+    this._z = targetZ;
+    this._applyTransform();
+  });
+
+  // Drag to pan (only when zoomed)
+  let dragging = false;
+  stage.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    this._px = e.clientX; this._py = e.clientY;
+    stage.setPointerCapture(e.pointerId);
+  });
+  stage.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - this._px;
+    const dy = e.clientY - this._py;
+    this._px = e.clientX; this._py = e.clientY;
+    if (this._z > 1) {
+      this._tx += dx; this._ty += dy;
+      this._applyTransform();
+    }
+  });
+  const endPan = (e) => { dragging = false; try { stage.releasePointerCapture(e.pointerId); } catch {} };
+  stage.addEventListener('pointerup', endPan);
+  stage.addEventListener('pointercancel', () => { dragging = false; });
+
+  // Two-finger pinch zoom
+  let p1 = null, p2 = null, baseZ = 1, baseD = 0, cx = 0, cy = 0;
+
+  stage.addEventListener('pointerdown', (e) => {
+    if (!p1) p1 = e;
+    else if (!p2) {
+      p2 = e;
+      baseZ = this._z;
+      const d = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
+      baseD = Math.max(1, d);
+      const rect2 = img.getBoundingClientRect();
+      cx = ((p1.clientX + p2.clientX) / 2) - rect2.left;
+      cy = ((p1.clientY + p2.clientY) / 2) - rect2.top;
+    }
+  });
+
+  stage.addEventListener('pointermove', (e) => {
+    if (p1 && p2) {
+      if (e.pointerId === p1.pointerId) p1 = e;
+      if (e.pointerId === p2.pointerId) p2 = e;
+      const d = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
+      let newZ = Math.min(8, Math.max(1, baseZ * (d / baseD)));
+      const dz = newZ / this._z;
+      this._tx = cx - dz * (cx - this._tx);
+      this._ty = cy - dz * (cy - this._ty);
+      this._z = newZ;
+      this._applyTransform();
+    }
+  });
+
+  const clearPinch = (e) => {
+    if (p2 && e.pointerId === p2.pointerId) p2 = null;
+    else if (p1 && e.pointerId === p1.pointerId) p1 = p2, p2 = null;
+  };
+  stage.addEventListener('pointerup', clearPinch);
+  stage.addEventListener('pointercancel', () => { p1 = p2 = null; });
 }
 
 // Silently save final canvas to the user's gallery (if logged in)
@@ -1707,6 +1824,8 @@ saveFinalToGallery() {
     .finally(() => setBusy(false));
 }
 }
+
+
 
 /* ────────────────────────────────────────────────────────────
    Initialize application + expose helpers
