@@ -1598,18 +1598,20 @@ body.gallery-select-mode .gallery-card {
   touch-action: none; /* wheel/pinch/drag support */
 }
 
-/* We center via translate+scale from top-left */
+/* We center via translate+scale FROM TOP-LEFT */
 .lightbox-stage img {
+  width: auto;
+  height: auto;
   max-width: none;
   max-height: none;
   object-fit: unset;
   user-select: none;
   cursor: grab;
   will-change: transform;
-  transform-origin: top left; /* CRITICAL for perfect centering */
+  transform-origin: top left; /* critical for perfect centering */
 }
 
-/* Keep a simple counter if you want */
+/* Counter (kept) */
 .lightbox-meta {
   position: fixed;
   bottom: 24px;
@@ -1641,11 +1643,11 @@ body.gallery-select-mode .gallery-card {
 .lb-next { right: 20px; }
 .lb-close { top: 18px; right: 18px; transform: none; font-size: 42px; opacity: .9; }
 
-/* Remove the buttons you don't want in the viewer */
+/* Remove viewer buttons you don't want */
 .lb-download,
 #lightbox-fit-toggle { display: none !important; }
 
-/* Optional: avoid background scrolling while open */
+/* Optional: avoid background scroll while open */
 html.lb-open, body.lb-open { overflow: hidden; }
 
 @media (max-width: 640px) {
