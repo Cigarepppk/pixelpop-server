@@ -1578,8 +1578,16 @@ body.gallery-select-mode .gallery-card {
 .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.9);
   display: none; align-items: center; justify-content: center; z-index: 1000; }
 .lightbox.open { display: flex; }
-.lightbox-stage { max-width: 100%; max-height: 100%; display: flex; align-items: center; justify-content: center; }
-.lightbox-stage img { max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; }
+
+/* key changes: allow natural size + we pan via JS transforms */
+.lightbox-stage { max-width: 100%; max-height: 100%; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; touch-action: none; }
+.lightbox-stage img {
+  /* no max constraints so it renders at its natural/original size */
+  max-width: none; max-height: none; object-fit: unset; user-select: none;
+  cursor: grab; will-change: transform;
+}
+
 .lightbox-meta { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
   display: flex; gap: 16px; align-items: center; color: #fff; font-size: 14px; opacity: .9; }
 .lb-download { padding: 6px 10px; border: 1px solid #fff3; border-radius: 8px; color: #fff; text-decoration: none; }
@@ -1590,4 +1598,3 @@ body.gallery-select-mode .gallery-card {
 .lb-prev { left: 20px; } .lb-next { right: 20px; }
 .lb-close { top: 18px; right: 18px; transform: none; font-size: 42px; opacity: .9; }
 @media (max-width: 640px) { .lb-btn { font-size: 32px; } .lb-close { font-size: 36px; } }
-
