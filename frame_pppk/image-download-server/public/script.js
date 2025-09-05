@@ -2075,7 +2075,7 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ────────────────────────────────────────────────────────────
    Auth UI + API glue (login/register forms)
    ──────────────────────────────────────────────────────────── */
-const API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
+/*const API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
 
 function safeJson(res) {
   return res.text().then(text => {
@@ -2200,3 +2200,271 @@ if (loginForm) {
       .finally(() => setBusy(loginForm, false));
   });
 }
+*/
+/* ────────────────────────────────────────────────────────────
+   Auth UI + API glue (login/register/forgot/google)
+   ──────────────────────────────────────────────────────────── */
+
+// Change this if you deploy elsewhere. You can also override by setting window.API_BASE.
+const API_BASE = (window.API_BASE || 'https://pixelpop-backend-fm6t.onrender.com');
+
+/* ---------- Helpers ---------- */
+function setBusy(form, busy) {
+  if (!form) return;
+  [...form.elements].forEach(el => (el.disabled = !!busy));
+  form.dataset.busy = busy ? '1' : '';
+}
+
+function getToken() {
+  return localStorage.getItem('token') || '';
+}
+
+function setToken(t) {
+  if (t) localStorage.setItem('token', t);
+}
+
+function authHeaders(extra = {}) {
+  const t = getToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(t ? { 'Authorization': `Bearer ${t}` } : {}),
+    ...extra
+  };
+}
+
+// Generic POST with optional 404 fallbacks.
+// Returns a Response with a parsed JSON clone on _json.
+function doPost(path, body, alts = []) {
+  const opts = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: (body && typeof body !== 'string') ? JSON.stringify(body) : (body || '{}')
+  };
+
+  if (window.PixelPopApp && typeof window.PixelPopApp.fetchWith404Fallback === 'function') {
+    return window.PixelPopApp.fetchWith404Fallback(API_BASE, path, opts, alts);
+  }
+
+  const tryOnce = (url) =>
+    fetch(url, opts).then(async (r) => {
+      let j = {};
+      try { j = await r.clone().json(); } catch {}
+      r._json = j;
+      return r;
+    });
+
+  // try primary, then each alt
+  return tryOnce(API_BASE + path).then(r => {
+    if (r.status !== 404 || alts.length === 0) return r;
+    // chain fallbacks
+    let chain = Promise.resolve(r);
+    alts.forEach((alt, i) => {
+      chain = chain.then(prev => {
+        if (prev.status !== 404 || i === alts.length) return prev;
+        return tryOnce(API_BASE + alt);
+      });
+    });
+    return chain;
+  });
+}
+
+function doGet(path, alts = [], withAuth = false) {
+  const opts = {
+    method: 'GET',
+    headers: withAuth ? authHeaders() : { 'Content-Type': 'application/json' }
+  };
+
+  if (window.PixelPopApp && typeof window.PixelPopApp.fetchWith404Fallback === 'function') {
+    return window.PixelPopApp.fetchWith404Fallback(API_BASE, path, opts, alts);
+  }
+
+  const tryOnce = (url) =>
+    fetch(url, opts).then(async (r) => {
+      let j = {};
+      try { j = await r.clone().json(); } catch {}
+      r._json = j;
+      return r;
+    });
+
+  return tryOnce(API_BASE + path).then(r => {
+    if (r.status !== 404 || alts.length === 0) return r;
+    let chain = Promise.resolve(r);
+    alts.forEach((alt, i) => {
+      chain = chain.then(prev => {
+        if (prev.status !== 404 || i === alts.length) return prev;
+        return tryOnce(API_BASE + alt);
+      });
+    });
+    return chain;
+  });
+}
+
+/* ---------- Elements ---------- */
+const loginForm    = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const container    = document.querySelector('.logincontainer');
+const registerBtn  = document.querySelector('.register-btn');
+const loginBtn     = document.querySelector('.login-btn');
+
+// Forgot link can be #forgot-link or first .forgot-link a
+const forgotLink   = document.getElementById('forgot-link') ||
+                     document.querySelector('.forgot-link a');
+
+/* ---------- Toggle UI ---------- */
+if (registerBtn) registerBtn.addEventListener('click', () => container && container.classList.add('active'));
+if (loginBtn)    loginBtn.addEventListener('click',    () => container && container.classList.remove('active'));
+
+/* ---------- Registration ---------- */
+if (registerForm) {
+  registerForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    setBusy(registerForm, true);
+
+    const username = e.target.username.value.trim();
+    const email = e.target.email.value.trim();
+    const password = e.target.password.value;
+    const confirmPassword = e.target.confirmPassword.value;
+
+    if (!username || !email || !password) {
+      alert('Please fill all fields.');
+      setBusy(registerForm, false);
+      return;
+    }
+    if (password !== confirmPassword) {
+      alert('Passwords do not match!');
+      setBusy(registerForm, false);
+      return;
+    }
+
+    doPost('/signup', { username, email, password }, ['/api/signup'])
+      .then(({ ok, _json: data, status }) => {
+        if (ok) {
+          alert('Registration successful! Please log in.');
+          if (container) container.classList.remove('active');
+          if (registerForm.reset) registerForm.reset();
+        } else {
+          alert(`Registration failed: ${(data && (data.error || data.message)) || `HTTP ${status}`}`);
+          console.error('Registration failed:', data);
+        }
+      })
+      .catch(err => {
+        console.error('Error during registration:', err);
+        alert('An error occurred during registration. Please try again later.');
+      })
+      .finally(() => setBusy(registerForm, false));
+  });
+}
+
+/* ---------- Login (email OR username) ---------- */
+if (loginForm) {
+  loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    setBusy(loginForm, true);
+
+    // Support either <input name="identifier"> or legacy <input name="username">
+    const raw = (e.target.identifier?.value ?? e.target.username?.value ?? '').trim();
+    const password = e.target.password.value;
+
+    if (!raw || !password) {
+      alert('Please enter your email/username and password.');
+      setBusy(loginForm, false);
+      return;
+    }
+
+    const body = raw.includes('@') ? { email: raw, password } : { username: raw, password };
+
+    doPost('/login', body, ['/api/login'])
+      .then(({ ok, _json: data, status }) => {
+        if (ok && data && data.token) {
+          setToken(data.token);
+          alert('Login successful!');
+
+          if (window.PixelPopApp?.updatePrivilegedButtonsState) {
+            window.PixelPopApp.updatePrivilegedButtonsState();
+          }
+          if (typeof window.PixelPopAppNavigate === 'function') {
+            window.PixelPopAppNavigate('layout');
+          }
+          if (loginForm.reset) loginForm.reset();
+
+          // Optional: verify token quickly (does not block UI)
+          doGet('/api/auth/verify', [], true).catch(() => {});
+        } else {
+          alert(`Login failed: ${(data && (data.error || data.message)) || `HTTP ${status}`}`);
+          console.error('Login failed:', data);
+        }
+      })
+      .catch(err => {
+        console.error('Error during login:', err);
+        alert('An error occurred during login. Please try again later.');
+      })
+      .finally(() => setBusy(loginForm, false));
+  });
+}
+
+/* ---------- Forgot Password ---------- */
+if (forgotLink) {
+  forgotLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    const email = prompt('Enter the email on your account:');
+    if (!email) return;
+
+    doPost('/forgot-password', { email }, ['/api/forgot-password'])
+      .then(({ _json: data }) => {
+        alert((data && data.message) || 'If that account exists, we sent an email with a reset link.');
+      })
+      .catch(err => {
+        console.error('Forgot password error:', err);
+        alert('Could not process password reset. Please try again.');
+      });
+  });
+}
+
+/* ---------- Google Sign-In (GIS) ----------
+   Your HTML must include:
+   <script src="https://accounts.google.com/gsi/client" async defer></script>
+   And a container:
+   <div id="g_id_onload"
+        data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+        data-callback="handleGoogleCredential"
+        data-auto_prompt="false"></div>
+   <div class="g_id_signin" data-type="standard" ...></div>
+*/
+window.handleGoogleCredential = async (response) => {
+  try {
+    const idToken = response?.credential;
+    if (!idToken) return alert('Google sign-in failed: no credential.');
+
+    // Send ID token to backend; backend verifies with Google and returns our JWT
+    const r = await doPost('/auth/google', { idToken }, ['/api/auth/google']);
+    const data = r._json || {};
+    if (!r.ok || !data.token) {
+      return alert(`Google sign-in failed: ${data.error || `HTTP ${r.status}`}`);
+    }
+
+    setToken(data.token);
+    alert(`Welcome, ${data?.user?.username || 'user'}!`);
+
+    if (window.PixelPopApp?.updatePrivilegedButtonsState) {
+      window.PixelPopApp.updatePrivilegedButtonsState();
+    }
+    if (typeof window.PixelPopAppNavigate === 'function') {
+      window.PixelPopAppNavigate('layout');
+    }
+
+    // Optional post-login verify
+    doGet('/api/auth/verify', [], true).catch(() => {});
+  } catch (err) {
+    console.error('Google sign-in error:', err);
+    alert('Google sign-in failed. Please try again.');
+  }
+};
+
+/* ---------- Optional: logout helper ---------- */
+window.PixelPopLogout = function () {
+  localStorage.removeItem('token');
+  if (window.PixelPopApp?.updatePrivilegedButtonsState) {
+    window.PixelPopApp.updatePrivilegedButtonsState();
+  }
+  alert('Logged out.');
+};

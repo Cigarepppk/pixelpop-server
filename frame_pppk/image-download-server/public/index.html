@@ -270,77 +270,7 @@
     </div>
 </section>
 
- <!-- Login/Register stays so users can log in to unlock Download/Print -->
-            <section id="login-page" class="page">
-                <section class="loginposition">
-                <div class="logincontainer">
-                    <div class="form-box login">
-                        <form id="login-form">
-                            <h1>Login</h1>
-                            <div class="input-box">
-                                <input type="text" name="username" placeholder="Username" required>
-                                <i class='bx bxs-user'></i>
-                            </div>
-                            <div class="input-box">
-                                <input type="password" name="password" placeholder="Password" required>
-                                <i class='bx bxs-lock-alt'></i>
-                            </div>
-                            <div class="forgot-link">
-                                <a href="#">Forgot Password?</a>
-                            </div>
-                            <button type="submit" class="btn">Login</button>
-                            <p>or login with social platforms</p>
-                            <div class="social-icons">
-                                <a href="https://accounts.google.com"><i class='bx bxl-google'></i></a>
-                        
-                            </div>
-                        </form>
-                    </div>
 
-                    <div class="form-box register">
-                        <form id="register-form">
-                            <h1>Registration</h1>
-                            <div class="input-box">
-                                <input type="text" name="username" placeholder="Username" required>
-                                <i class='bx bxs-user'></i>
-                            </div>
-                            <div class="input-box">
-                                <input type="email" name="email" placeholder="Email" required>
-                                <i class='bx bxs-envelope'></i>
-                            </div>
-                            <div class="input-box">
-                                <input type="password" name="password" placeholder="Password" required>
-                                <i class='bx bxs-lock-alt'></i>
-                            </div>
-                            <div class="input-box">
-                                <input type="password" name="confirmPassword" placeholder="Confirm Password" required>
-                                <i class='bx bxs-lock-alt'></i>
-                            </div>
-                            <button type="submit" class="btn1">Register</button>
-                            <p>or register with social platforms</p>
-                            <div class="social-icons">
-                                <a href="https://accounts.google.com"><i class='bx bxl-google'></i></a>
-                            
-                            </div>
-                        </form>
-                    </div>
-
-                    <div class="toggle-box">
-                        <div class="toggle-panel toggle-left">
-                            <h2>Hello, Welcome!</h2>
-                            <p>Don't have an account?</p>
-                            <button class="btn register-btn">Register</button>
-                        </div>
-
-                        <div class="toggle-panel toggle-right">
-                            <h2>Welcome Back!</h2>
-                            <p>Already have an account?</p>
-                            <button class="btn login-btn">Login</button>
-                        </div>
-                    </div>
-                </div>
-                </section>
-            </section>
 
 
         <!-- Layout/Photo Booth Page -->
@@ -677,6 +607,170 @@
 
 </section>
 
+ <!-- Login/Register stays so users can log in to unlock Download/Print 
+            <section id="login-page" class="page">
+                <section class="loginposition">
+                <div class="logincontainer">
+                    <div class="form-box login">
+                        <form id="login-form">
+                            <h1>Login</h1>
+                            <div class="input-box">
+                                <input type="text" name="username" placeholder="Username" required>
+                                <i class='bx bxs-user'></i>
+                            </div>
+                            <div class="input-box">
+                                <input type="password" name="password" placeholder="Password" required>
+                                <i class='bx bxs-lock-alt'></i>
+                            </div>
+                            <div class="forgot-link">
+                                <a href="#">Forgot Password?</a>
+                            </div>
+                            <button type="submit" class="btn">Login</button>
+                            <p>or login with social platforms</p>
+                            <div class="social-icons">
+                                <a href="https://accounts.google.com"><i class='bx bxl-google'></i></a>
+                        
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="form-box register">
+                        <form id="register-form">
+                            <h1>Registration</h1>
+                            <div class="input-box">
+                                <input type="text" name="username" placeholder="Username" required>
+                                <i class='bx bxs-user'></i>
+                            </div>
+                            <div class="input-box">
+                                <input type="email" name="email" placeholder="Email" required>
+                                <i class='bx bxs-envelope'></i>
+                            </div>
+                            <div class="input-box">
+                                <input type="password" name="password" placeholder="Password" required>
+                                <i class='bx bxs-lock-alt'></i>
+                            </div>
+                            <div class="input-box">
+                                <input type="password" name="confirmPassword" placeholder="Confirm Password" required>
+                                <i class='bx bxs-lock-alt'></i>
+                            </div>
+                            <button type="submit" class="btn1">Register</button>
+                            <p>or register with social platforms</p>
+                            <div class="social-icons">
+                                <a href="https://accounts.google.com"><i class='bx bxl-google'></i></a>
+                            
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="toggle-box">
+                        <div class="toggle-panel toggle-left">
+                            <h2>Hello, Welcome!</h2>
+                            <p>Don't have an account?</p>
+                            <button class="btn register-btn">Register</button>
+                        </div>
+
+                        <div class="toggle-panel toggle-right">
+                            <h2>Welcome Back!</h2>
+                            <p>Already have an account?</p>
+                            <button class="btn login-btn">Login</button>
+                        </div>
+                    </div>
+                </div>
+                </section>
+            </section>-->
+
+            <!-- Login/Register stays so users can log in to unlock Download/Print -->
+<section id="login-page" class="page">
+  <section class="loginposition">
+    <div class="logincontainer">
+      <div class="form-box login">
+        <form id="login-form">
+          <h1>Login</h1>
+          <div class="input-box">
+            <!-- can be email OR username -->
+            <input type="text" name="identifier" placeholder="Email or Username" required>
+            <i class='bx bxs-user'></i>
+          </div>
+          <div class="input-box">
+            <input type="password" name="password" placeholder="Password" required>
+            <i class='bx bxs-lock-alt'></i>
+          </div>
+          <div class="forgot-link">
+            <a href="#" id="forgot-link">Forgot Password?</a>
+          </div>
+          <button type="submit" class="btn">Login</button>
+
+          <p>or login with</p>
+          <!-- Google Identity Services button mounts here -->
+          <div class="social-icons">
+            <div id="g_id_onload"
+                 data-client_id="881251005658-pgve1b61c4rpvs4vuascvkhq5irkq13k.apps.googleusercontent.com"
+                 data-callback="handleGoogleCredential"
+                 data-auto_prompt="false"></div>
+            <div class="g_id_signin"
+                 data-type="standard"
+                 data-shape="rectangular"
+                 data-size="large"
+                 data-theme="outline"
+                 data-text="signin_with"
+                 data-logo_alignment="left"></div>
+          </div>
+        </form>
+      </div>
+
+      <div class="form-box register">
+        <form id="register-form">
+          <h1>Registration</h1>
+          <div class="input-box">
+            <input type="text" name="username" placeholder="Username" required>
+            <i class='bx bxs-user'></i>
+          </div>
+          <div class="input-box">
+            <input type="email" name="email" placeholder="Email" required>
+            <i class='bx bxs-envelope'></i>
+          </div>
+          <div class="input-box">
+            <input type="password" name="password" placeholder="Password" required>
+            <i class='bx bxs-lock-alt'></i>
+          </div>
+          <div class="input-box">
+            <input type="password" name="confirmPassword" placeholder="Confirm Password" required>
+            <i class='bx bxs-lock-alt'></i>
+          </div>
+          <button type="submit" class="btn1">Register</button>
+
+          <p>or register with</p>
+          <div class="social-icons">
+            <!-- Optional: Google button here too -->
+            <div class="g_id_signin"
+                 data-type="standard"
+                 data-shape="rectangular"
+                 data-size="large"
+                 data-theme="outline"
+                 data-text="signup_with"
+                 data-logo_alignment="left"></div>
+          </div>
+        </form>
+      </div>
+
+      <div class="toggle-box">
+        <div class="toggle-panel toggle-left">
+          <h2>Hello, Welcome!</h2>
+          <p>Don't have an account?</p>
+          <button class="btn register-btn">Register</button>
+        </div>
+
+        <div class="toggle-panel toggle-right">
+          <h2>Welcome Back!</h2>
+          <p>Already have an account?</p>
+          <button class="btn login-btn">Login</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</section>
+
+
 
     </main>
 
@@ -704,6 +798,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js" defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="script.js"></script>
 </body>
 </html>
