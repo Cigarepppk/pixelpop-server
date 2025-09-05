@@ -1229,7 +1229,7 @@ function closeErrorModal() {
 
 /* ───────────── Gallery (login-gated) ───────────── */
 
-/* ===== API ===== */
+/* ========= API ========= */
 listMyPhotos() {
   const token = localStorage.getItem('token');
   if (!token) return Promise.resolve({ ok: false, items: [], error: 'no-token' });
@@ -1281,7 +1281,7 @@ deletePhoto(photoId) {
   .catch(() => false);
 }
 
-/* ===== Helpers ===== */
+/* ========= Helpers ========= */
 _buildAbsUrl(u) { return !u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)); }
 
 _downloadWithAuth(url, saveBlob) {
@@ -1294,7 +1294,7 @@ _downloadWithAuth(url, saveBlob) {
 }
 
 _downloadPhoto(it) {
-  // Card-level download (viewer download removed by request)
+  // Card-level download (still allowed)
   const pub = this._buildAbsUrl(it.urlFull || it.originalUrl || it.urlPublic || it.url || '');
   const sec = this._buildAbsUrl(it.secureUrl || it.urlFull || it.url || '');
   const filename = it.fileName || `photo-${it.id || Date.now()}.jpg`;
@@ -1317,7 +1317,7 @@ _downloadPhoto(it) {
   }
 }
 
-/* ===== Cards ===== */
+/* ========= Cards ========= */
 buildGalleryCard(it, index) {
   if (!it || !it.url) return null;
 
@@ -1371,7 +1371,7 @@ buildGalleryCard(it, index) {
   return card;
 }
 
-/* ===== After save: show immediately ===== */
+/* ========= Navigate to gallery after save ========= */
 goToGalleryAndShow(item) {
   this.navigateToPage('gallery');
   const grid  = document.getElementById('gallery-grid');
@@ -1393,7 +1393,7 @@ goToGalleryAndShow(item) {
   }
 }
 
-/* ===== Render gallery ===== */
+/* ========= Render gallery ========= */
 refreshGallery() {
   const hint    = document.getElementById('gallery-login-hint');
   const grid    = document.getElementById('gallery-grid');
@@ -1436,7 +1436,7 @@ refreshGallery() {
   });
 }
 
-/* ===== UI wiring + Lightbox ===== */
+/* ========= UI wiring + Lightbox ========= */
 setupGalleryUi() {
   const refresh = document.getElementById('refresh-gallery');
   const logout  = document.getElementById('logout-from-gallery');
@@ -1476,10 +1476,10 @@ setupGalleryUi() {
   // Lightbox overlay + controls
   const lb = document.getElementById('lightbox');
   if (lb) {
-    // Ensure overlay sits under <body> (avoids clipping by parents)
+    // Ensure overlay is at body level (avoids clipping by transformed ancestors)
     if (lb.parentElement !== document.body) document.body.appendChild(lb);
 
-    // Buttons: close / prev / next
+    // Visible buttons: close / prev / next
     lb.querySelector('.lb-close')?.addEventListener('click', () => this.closeLightbox());
     lb.querySelector('.lb-next')?.addEventListener('click', () => this.nextLightbox(+1));
     lb.querySelector('.lb-prev')?.addEventListener('click', () => this.nextLightbox(-1));
@@ -1498,29 +1498,36 @@ setupGalleryUi() {
       if (e.key === 'ArrowRight') this.nextLightbox(+1);
       if (e.key === 'ArrowLeft') this.nextLightbox(-1);
     });
+
+    // Touch swipe
+    let touchX = null;
+    lb.addEventListener('touchstart', (e) => { touchX = e.changedTouches[0].clientX; }, { passive: true });
+    lb.addEventListener('touchend', (e) => {
+      if (touchX == null) return;
+      const dx = e.changedTouches[0].clientX - touchX;
+      if (Math.abs(dx) > 40) this.nextLightbox(dx < 0 ? +1 : -1);
+      touchX = null;
+    }, { passive: true });
   }
 
-  // Enable zoom/pan gestures on the image area
+  // Zoom/pan gestures (image area)
   this._setupZoomHandlers();
 
-  // Refit on viewport resize
+  // Re-fit on resize
   window.addEventListener('resize', () => {
     const open = document.getElementById('lightbox')?.classList.contains('open');
-    if (open) this._fitOpenImageToViewport();
+    if (open) this._setInitialViewFit();
   });
 }
 
-/* ===== Lightbox core ===== */
+/* ========= Lightbox core ========= */
 openLightbox(index = 0) {
   if (!this._galleryItems || !this._galleryItems.length) return;
   this._currentLight = Math.max(0, Math.min(index, this._galleryItems.length - 1));
   const lb = document.getElementById('lightbox');
   if (!lb) return;
-  if (lb.parentElement !== document.body) document.body.appendChild(lb);
   lb.classList.add('open');
   lb.setAttribute('aria-hidden', 'false');
-  document.documentElement.classList.add('lb-open');
-  document.body.classList.add('lb-open');
   this.updateLightboxImage();
 }
 
@@ -1529,8 +1536,6 @@ closeLightbox() {
   if (!lb) return;
   lb.classList.remove('open');
   lb.setAttribute('aria-hidden', 'true');
-  document.documentElement.classList.remove('lb-open');
-  document.body.classList.remove('lb-open');
 }
 
 nextLightbox(delta = 1) {
@@ -1548,18 +1553,15 @@ updateLightboxImage() {
   const it = this._galleryItems[this._currentLight] || {};
   const abs = (u) => (!u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)));
 
-  // Prefer full/original URL; fall back to public/secure
+  // Prefer full-res if your backend provides it
   const fullPref  = abs(it.urlFull || it.originalUrl || it.urlHigh || '');
   const tryPublic = fullPref || abs(it.urlPublic || it.url || '');
   const trySecure = abs(it.secureUrl || it.urlFull || it.url || '');
 
   if (counterEl) counterEl.textContent = `${this._currentLight + 1} / ${this._galleryItems.length}`;
 
-  // Two-phase fit to avoid layout races
-  imgEl.onload = () => {
-    this._fitOpenImageToViewport();                         // compute z = min(1, fitScale)
-    requestAnimationFrame(() => this._fitOpenImageToViewport());
-  };
+  // Fit & center after the image loads
+  imgEl.onload = () => this._setInitialViewFit();
 
   imgEl.src = tryPublic || trySecure || '';
   imgEl.alt = it.fileName || 'Photo';
@@ -1572,42 +1574,41 @@ updateLightboxImage() {
       .then(r => r.ok ? r.blob() : Promise.reject())
       .then(blob => {
         const blobUrl = URL.createObjectURL(blob);
-        imgEl.onload = () => {
-          this._fitOpenImageToViewport();
-          requestAnimationFrame(() => this._fitOpenImageToViewport());
-        };
+        imgEl.onload = () => this._setInitialViewFit();
         imgEl.src = blobUrl;
       })
       .catch(() => {});
   };
 }
 
-/* ===== Fit rule: if larger than screen → fit; else 1×. Always centered. ===== */
-_fitOpenImageToViewport(){
+/* ========= Fit + Zoom / Pan ========= */
+_setInitialViewFit() {
   const stage = document.querySelector('#lightbox .lightbox-stage');
-  const img   = document.getElementById('lightbox-img');
-  if(!(stage && img)) return;
+  const img = document.getElementById('lightbox-img');
+  if (!(stage && img)) return;
 
-  // Reset to neutral before measuring
-  img.style.transform = 'translate3d(0,0,0) scale(1)';
-  this._z = 1; this._tx = 0; this._ty = 0;
+  const vw = stage.clientWidth, vh = stage.clientHeight;
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  if (!iw || !ih || !vw || !vh) return;
 
-  const vw = stage.clientWidth,  vh = stage.clientHeight;
-  const iw = img.naturalWidth,   ih = img.naturalHeight;
-  if(!vw || !vh || !iw || !ih) return;
+  // contain; do not upscale above 1x for crispness
+  const s = Math.min(vw / iw, vh / ih);
+  this._z = Math.min(1, s > 0 ? s : 1);
 
-  const fitScale = Math.min(vw / iw, vh / ih);   // contain
-  // If photo is larger than screen, scale DOWN to fit; else keep 1×
-  this._fitScale = fitScale;                     // store for dblclick toggle
-  this._z = Math.min(1, fitScale || 1);
-
-  this._tx = (vw - iw * this._z) / 2;
-  this._ty = (vh - ih * this._z) / 2;
+  // center
+  const cw = iw * this._z, ch = ih * this._z;
+  this._tx = (vw - cw) / 2;
+  this._ty = (vh - ch) / 2;
 
   img.style.transform = `translate3d(${this._tx}px, ${this._ty}px, 0) scale(${this._z})`;
 }
 
-/* ===== Zoom/Pan (wheel, pinch, drag, dblclick toggles Fit ↔ 1×) ===== */
+_resetZoomState() {
+  this._z = 1; this._tx = 0; this._ty = 0; this._px = 0; this._py = 0;
+  const img = document.getElementById('lightbox-img');
+  if (img) img.style.transform = 'translate3d(0,0,0) scale(1)';
+}
+
 _applyTransform() {
   const img = document.getElementById('lightbox-img');
   if (!img) return;
@@ -1616,7 +1617,7 @@ _applyTransform() {
 
 _setupZoomHandlers() {
   const stage = document.querySelector('#lightbox .lightbox-stage');
-  const img   = document.getElementById('lightbox-img');
+  const img = document.getElementById('lightbox-img');
   if (!(stage && img)) return;
 
   // Wheel zoom around cursor
@@ -1625,27 +1626,25 @@ _setupZoomHandlers() {
     const rect = img.getBoundingClientRect();
     const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
     const k = e.deltaY < 0 ? 1.1 : 0.9;
-    const newZ = Math.min(8, Math.max(0.1, this._z * k));
+    const newZ = Math.min(8, Math.max(1, this._z * k));
     const dz = newZ / this._z;
     this._tx = cx - dz * (cx - this._tx);
     this._ty = cy - dz * (cy - this._ty);
     this._z = newZ; this._applyTransform();
   }, { passive: false });
 
-  // Double-click: toggle Fit ↔ 1×
+  // Double-click toggle 1x <-> 2.5x at cursor
   stage.addEventListener('dblclick', (e) => {
-    const targetZ = (Math.abs(this._z - (this._fitScale || 1)) < 0.01)
-      ? 1 : (this._fitScale ? Math.min(1, this._fitScale) : 1);
-
     const rect = img.getBoundingClientRect();
     const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+    const targetZ = (this._z > 1.2) ? 1 : 2.5;
     const dz = targetZ / this._z;
     this._tx = cx - dz * (cx - this._tx);
     this._ty = cy - dz * (cy - this._ty);
     this._z = targetZ; this._applyTransform();
   });
 
-  // Drag to pan
+  // Drag to pan (only when zoomed)
   let dragging = false;
   stage.addEventListener('pointerdown', (e) => {
     dragging = true; this._px = e.clientX; this._py = e.clientY;
@@ -1655,7 +1654,7 @@ _setupZoomHandlers() {
     if (!dragging) return;
     const dx = e.clientX - this._px, dy = e.clientY - this._py;
     this._px = e.clientX; this._py = e.clientY;
-    this._tx += dx; this._ty += dy; this._applyTransform();
+    if (this._z > 1) { this._tx += dx; this._ty += dy; this._applyTransform(); }
   });
   const endPan = (e) => { dragging = false; try { stage.releasePointerCapture(e.pointerId); } catch {} };
   stage.addEventListener('pointerup', endPan);
@@ -1670,8 +1669,8 @@ _setupZoomHandlers() {
       const d = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
       baseD = Math.max(1, d);
       const r = img.getBoundingClientRect();
-      cx = ((p1.clientX + p2.clientX)/2) - r.left;
-      cy = ((p1.clientY + p2.clientY)/2) - r.top;
+      cx = ((p1.clientX + p2.clientX) / 2) - r.left;
+      cy = ((p1.clientY + p2.clientY) / 2) - r.top;
     }
   });
   stage.addEventListener('pointermove', (e) => {
@@ -1679,7 +1678,7 @@ _setupZoomHandlers() {
       if (e.pointerId === p1.pointerId) p1 = e;
       if (e.pointerId === p2.pointerId) p2 = e;
       const d = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
-      const newZ = Math.min(8, Math.max(0.1, baseZ * (d / baseD)));
+      const newZ = Math.min(8, Math.max(1, baseZ * (d / baseD)));
       const dz = newZ / this._z;
       this._tx = cx - dz * (cx - this._tx);
       this._ty = cy - dz * (cy - this._ty);
@@ -1690,7 +1689,73 @@ _setupZoomHandlers() {
   stage.addEventListener('pointerup', clearPinch);
   stage.addEventListener('pointercancel', () => { p1 = p2 = null; });
 }
+
+/* ========= Autosave + Manual save ========= */
+maybeAutosaveToGallery() {
+  this.verifyToken().then(isAuthed => {
+    if (!isAuthed) return;
+    if (this.isLayoutReady) return this._doAutosave();
+    const once = () => this._doAutosave();
+    document.addEventListener('pixelpop:layout-ready', once, { once: true });
+  }).catch(e => console.warn('Autosave failed:', e));
 }
+
+_doAutosave() {
+  const finalCanvas = document.getElementById('final-canvas');
+  if (!finalCanvas) return;
+  if ((this._galleryCount || 0) >= this.MAX_GALLERY) {
+    alert('Gallery is full (50 photos). Please delete some photos first.');
+    return;
+  }
+  const scale = 2;
+  const tmp = document.createElement('canvas');
+  tmp.width  = finalCanvas.width * scale;
+  tmp.height = finalCanvas.height * scale;
+  const ctx = tmp.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, tmp.width, tmp.height);
+  ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
+  const dataURL = tmp.toDataURL('image/jpeg', 0.95);
+  return this.savePhotoToGallery(dataURL);
+}
+
+saveFinalToGallery() {
+  const btn = document.getElementById('save-gallery-btn');
+  const setBusy = (busy) => {
+    if (!btn) return;
+    if (busy) { btn.disabled = true; btn.dataset._old = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...'; }
+    else { btn.disabled = false; btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery'; }
+  };
+
+  const finalCanvas = document.getElementById('final-canvas');
+  if (!finalCanvas) return alert('No photo to save yet.');
+  if (!this.isLayoutReady) return alert('Hang on — still rendering your photo…');
+  if ((this._galleryCount || 0) >= this.MAX_GALLERY) return alert('Gallery is full (50 photos). Please delete some photos first.');
+
+  setBusy(true);
+  const scale = 2;
+  const tmp = document.createElement('canvas');
+  tmp.width  = finalCanvas.width * scale;
+  tmp.height = finalCanvas.height * scale;
+  const ctx = tmp.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, tmp.width, tmp.height);
+  ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
+  const dataURL = tmp.toDataURL('image/jpeg', 0.95);
+
+  this.savePhotoToGallery(dataURL)
+    .then(({ ok, item, error }) => {
+      if (ok) {
+        const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString() };
+        alert('Saved to your private gallery!');
+        this.goToGalleryAndShow(added);
+      } else {
+        alert('Save failed: ' + (error || 'Unknown error'));
+      }
+    })
+    .catch(err => { console.warn('Save to gallery failed:', err); alert('Save failed. Please try again.'); })
+    .finally(() => setBusy(false));
+}
+}
+
 /* ────────────────────────────────────────────────────────────
    Initialize application + expose helpers
    ──────────────────────────────────────────────────────────── */
