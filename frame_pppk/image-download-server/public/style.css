@@ -205,7 +205,8 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
-  justify-items: end;
+  justify-items: center;
+  padding-left: 20px;
 }
 
 /* Right gallery */
@@ -213,7 +214,7 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
-  justify-items: start;
+  justify-items: center;
 }
 
 .gallery-item {

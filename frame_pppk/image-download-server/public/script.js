@@ -1624,9 +1624,8 @@ nextLightbox(delta = 1) {
   this._currentLight = (this._currentLight + delta + len) % len;
   this.updateLightboxImage();
 }
-
 updateLightboxImage() {
-  // Be tolerant if the element id changes in markup
+  // Get the lightbox image (fallback if id ever changes)
   const imgEl = document.getElementById('lightbox-img') || document.querySelector('#lightbox img');
   const counterEl = document.getElementById('lightbox-counter');
   if (!imgEl) return;
@@ -1641,28 +1640,32 @@ updateLightboxImage() {
 
   if (counterEl) counterEl.textContent = `${this._currentLight + 1} / ${this._galleryItems.length}`;
 
-  // Mirror ONLY if this item is a photo-result
+  // Mirror ONLY if this item is a photo-result (tagged via _rememberMirrored / backend flag)
   const shouldMirror = this._isMirrored(it);
 
-  // Helper so we re-apply after every load (public or auth-blob)
+  // Apply mirroring robustly (class + inline to beat any CSS overrides)
   const applyMirror = () => {
-    // keep the class for consistency…
-    imgEl.classList.toggle('mirrored', shouldMirror);
-    // …but enforce with inline transform so nothing overrides it
-    imgEl.style.transform = shouldMirror ? 'scaleX(-1)' : '';
+    if (shouldMirror) {
+      imgEl.classList.add('mirrored');
+      imgEl.style.transform = 'scaleX(-1)';     // inline wins over any other rules
+    } else {
+      imgEl.classList.remove('mirrored');
+      imgEl.style.transform = '';               // no inline override
+    }
   };
 
-  // Fit & mirror after the image loads
+  // Ensure sizing then mirroring after every load
   imgEl.onload = () => {
+    // Your fit logic may clear transforms; we re-apply right after
     this._setInitialViewFit?.();
     applyMirror();
   };
 
-  // Set src/alt
+  // Set image src/alt
   imgEl.src = tryPublic || trySecure || '';
   imgEl.alt = it.fileName || 'Photo';
 
-  // If the image requires auth, fetch with token and swap in a blob URL
+  // If auth is required, fetch and swap to a blob URL; re-apply mirror after load
   imgEl.onerror = () => {
     const token = localStorage.getItem('token');
     if (!token || !trySecure) return;
@@ -1670,31 +1673,28 @@ updateLightboxImage() {
       .then(r => r.ok ? r.blob() : Promise.reject())
       .then(blob => {
         const blobUrl = URL.createObjectURL(blob);
-        imgEl.onload = () => {
-          this._setInitialViewFit?.();
-          applyMirror();
-        };
+        imgEl.onload = () => { this._setInitialViewFit?.(); applyMirror(); };
         imgEl.src = blobUrl;
       })
       .catch(() => {});
   };
 
-  // Apply immediately in case the image is cached and onload won't fire
+  // Apply immediately as well (covers cached images where onload might not fire)
   applyMirror();
 }
 
 
-/* ========= Fit (no zoom/pan) ========= */
 _setInitialViewFit() {
-  // Let CSS class control mirroring; clear any inline transform
-  const img = document.getElementById('lightbox-img');
-  if (img) img.style.transform = '';
+  const img = document.getElementById('lightbox-img') || document.querySelector('#lightbox img');
+  if (img) img.style.transform = ''; // don't force 'none'
 }
+
 _resetZoomState() {
-  const img = document.getElementById('lightbox-img');
-  if (img) img.style.transform = '';
+  const img = document.getElementById('lightbox-img') || document.querySelector('#lightbox img');
+  if (img) img.style.transform = ''; // keep mirror intact; updateLightboxImage reapplies anyway
   this._z = 1; this._tx = 0; this._ty = 0;
 }
+
 _applyTransform() { /* No-zoom */ }
 _setupZoomHandlers() { /* No-zoom */ }
 
