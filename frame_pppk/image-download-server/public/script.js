@@ -1229,7 +1229,7 @@ function closeErrorModal() {
 
 /* ───────────── Gallery (login-gated) ───────────── */
 
-// List current user's photos
+// --- API calls ---
 listMyPhotos() {
   const token = localStorage.getItem('token');
   if (!token) return Promise.resolve({ ok: false, items: [], error: 'no-token' });
@@ -1244,7 +1244,6 @@ listMyPhotos() {
   .catch(e => ({ ok: false, items: [], error: String(e) }));
 }
 
-// Save one image (dataURL) into user's private gallery
 savePhotoToGallery(dataURL) {
   const token = localStorage.getItem('token');
   if (!token) return Promise.resolve({ ok: false, error: 'no-token' });
@@ -1282,11 +1281,8 @@ deletePhoto(photoId) {
   .catch(() => false);
 }
 
-/* ---------- helpers for URLs & downloads ---------- */
-_buildAbsUrl(u) {
-  if (!u) return '';
-  return u.startsWith('http') ? u : (this.API_BASE + u);
-}
+// --- URL + download helpers ---
+_buildAbsUrl(u) { return !u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)); }
 _downloadWithAuth(url, saveBlob) {
   const token = localStorage.getItem('token');
   if (!url || !token) return alert('Unable to download. Please log in again.');
@@ -1296,7 +1292,6 @@ _downloadWithAuth(url, saveBlob) {
     .catch(() => alert('Download failed. Please try again.'));
 }
 _downloadPhoto(it) {
-  // Prefer true full-res if available
   const pub = this._buildAbsUrl(it.urlFull || it.originalUrl || it.urlPublic || it.url || '');
   const sec = this._buildAbsUrl(it.secureUrl || it.urlFull || it.url || '');
   const filename = it.fileName || `photo-${it.id || Date.now()}.jpg`;
@@ -1306,7 +1301,7 @@ _downloadPhoto(it) {
     const url = URL.createObjectURL(blob);
     a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setTimeout(() => URL.revokeObjectURL(url), 800);
   };
 
   if (pub) {
@@ -1319,7 +1314,7 @@ _downloadPhoto(it) {
   }
 }
 
-/* ---------- build gallery card ---------- */
+// --- Card builder ---
 buildGalleryCard(it, index) {
   if (!it || !it.url) return null;
 
@@ -1328,9 +1323,9 @@ buildGalleryCard(it, index) {
   if (it.id) card.dataset.id = it.id;
 
   const img = document.createElement('img');
-  img.src = this._buildAbsUrl(it.url);   // display/thumbnail URL
+  img.src = this._buildAbsUrl(it.url);
   img.alt = it.fileName || 'Your photo';
-  if (it.fileName) img.dataset.filename = it.fileName;
+  img.loading = 'lazy';
 
   img.addEventListener('click', () => {
     if (this._selectMode) {
@@ -1340,19 +1335,19 @@ buildGalleryCard(it, index) {
     }
   });
 
-  const meta = document.createElement('div');
-  meta.className = 'meta';
+  const meta = document.createElement('div'); meta.className = 'meta';
 
   const span = document.createElement('span');
-  const time = new Date(it.createdAt || Date.now()).toLocaleString();
-  span.textContent = time;
+  span.textContent = new Date(it.createdAt || Date.now()).toLocaleString();
 
   const btnDl = document.createElement('button');
+  btnDl.className = 'meta-btn';
   btnDl.innerHTML = '<i class="fas fa-download"></i>';
   btnDl.title = 'Download';
   btnDl.addEventListener('click', (e) => { e.stopPropagation(); this._downloadPhoto(it); });
 
   const del = document.createElement('button');
+  del.className = 'meta-btn danger';
   del.innerHTML = '<i class="fas fa-trash"></i>';
   del.title = 'Delete';
   del.addEventListener('click', () => {
@@ -1373,10 +1368,9 @@ buildGalleryCard(it, index) {
   return card;
 }
 
-/* ---------- after save, show in gallery immediately ---------- */
+// --- After save: show immediately ---
 goToGalleryAndShow(item) {
   this.navigateToPage('gallery');
-
   const grid  = document.getElementById('gallery-grid');
   const empty = document.getElementById('gallery-empty');
 
@@ -1384,10 +1378,8 @@ goToGalleryAndShow(item) {
     if (empty) empty.style.display = 'none';
     const card = this.buildGalleryCard(item, 0);
     if (card) {
-      if (grid.firstChild) grid.insertBefore(card, grid.firstChild);
-      else grid.appendChild(card);
+      grid.firstChild ? grid.insertBefore(card, grid.firstChild) : grid.appendChild(card);
       this._galleryCount = Math.min((this._galleryCount || 0) + 1, this.MAX_GALLERY);
-
       if (!Array.isArray(this._galleryItems)) this._galleryItems = [];
       this._galleryItems.unshift(item);
     } else {
@@ -1398,16 +1390,15 @@ goToGalleryAndShow(item) {
   }
 }
 
-/* ---------- render gallery ---------- */
+// --- Render gallery ---
 refreshGallery() {
   const hint    = document.getElementById('gallery-login-hint');
   const grid    = document.getElementById('gallery-grid');
   const empty   = document.getElementById('gallery-empty');
   const actions = document.getElementById('gallery-actions');
-
   if (!(grid && empty && hint)) return;
-  grid.innerHTML = '';
 
+  grid.innerHTML = '';
   if (typeof this.MAX_GALLERY === 'undefined') this.MAX_GALLERY = 50;
   if (typeof this._galleryCount === 'undefined') this._galleryCount = 0;
   if (typeof this._selectMode === 'undefined') this._selectMode = false;
@@ -1429,22 +1420,20 @@ refreshGallery() {
 
       this._galleryCount = items.length;
 
-      const sorted = items
-        .slice()
-        .sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0));
+      const sorted = items.slice().sort((a,b) =>
+        new Date(b.createdAt||0) - new Date(a.createdAt||0)
+      );
 
       this._galleryItems = sorted;
-
       sorted.forEach((it, index) => {
         const card = this.buildGalleryCard(it, index);
         if (card) grid.appendChild(card);
       });
     });
-
   });
 }
 
-/* ---------- UI wiring + lightbox controls ---------- */
+// --- UI wiring + lightbox (no visible buttons) ---
 setupGalleryUi() {
   const refresh = document.getElementById('refresh-gallery');
   const logout  = document.getElementById('logout-from-gallery');
@@ -1462,16 +1451,14 @@ setupGalleryUi() {
     this._selectMode = !this._selectMode;
     document.body.classList.toggle('gallery-select-mode', this._selectMode);
     select.textContent = this._selectMode ? 'Cancel' : 'Select';
-    if (!this._selectMode) {
-      document.querySelectorAll('.gallery-card.selected').forEach(el => el.classList.remove('selected'));
-    }
+    if (!this._selectMode) document.querySelectorAll('.gallery-card.selected').forEach(el => el.classList.remove('selected'));
     if (delSel) delSel.disabled = !this._selectMode;
   });
 
   if (delSel) delSel.addEventListener('click', async () => {
     if (!this._selectMode) return;
     const chosen = Array.from(document.querySelectorAll('.gallery-card.selected'));
-    if (chosen.length === 0) return;
+    if (!chosen.length) return;
     if (!confirm(`Delete ${chosen.length} photo(s)?`)) return;
     for (const card of chosen) {
       const id = card.dataset.id;
@@ -1483,36 +1470,45 @@ setupGalleryUi() {
     }
   });
 
+  // Lightbox overlay
   const lb = document.getElementById('lightbox');
   if (lb) {
-    lb.querySelector('.lb-close')?.addEventListener('click', () => this.closeLightbox());
-    lb.querySelector('.lb-next')?.addEventListener('click', () => this.nextLightbox(+1));
-    lb.querySelector('.lb-prev')?.addEventListener('click', () => this.nextLightbox(-1));
+    // mount at body to avoid clipping by transformed ancestors
+    if (lb.parentElement !== document.body) document.body.appendChild(lb);
 
-    lb.addEventListener('click', (e) => {
-      const onStage = e.target.closest('.lightbox-stage');
-      const onBtn = e.target.closest('.lb-btn') || e.target.id === 'lightbox-download' || e.target.id === 'lightbox-fit-toggle';
-      if (!onStage && !onBtn) this.closeLightbox();
-    });
-
+    // keyboard: Esc / arrows
     document.addEventListener('keydown', (e) => {
       if (!lb.classList.contains('open')) return;
       if (e.key === 'Escape') this.closeLightbox();
       if (e.key === 'ArrowRight') this.nextLightbox(+1);
       if (e.key === 'ArrowLeft') this.nextLightbox(-1);
-      if (e.key.toLowerCase() === 'f') this.toggleFitActual(); // Fit/Actual toggle
     });
+
+    const stage = lb.querySelector('.lightbox-stage');
+    if (stage) {
+      // click zones: left third = prev, right third = next, middle = close
+      stage.addEventListener('click', (e) => {
+        if (this._z > 1 || e.detail > 1) return; // ignore when zoomed or double-click (used for zoom)
+        const rect = stage.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        if (x < rect.width / 3) this.nextLightbox(-1);
+        else if (x > (2 * rect.width) / 3) this.nextLightbox(+1);
+        else this.closeLightbox();
+      });
+    }
   }
 
-  // Fit/Actual toggle button
-  const fitBtn = document.getElementById('lightbox-fit-toggle');
-  if (fitBtn) fitBtn.addEventListener('click', () => this.toggleFitActual());
-
-  // enable zoom/pan in the lightbox
+  // Zoom/pan gestures
   this._setupZoomHandlers();
+
+  // Re-fit on resize
+  window.addEventListener('resize', () => {
+    const open = document.getElementById('lightbox')?.classList.contains('open');
+    if (open) this._setInitialViewFit();
+  });
 }
 
-/* ----- Lightbox implementation ----- */
+// --- Lightbox core (no visible controls) ---
 openLightbox(index = 0) {
   if (!this._galleryItems || !this._galleryItems.length) return;
   this._currentLight = Math.max(0, Math.min(index, this._galleryItems.length - 1));
@@ -1536,33 +1532,21 @@ nextLightbox(delta = 1) {
 }
 updateLightboxImage() {
   const imgEl = document.getElementById('lightbox-img');
-  const counterEl = document.getElementById('lightbox-counter');
-  const dlEl = document.getElementById('lightbox-download');
-  if (!(imgEl && counterEl && dlEl)) return;
+  if (!imgEl) return;
 
   const it = this._galleryItems[this._currentLight] || {};
   const abs = (u) => (!u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)));
 
-  // Prefer full-res if provided by backend
+  // Prefer full-res if your backend provides it
   const fullPref  = abs(it.urlFull || it.originalUrl || it.urlHigh || '');
   const tryPublic = fullPref || abs(it.urlPublic || it.url || '');
   const trySecure = abs(it.secureUrl || it.urlFull || it.url || '');
 
-  counterEl.textContent = `${this._currentLight + 1} / ${this._galleryItems.length}`;
-
-  imgEl.onload = () => {
-    // default to full image in view (fit) on open
-    this._setInitialViewFit();
-  };
-
+  imgEl.onload = () => this._setInitialViewFit();
   imgEl.src = tryPublic || trySecure || '';
   imgEl.alt = it.fileName || 'Photo';
 
-  // download href (updated to blob if we auth-fetch)
-  dlEl.href = fullPref || tryPublic || '#';
-  dlEl.setAttribute('download', it.fileName || `photo-${it.id || (this._currentLight+1)}.jpg`);
-
-  // If the image requires auth, fetch with token and swap in a blob URL
+  // auth-fallback -> blob
   imgEl.onerror = () => {
     const token = localStorage.getItem('token');
     if (!token || !trySecure) return;
@@ -1572,25 +1556,12 @@ updateLightboxImage() {
         const blobUrl = URL.createObjectURL(blob);
         imgEl.onload = () => this._setInitialViewFit();
         imgEl.src = blobUrl;
-        dlEl.href = blobUrl;
       })
-      .catch(() => { /* ignore */ });
+      .catch(() => {});
   };
 }
 
-/* ----- Zoom & Pan (wheel / double-click / drag / pinch) ----- */
-_resetZoomState() {
-  this._z = 1; this._tx = 0; this._ty = 0; this._px = 0; this._py = 0;
-  const img = document.getElementById('lightbox-img');
-  if (img) img.style.transform = 'translate3d(0,0,0) scale(1)';
-}
-_applyTransform() {
-  const img = document.getElementById('lightbox-img');
-  if (!img) return;
-  img.style.transform = `translate3d(${this._tx}px, ${this._ty}px, 0) scale(${this._z})`;
-}
-
-/* initial view: Fit to screen */
+// --- Fit + Zoom/Pan helpers ---
 _setInitialViewFit() {
   const stage = document.querySelector('#lightbox .lightbox-stage');
   const img = document.getElementById('lightbox-img');
@@ -1607,105 +1578,74 @@ _setInitialViewFit() {
   this._tx = (vw - cw) / 2;
   this._ty = (vh - ch) / 2;
 
-  this._applyTransform();
-  this._fitMode = 'fit';
-  const btn = document.getElementById('lightbox-fit-toggle');
-  if (btn) btn.textContent = 'Actual size';
+  img.style.transform = `translate3d(${this._tx}px, ${this._ty}px, 0) scale(${this._z})`;
 }
-
-/* initial view: Actual size (1:1) */
-_setInitialViewActual() {
-  const stage = document.querySelector('#lightbox .lightbox-stage');
+_resetZoomState() {
+  this._z = 1; this._tx = 0; this._ty = 0; this._px = 0; this._py = 0;
   const img = document.getElementById('lightbox-img');
-  if (!(stage && img)) return;
-
-  const vw = stage.clientWidth, vh = stage.clientHeight;
-  const iw = img.naturalWidth, ih = img.naturalHeight;
-  this._z = 1;
-  this._tx = (vw - iw) / 2;
-  this._ty = (vh - ih) / 2;
-
-  this._applyTransform();
-  this._fitMode = 'actual';
-  const btn = document.getElementById('lightbox-fit-toggle');
-  if (btn) btn.textContent = 'Fit to screen';
+  if (img) img.style.transform = 'translate3d(0,0,0) scale(1)';
 }
-
-/* toggle button handler */
-toggleFitActual() {
+_applyTransform() {
   const img = document.getElementById('lightbox-img');
-  if (!img || !img.naturalWidth) return;
-  if (this._fitMode === 'fit') this._setInitialViewActual();
-  else this._setInitialViewFit();
+  if (!img) return;
+  img.style.transform = `translate3d(${this._tx}px, ${this._ty}px, 0) scale(${this._z})`;
 }
-
-/* gesture wiring */
 _setupZoomHandlers() {
   const stage = document.querySelector('#lightbox .lightbox-stage');
   const img = document.getElementById('lightbox-img');
   if (!(stage && img)) return;
 
-  // Wheel zoom around cursor
+  // Wheel zoom
   stage.addEventListener('wheel', (e) => {
     e.preventDefault();
     const rect = img.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
+    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
     const k = e.deltaY < 0 ? 1.1 : 0.9;
     const newZ = Math.min(8, Math.max(1, this._z * k));
     const dz = newZ / this._z;
     this._tx = cx - dz * (cx - this._tx);
     this._ty = cy - dz * (cy - this._ty);
-    this._z = newZ;
-    this._applyTransform();
+    this._z = newZ; this._applyTransform();
   }, { passive: false });
 
-  // Double-click toggle 1x <-> 2.5x at cursor
+  // Double-click zoom toggle
   stage.addEventListener('dblclick', (e) => {
     const rect = img.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
+    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
     const targetZ = (this._z > 1.2) ? 1 : 2.5;
     const dz = targetZ / this._z;
     this._tx = cx - dz * (cx - this._tx);
     this._ty = cy - dz * (cy - this._ty);
-    this._z = targetZ;
-    this._applyTransform();
+    this._z = targetZ; this._applyTransform();
   });
 
-  // Drag to pan (only when zoomed)
+  // Pan (pointer)
   let dragging = false;
   stage.addEventListener('pointerdown', (e) => {
-    dragging = true;
-    this._px = e.clientX; this._py = e.clientY;
+    dragging = true; this._px = e.clientX; this._py = e.clientY;
     stage.setPointerCapture(e.pointerId);
   });
   stage.addEventListener('pointermove', (e) => {
     if (!dragging) return;
-    const dx = e.clientX - this._px;
-    const dy = e.clientY - this._py;
+    const dx = e.clientX - this._px, dy = e.clientY - this._py;
     this._px = e.clientX; this._py = e.clientY;
-    if (this._z > 1) {
-      this._tx += dx; this._ty += dy;
-      this._applyTransform();
-    }
+    if (this._z > 1) { this._tx += dx; this._ty += dy; this._applyTransform(); }
   });
   const endPan = (e) => { dragging = false; try { stage.releasePointerCapture(e.pointerId); } catch {} };
   stage.addEventListener('pointerup', endPan);
   stage.addEventListener('pointercancel', () => { dragging = false; });
 
-  // Two-finger pinch zoom
+  // Pinch (two-finger)
   let p1 = null, p2 = null, baseZ = 1, baseD = 0, cx = 0, cy = 0;
   stage.addEventListener('pointerdown', (e) => {
     if (!p1) p1 = e;
     else if (!p2) {
-      p2 = e;
-      baseZ = this._z;
+      p2 = e; baseZ = this._z;
       const d = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
       baseD = Math.max(1, d);
-      const rect2 = img.getBoundingClientRect();
-      cx = ((p1.clientX + p2.clientX) / 2) - rect2.left;
-      cy = ((p1.clientY + p2.clientY) / 2) - rect2.top;
+      const r = img.getBoundingClientRect();
+      cx = ((p1.clientX + p2.clientX)/2) - r.left;
+      cy = ((p1.clientY + p2.clientY)/2) - r.top;
     }
   });
   stage.addEventListener('pointermove', (e) => {
@@ -1717,91 +1657,63 @@ _setupZoomHandlers() {
       const dz = newZ / this._z;
       this._tx = cx - dz * (cx - this._tx);
       this._ty = cy - dz * (cy - this._ty);
-      this._z = newZ;
-      this._applyTransform();
+      this._z = newZ; this._applyTransform();
     }
   });
-  const clearPinch = (e) => {
-    if (p2 && e.pointerId === p2.pointerId) p2 = null;
-    else if (p1 && e.pointerId === p1.pointerId) p1 = p2, p2 = null;
-  };
+  const clearPinch = (e) => { if (p2 && e.pointerId === p2.pointerId) p2 = null; else if (p1 && e.pointerId === p1.pointerId) p1 = p2, p2 = null; };
   stage.addEventListener('pointerup', clearPinch);
   stage.addEventListener('pointercancel', () => { p1 = p2 = null; });
 }
 
-/* ---------- autosave & manual save ---------- */
+// --- Autosave & manual save (unchanged) ---
 maybeAutosaveToGallery() {
-  this.verifyToken()
-    .then(isAuthed => {
-      if (!isAuthed) return;
-      if (this.isLayoutReady) return this._doAutosave();
-      const once = () => this._doAutosave();
-      document.addEventListener('pixelpop:layout-ready', once, { once: true });
-    })
-    .catch(e => console.warn('Autosave failed:', e));
+  this.verifyToken().then(isAuthed => {
+    if (!isAuthed) return;
+    if (this.isLayoutReady) return this._doAutosave();
+    const once = () => this._doAutosave();
+    document.addEventListener('pixelpop:layout-ready', once, { once: true });
+  }).catch(e => console.warn('Autosave failed:', e));
 }
 
 _doAutosave() {
   const finalCanvas = document.getElementById('final-canvas');
   if (!finalCanvas) return;
-
   if ((this._galleryCount || 0) >= this.MAX_GALLERY) {
     alert('Gallery is full (50 photos). Please delete some photos first.');
     return;
   }
-
   const scale = 2;
   const tmp = document.createElement('canvas');
   tmp.width  = finalCanvas.width * scale;
   tmp.height = finalCanvas.height * scale;
   const ctx = tmp.getContext('2d');
-
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, tmp.width, tmp.height);
-  ctx.save();
-  ctx.scale(scale, scale);
-  ctx.drawImage(finalCanvas, 0, 0);
-  if (ctx.restore) ctx.restore();
-
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, tmp.width, tmp.height);
+  ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
   const dataURL = tmp.toDataURL('image/jpeg', 0.95);
   return this.savePhotoToGallery(dataURL);
 }
 
 saveFinalToGallery() {
   const btn = document.getElementById('save-gallery-btn');
-
   const setBusy = (busy) => {
     if (!btn) return;
-    if (busy) {
-      btn.disabled = true;
-      btn.dataset._old = btn.innerHTML;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-    } else {
-      btn.disabled = false;
-      btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery';
-    }
+    if (busy) { btn.disabled = true; btn.dataset._old = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...'; }
+    else { btn.disabled = false; btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery'; }
   };
 
   const finalCanvas = document.getElementById('final-canvas');
-  if (!finalCanvas) { alert('No photo to save yet.'); return; }
-  if (!this.isLayoutReady) { alert('Hang on — still rendering your photo…'); return; }
-  if ((this._galleryCount || 0) >= this.MAX_GALLERY) { alert('Gallery is full (50 photos). Please delete some photos first.'); return; }
+  if (!finalCanvas) return alert('No photo to save yet.');
+  if (!this.isLayoutReady) return alert('Hang on — still rendering your photo…');
+  if ((this._galleryCount || 0) >= this.MAX_GALLERY) return alert('Gallery is full (50 photos). Please delete some photos first.');
 
   setBusy(true);
-
   const scale = 2;
   const tmp = document.createElement('canvas');
   tmp.width  = finalCanvas.width * scale;
   tmp.height = finalCanvas.height * scale;
   const ctx = tmp.getContext('2d');
-
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, tmp.width, tmp.height);
-  ctx.save();
-  ctx.scale(scale, scale);
-  ctx.drawImage(finalCanvas, 0, 0);
-  if (ctx.restore) ctx.restore();
-
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, tmp.width, tmp.height);
+  ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
   const dataURL = tmp.toDataURL('image/jpeg', 0.95);
 
   this.savePhotoToGallery(dataURL)
@@ -1818,8 +1730,6 @@ saveFinalToGallery() {
     .finally(() => setBusy(false));
 }
 }
-
-
 
 /* ────────────────────────────────────────────────────────────
    Initialize application + expose helpers

@@ -1575,30 +1575,41 @@ body.gallery-select-mode .gallery-card {
 }
 
 /* ===== Lightbox (Gallery viewer) ===== */
-.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.9);
-  display: none; align-items: center; justify-content: center; z-index: 1000; }
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.9);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
 .lightbox.open { display: flex; }
 
-/* fill the viewport so we can center/fit properly */
+/* Fill the viewport so we can center/fit properly */
 .lightbox-stage {
-  width: 100vw; height: 100vh;           /* <— add these */
-  display: flex; align-items: center; justify-content: center;
-  overflow: hidden; touch-action: none;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none; /* enables nice pinch/drag handling */
 }
 
-/* allow natural size + transforms (we’ll fit via JS) */
+/* Let the image keep its natural size; we control fit with JS transform */
 .lightbox-stage img {
-  max-width: none; max-height: none; object-fit: unset; user-select: none;
-  cursor: grab; will-change: transform;
+  max-width: none;
+  max-height: none;
+  object-fit: unset;
+  user-select: none;
+  cursor: grab;
+  will-change: transform;
 }
 
-.lightbox-meta { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 12px; align-items: center; color: #fff; font-size: 14px; opacity: .9; }
-.lb-download { padding: 6px 10px; border: 1px solid #fff3; border-radius: 8px; color: #fff; text-decoration: none; }
-.lb-download:hover { background: #fff1; }
-.lb-btn { position: fixed; top: 50%; transform: translateY(-50%); background: none; border: 0; color: #fff;
-  font-size: 38px; cursor: pointer; padding: 10px 14px; line-height: 1; opacity: .8; }
-.lb-btn:hover { opacity: 1; }
-.lb-prev { left: 20px; } .lb-next { right: 20px; }
-.lb-close { top: 18px; right: 18px; transform: none; font-size: 42px; opacity: .9; }
-@media (max-width: 640px) { .lb-btn { font-size: 32px; } .lb-close { font-size: 36px; } }
+/* Hide any leftover UI if those elements still exist in your HTML */
+.lb-btn,
+.lightbox-meta,
+.lb-download {
+  display: none !important;
+}
