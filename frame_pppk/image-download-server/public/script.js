@@ -1282,22 +1282,53 @@ deletePhoto(photoId) {
 /* ========= Helpers ========= */
 _buildAbsUrl(u) { return !u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)); }
 
+/* ---- Mirror helpers (persist/recall which items are "photo result") ---- */
+_loadMirroredCache() {
+  if (this._mirroredCache) return this._mirroredCache;
+  try {
+    const raw = localStorage.getItem('pp_mirrored_ids') || '[]';
+    this._mirroredCache = new Set(JSON.parse(raw));
+  } catch { this._mirroredCache = new Set(); }
+  return this._mirroredCache;
+}
+_saveMirroredCache() {
+  try { localStorage.setItem('pp_mirrored_ids', JSON.stringify([...this._mirroredCache])); } catch {}
+}
+_rememberMirrored(it) {
+  if (!it) return;
+  this._loadMirroredCache();
+  const key = it.id ? String(it.id) : (it.fileName ? String(it.fileName) : null);
+  if (!key) return;
+  this._mirroredCache.add(key);
+  this._saveMirroredCache();
+  it._mirrored = true;
+}
+_isMirrored(it) {
+  if (!it) return false;
+  if (it._mirrored || it.mirrored) return true;
+  // Heuristic: default photo-result naming pattern
+  const named = typeof it.fileName === 'string' && /^pixelpop-\d+\.jpg$/i.test(it.fileName);
+  if (named) return true;
+  this._loadMirroredCache();
+  const key1 = it.id ? String(it.id) : null;
+  const key2 = it.fileName ? String(it.fileName) : null;
+  return (key1 && this._mirroredCache.has(key1)) || (key2 && this._mirroredCache.has(key2));
+}
+
+/* ---- Download helpers ---- */
 _downloadWithAuth(url, saveBlob, it) {
   const token = localStorage.getItem('token');
   if (!url || !token) return alert('Unable to download. Please log in again.');
   fetch(url, { headers: { Authorization: 'Bearer ' + token } })
     .then(r => r.ok ? r.blob() : Promise.reject())
-    .then(blob => this._maybeMirrorBlobForDownload(it, blob)) // mirror only if photo-result
+    .then(blob => this._maybeMirrorBlobForDownload(it, blob))
     .then(saveBlob)
     .catch(() => alert('Download failed. Please try again.'));
 }
 
-/**
- * If item is a photo-result (tagged), mirror blob before saving.
- * Otherwise return the original blob.
- */
+/** Mirror blob iff item is a photo-result; otherwise return original. */
 _maybeMirrorBlobForDownload(it, blob) {
-  const needsMirror = !!(it && (it._mirrored || it.mirrored));
+  const needsMirror = this._isMirrored(it);
   if (!needsMirror) return Promise.resolve(blob);
 
   const toBitmap = ('createImageBitmap' in window)
@@ -1331,11 +1362,11 @@ _maybeMirrorBlobForDownload(it, blob) {
         resolve(new Blob([u8], { type: mime }));
       }
     });
-  }).catch(() => blob); // if anything fails, fallback to original blob
+  }).catch(() => blob); // fallback: return original if mirroring fails
 }
 
 _downloadPhoto(it) {
-  // Prefer public URL, fallback to secure-with-auth; then mirror only if tagged
+  // Prefer public URL, fallback to secure-with-auth; mirror only if photo-result
   const pub = this._buildAbsUrl(it.urlFull || it.originalUrl || it.urlPublic || it.url || '');
   const sec = this._buildAbsUrl(it.secureUrl || it.urlFull || it.url || '');
   const filename = it.fileName || `photo-${it.id || Date.now()}.jpg`;
@@ -1359,7 +1390,7 @@ _downloadPhoto(it) {
   }
 }
 
-/* ========= Cards (GRID) ========= */
+/* ========= Cards ========= */
 buildGalleryCard(it, index) {
   if (!it || !it.url) return null;
 
@@ -1372,8 +1403,8 @@ buildGalleryCard(it, index) {
   img.alt = it.fileName || 'Your photo';
   img.loading = 'lazy';
 
-  // Mirror in GRID only for photo-result items
-  if (it._mirrored || it.mirrored) img.classList.add('mirrored');
+  // Mirror in GRID if photo-result
+  if (this._isMirrored(it)) img.classList.add('mirrored');
 
   img.addEventListener('click', () => {
     if (this._selectMode) {
@@ -1488,13 +1519,14 @@ setupGalleryUi() {
   const select  = document.getElementById('select-toggle');
   const delSel  = document.getElementById('delete-selected');
 
-  // Inject minimal CSS: mirror only grid images tagged as mirrored
+  // Inject minimal CSS: mirror grid + lightbox only when .mirrored is present
   if (!document.getElementById('gallery-mirror-css')) {
     const style = document.createElement('style');
     style.id = 'gallery-mirror-css';
     style.textContent = `
-      /* Mirror only grid thumbnails that are photo-result saves */
-      #gallery-grid img.mirrored { transform: scaleX(-1); }
+      /* Mirror only items tagged/detected as photo-result */
+      #gallery-grid img.mirrored,
+      #lightbox-img.mirrored { transform: scaleX(-1); }
     `;
     document.head.appendChild(style);
   }
@@ -1614,8 +1646,8 @@ updateLightboxImage() {
   imgEl.src = tryPublic || trySecure || '';
   imgEl.alt = it.fileName || 'Photo';
 
-  // Mirror in LIGHTBOX only if this is a photo-result item
-  imgEl.classList.toggle('mirrored', !!(it._mirrored || it.mirrored));
+  // Mirror in LIGHTBOX iff photo-result
+  imgEl.classList.toggle('mirrored', this._isMirrored(it));
 
   // If the image requires auth, fetch with token and swap in a blob URL
   imgEl.onerror = () => {
@@ -1634,27 +1666,19 @@ updateLightboxImage() {
 
 /* ========= Fit (no zoom/pan) ========= */
 _setInitialViewFit() {
-  // Let CSS class control mirroring; don't override with inline transforms
+  // Let CSS class control mirroring; clear any inline transform
   const img = document.getElementById('lightbox-img');
   if (img) img.style.transform = '';
 }
-
 _resetZoomState() {
   const img = document.getElementById('lightbox-img');
   if (img) img.style.transform = '';
   this._z = 1; this._tx = 0; this._ty = 0;
 }
-
-_applyTransform() {
-  // No-zoom: nothing to apply.
-}
-
-_setupZoomHandlers() {
-  // No-zoom: intentionally left blank (no wheel/dblclick/pinch/drag listeners).
-}
+_applyTransform() { /* No-zoom */ }
+_setupZoomHandlers() { /* No-zoom */ }
 
 /* ========= Autosave + Manual save ========= */
-/* Tag photo-result saves so UI knows to mirror + download-mirror */
 maybeAutosaveToGallery() {
   this.verifyToken().then(isAuthed => {
     if (!isAuthed) return;
@@ -1680,9 +1704,8 @@ _doAutosave() {
   ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
   const dataURL = tmp.toDataURL('image/jpeg', 0.95);
 
-  // Tag autosaved item as a photo-result (mirrored in UI + mirrored download)
   return this.savePhotoToGallery(dataURL).then((res) => {
-    if (res && res.ok && res.item) res.item._mirrored = true;
+    if (res && res.ok && res.item) this._rememberMirrored(res.item);
     return res;
   });
 }
@@ -1713,8 +1736,8 @@ saveFinalToGallery() {
   this.savePhotoToGallery(dataURL)
     .then(({ ok, item, error }) => {
       if (ok) {
-        const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString() };
-        added._mirrored = true; // mark as photo-result
+        const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString(), fileName: `pixelpop-${Date.now()}.jpg` };
+        this._rememberMirrored(added);
         alert('Saved to your private gallery!');
         this.goToGalleryAndShow(added);
       } else {
@@ -1725,12 +1748,6 @@ saveFinalToGallery() {
     .finally(() => setBusy(false));
 }
 }
-
-/* ====== CSS note (already injected in setupGalleryUi) ======
-#gallery-grid img.mirrored { transform: scaleX(-1); }
-Lightbox mirroring uses the same .mirrored class toggled on #lightbox-img
-============================================================= */
-
 
 /* ────────────────────────────────────────────────────────────
    Initialize application + expose helpers
