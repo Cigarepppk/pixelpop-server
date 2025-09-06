@@ -32,7 +32,12 @@ class PixelPopStudio {
     this.setupPhotoControls();
     this.setupMobileMenu();
     this.setupGalleryUi();
-  }
+    this.setupLiveBackgrounds();           // create pools, timers, visibility handling
+    this.startBackgroundRotatorFor(this.currentPage); // apply an image right away
+
+}
+
+
 
   /* ────────────────────────────────────────────────────────────
      Smart fetch with 404 fallback (helps if /api prefix differs)
@@ -139,6 +144,77 @@ class PixelPopStudio {
     }
   }
 
+setupLiveBackgrounds() {
+  
+   this.bgPools = {
+    home:   ["p1.JPG","p2.JPG","p3.JPG","p4.JPG"],
+    about:  ["p2.JPG","p3.JPG","p4.JPG","p1.JPG"],
+    layout: ["p3.JPG","p4.JPG","p1.JPG","p2.JPG"],
+    gallery:["p4.JPG","p1.JPG","p2.JPG","p3.JPG"],
+    login:  ["p5.JPG","p2.JPG","p3.JPG","p4.JPG"]   // ⬅️ add this
+  };
+
+  this.bgIntervalMs = 7000;  // change speed here
+  this._bgIntervalId = null;
+  this._bgFlip = false;
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) this.stopBackgroundRotator();
+    else this.startBackgroundRotatorFor(this.currentPage);
+  });
+}
+
+startBackgroundRotatorFor(pageKey) {
+  const pageEl = document.getElementById(pageKey + "-page");
+  if (!pageEl) return;
+  this._ensureBgLayers(pageEl);
+
+  // Apply immediately so you never see plain background
+  this._applyRandomBackground(pageKey, pageEl);
+
+  // Start interval
+  this._bgIntervalId = setInterval(() => {
+    this._applyRandomBackground(pageKey, pageEl);
+  }, this.bgIntervalMs);
+}
+
+stopBackgroundRotator() {
+  if (this._bgIntervalId) {
+    clearInterval(this._bgIntervalId);
+    this._bgIntervalId = null;
+  }
+}
+
+_ensureBgLayers(pageEl) {
+  if (pageEl.querySelector(".bg-layer")) return;
+  const a = document.createElement("div");
+  const b = document.createElement("div");
+  a.className = "bg-layer show"; // visible first
+  b.className = "bg-layer";      // hidden
+  pageEl.prepend(b);
+  pageEl.prepend(a);
+}
+
+_applyRandomBackground(pageKey, pageEl) {
+  const pool = this.bgPools[pageKey] || this.bgPools.home || [];
+  if (!pool.length) return;
+  const nextSrc = pool[Math.floor(Math.random() * pool.length)];
+
+  const layers = pageEl.querySelectorAll(".bg-layer");
+  if (layers.length < 2) return;
+
+  this._bgFlip = !this._bgFlip;
+  const showLayer = layers[this._bgFlip ? 1 : 0];
+  const hideLayer = layers[this._bgFlip ? 0 : 1];
+
+  showLayer.style.backgroundImage = `url(${nextSrc})`;
+  showLayer.classList.add("show");
+  hideLayer.classList.remove("show");
+}
+
+
+
+
   // ============== Navigation (UNGATED) ==============
   setupNavigation() {
     const navLinks = document.querySelectorAll('.nav-link');
@@ -161,44 +237,51 @@ class PixelPopStudio {
     }
   }
 
-  navigateToPage(page) {
-    // Hide all pages
-    const pages = document.querySelectorAll('.page');
-    for (let i = 0; i < pages.length; i++) pages[i].classList.remove('active');
+navigateToPage(page) {
+  // Stop live background on previous page
+  this.stopBackgroundRotator();
 
-    // Show target page
-    const targetPage = document.getElementById(page + '-page');
-    if (targetPage) {
-      targetPage.classList.add('active');
-      targetPage.classList.add('fade-in');
-    }
+  // Hide all pages
+  const pages = document.querySelectorAll('.page');
+  for (let i = 0; i < pages.length; i++) pages[i].classList.remove('active');
 
-    this.currentPage = page;
+  // Show target page
+  const targetPage = document.getElementById(page + '-page');
+  if (targetPage) {
+    targetPage.classList.add('active', 'fade-in');
 
-    // load private gallery when user opens it
-    if (page === 'gallery') {
-      this.refreshGallery();
-    }
-
-    // Update nav active state
-    const links = document.querySelectorAll('.nav-link');
-    for (let j = 0; j < links.length; j++) {
-      const l = links[j];
-      l.classList.toggle('active', l.dataset.page === page);
-    }
-
-    // Camera lifecycle
-    if (page === 'layout') this.initializeCamera();
-    else if (this.stream) this.stopCamera();
-
-    // Close mobile menu if open
-    const navMenu = document.querySelector('.nav-menu');
-    const hamburger = document.querySelector('.hamburger');
-    if (navMenu && navMenu.classList.contains('active')) {
-      navMenu.classList.remove('active');
-      if (hamburger) hamburger.classList.remove('active');
-    }
+    // Ensure cross-fade layers exist for this page
+    this._ensureBgLayers(targetPage);
   }
+
+  this.currentPage = page;
+
+  // Start live background on the new active page (applies one image immediately)
+  this.startBackgroundRotatorFor(page);
+
+  // load private gallery when user opens it
+  if (page === 'gallery') this.refreshGallery();
+
+  // Update nav state
+  const links = document.querySelectorAll('.nav-link');
+  for (let j = 0; j < links.length; j++) {
+    const l = links[j];
+    l.classList.toggle('active', l.dataset.page === page);
+  }
+
+  // Camera lifecycle
+  if (page === 'layout') this.initializeCamera();
+  else if (this.stream) this.stopCamera();
+
+  // Close mobile menu if open
+  const navMenu = document.querySelector('.nav-menu');
+  const hamburger = document.querySelector('.hamburger');
+  if (navMenu && navMenu.classList.contains('active')) {
+    navMenu.classList.remove('active');
+    if (hamburger) hamburger.classList.remove('active');
+  }
+}
+
 
   setupMobileMenu() {
     const hamburger = document.querySelector('.hamburger');

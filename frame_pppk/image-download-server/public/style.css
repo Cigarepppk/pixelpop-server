@@ -27,15 +27,49 @@ body {
     font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
     line-height: 1.6;
     color: var(--dark-gray);
-    background: linear-gradient(135deg, var(--pale-pink) 0%, var(--white) 100%);
+
     min-height: 100vh;
 }
-#home-page {
-    background: 
-        linear-gradient(var(--light-pink), rgba(243, 206, 224, 0.5)), /* pink overlay */
-        url("p1.JPG") no-repeat center center / cover;
-        
+
+#home-page   { background: url("p1.JPG") center/cover no-repeat; }
+#about-page  { background: url("p2.JPG") center/cover no-repeat; }
+#layout-page { background: url("p3.JPG") center/cover no-repeat; }
+#gallery-page{ background: url("p4.JPG") center/cover no-repeat; }
+#login-page  { background: url("p5.JPG") center/cover no-repeat; }
+/* Make each page fill the viewport area under the header */
+.main-content { min-height: calc(100vh - 80px); }     /* you already have this */
+.page {
+  position: relative;
+  min-height: calc(100vh - 80px);  /* ensure full-page photo is visible */
+  overflow: hidden;
 }
+
+/* Cross-fade layers (always an image showing) */
+.page .bg-layer {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity .8s ease;
+  z-index: 0;
+}
+.page .bg-layer.show { opacity: 1; }
+
+/* Keep overlay transparent so the image is never “plain color” */
+.page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(var(--light-pink), rgba(255,105,180,.35)); /* adjust alpha, but keep < 1 */
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Content above everything */
+.page > * { position: relative; z-index: 2; }
+
 /* Header and Navigation */
 .header {
     background: var(--white);
