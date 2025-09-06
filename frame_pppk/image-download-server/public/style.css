@@ -30,7 +30,12 @@ body {
     background: linear-gradient(135deg, var(--pale-pink) 0%, var(--white) 100%);
     min-height: 100vh;
 }
-
+#home-page {
+    background: 
+        linear-gradient(var(--light-pink), rgba(243, 206, 224, 0.5)), /* pink overlay */
+        url("p1.JPG") no-repeat center center / cover;
+        
+}
 /* Header and Navigation */
 .header {
     background: var(--white);
@@ -162,7 +167,7 @@ body {
 
 .hero-title {
     font-size: 3rem;
-    color: var(--primary-pink);
+    color: var(--accent-pink);
     margin-bottom: 1rem;
     background: linear-gradient(45deg, var(--primary-pink), var(--accent-pink));
     -webkit-background-clip: text;
@@ -172,7 +177,7 @@ body {
 
 .hero-subtitle {
     font-size: 1.2rem;
-    color: var(--gray);
+    color: var(--black);
     margin-bottom: 2rem;
 }
 
@@ -248,7 +253,7 @@ body {
 
 .features-section h2 {
     font-size: 2.5rem;
-    color: var(--primary-pink);
+    color: var(--accent-pink);
     margin-bottom: 3rem;
 }
 
@@ -1012,13 +1017,13 @@ footer {
 
 .frmcho {
     font-size: 2em;
-    color: rgb(248, 104, 128);
+    color: var(--accent-pink);
     margin-bottom: 10px;
 }
 
 .frmdesc {
     font-size: 1.2em;
-    color: rgb(248, 104, 128);
+    color: var(--dark-pink);
 }
 
 .container {
@@ -1073,7 +1078,7 @@ footer {
 #frameSearch {
     width: 100%;
     padding: 10px;
-    border: 1px solid #d66969;
+    border: 1px solid var(--dark-pink);
     border-radius: 5px;
     box-sizing: border-box; /* Ensures padding doesn't affect the width */
     font-size: 16px;
@@ -1130,7 +1135,7 @@ footer {
 /* Add a new style for the frame name text */
 .frame-name {
     font-size: 0.8em;
-    color: #fb6565;
+    color: var(--accent-pink);
     margin: 0;
     padding: 0 5px;
     word-break: break-word;
