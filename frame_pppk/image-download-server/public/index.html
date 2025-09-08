@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -25,10 +27,13 @@
                 <li><a href="#" data-page="gallery" class="nav-link">Gallery</a></li>
                 <li><a href="#" data-page="login" class="nav-link">Login</a></li>
 
-                <!-- Placeholder for dynamic logout button (JS will inject if logged in) -->
-                <li id="logout-li"></li>
+                <li id="logout-item" style="display:none">
+                  <a href="#" id="logout-link" class="nav-link">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                  </a>
+                </li>
             </ul>
-            <div class="hamburger" aria-label="Open menu" role="button" tabindex="0">
+            <div class="hamburger">
                 <span></span>
                 <span></span>
                 <span></span>
@@ -40,6 +45,78 @@
     <main class="main-content">
         <!-- Home Page -->
         <section id="home-page" class="page active">
+            <!-- Login/Register stays so users can log in to unlock Download/Print 
+            <section id="login-page" class="login-page">
+                <div class="logincontainer">
+                    <div class="form-box login">
+                        <form id="login-form">
+                            <h1>Login</h1>
+                            <div class="input-box">
+                                <input type="text" name="username" placeholder="Username" required>
+                                <i class='bx bxs-user'></i>
+                            </div>
+                            <div class="input-box">
+                                <input type="password" name="password" placeholder="Password" required>
+                                <i class='bx bxs-lock-alt'></i>
+                            </div>
+                            <div class="forgot-link">
+                                <a href="#">Forgot Password?</a>
+                            </div>
+                            <button type="submit" class="btn">Login</button>
+                            <p>or login with social platforms</p>
+                            <div class="social-icons">
+                                <a href="https://accounts.google.com"><i class='bx bxl-google'></i></a>
+                                <a href="https://www.facebook.com"><i class='bx bxl-facebook'></i></a>
+                                <a href="https://www.instagram.com"><i class='bx bxl-instagram'></i></a>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="form-box register">
+                        <form id="register-form">
+                            <h1>Registration</h1>
+                            <div class="input-box">
+                                <input type="text" name="username" placeholder="Username" required>
+                                <i class='bx bxs-user'></i>
+                            </div>
+                            <div class="input-box">
+                                <input type="email" name="email" placeholder="Email" required>
+                                <i class='bx bxs-envelope'></i>
+                            </div>
+                            <div class="input-box">
+                                <input type="password" name="password" placeholder="Password" required>
+                                <i class='bx bxs-lock-alt'></i>
+                            </div>
+                            <div class="input-box">
+                                <input type="password" name="confirmPassword" placeholder="Confirm Password" required>
+                                <i class='bx bxs-lock-alt'></i>
+                            </div>
+                            <button type="submit" class="btn1">Register</button>
+                            <p>or register with social platforms</p>
+                            <div class="social-icons">
+                                <a href="https://accounts.google.com"><i class='bx bxl-google'></i></a>
+                                <a href="https://www.facebook.com"><i class='bx bxl-facebook'></i></a>
+                                <a href="https://www.instagram.com"><i class='bx bxl-instagram'></i></a>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="toggle-box">
+                        <div class="toggle-panel toggle-left">
+                            <h2>Hello, Welcome!</h2>
+                            <p>Don't have an account?</p>
+                            <button class="btn register-btn">Register</button>
+                        </div>
+
+                        <div class="toggle-panel toggle-right">
+                            <h2>Welcome Back!</h2>
+                            <p>Already have an account?</p>
+                            <button class="btn login-btn">Login</button>
+                        </div>
+                    </div>
+                </div>
+            </section>-->
+
             <div class="hero-section">
                 <!-- Left Gallery -->
                 <div class="gallery-grid-left">
@@ -88,114 +165,120 @@
 
         <!-- About Page -->
         <section id="about-page" class="page">
-            <div class="about-container">
-                <div class="about-header">
-                    <h1>About PixelPop Studio</h1>
-                    <p class="about-intro">Your premier destination for digital photobooth experiences</p>
-                </div>
+    <div class="about-container">
+        <div class="about-header">
+            <h1>About PixelPop Studio</h1>
+            <p class="about-intro">Your premier destination for digital photobooth experiences</p>
+        </div>
 
-                <div class="about-content">
-                    <!-- Introduction -->
-                    <div class="about-section">
-                        <h2>All About PixelPop Studio</h2>
-                        <p>
-                            PixelPop Studio is a state-of-the-art web-based photobooth application designed to bring
-                            professional photography experiences to your fingertips. Whether you’re capturing solo shots,
-                            group selfies, or creating fun layouts with friends, our platform combines cutting-edge web
-                            technologies with intuitive design to create memorable photo sessions. With customizable
-                            layouts, creative filters, and instant downloads, you can turn everyday moments into lasting
-                            memories—no extra apps or complicated tools required.
-                        </p>
-                    </div>
+        <div class="about-content">
 
-                    <!-- Instructions -->
-                    <div class="about-section">
-                        <h2>How to Use PixelPop Studio</h2>
-                        <div class="instructions">
-                            <div class="instruction-step">
-                                <div class="step-number">1</div>
-                                <div class="step-content">
-                                    <h3>Login or Register</h3>
-                                    <p>Sign in to unlock downloads, printing, and saving to <em>My Gallery</em>. Guests can still capture photos but cannot save them.</p>
-                                </div>
-                            </div>
-                            <div class="instruction-step">
-                                <div class="step-number">2</div>
-                                <div class="step-content">
-                                    <h3>Navigate to Photo Booth</h3>
-                                    <p>Click on <strong>Photo Booth</strong> in the navigation menu or use the <em>Start Capturing</em> button on the home page.</p>
-                                </div>
-                            </div>
-                            <div class="instruction-step">
-                                <div class="step-number">3</div>
-                                <div class="step-content">
-                                    <h3>Choose Your Layout</h3>
-                                    <p>Select from four options: Single, Two-Strip, Three-Strip, or Four-Strip layouts.</p>
-                                </div>
-                            </div>
-                            <div class="instruction-step">
-                                <div class="step-number">4</div>
-                                <div class="step-content">
-                                    <h3>Customize Your Photos</h3>
-                                    <p>Add borders and filters to match your style before capturing.</p>
-                                </div>
-                            </div>
-                            <div class="instruction-step">
-                                <div class="step-number">5</div>
-                                <div class="step-content">
-                                    <h3>Set Timer & Capture</h3>
-                                    <p>Use the built-in timer to prepare, then click the camera button to take photos.</p>
-                                </div>
-                            </div>
-                            <div class="instruction-step">
-                                <div class="step-number">6</div>
-                                <div class="step-content">
-                                    <h3>Save & Manage</h3>
-                                    <p>After capturing, you can <strong>Download</strong>, <strong>Print</strong>, or <strong>Save to My Gallery</strong> (requires login). Each user can store up to 50 photos in their gallery.</p>
-                                </div>
-                            </div>
-                            <div class="instruction-step">
-                                <div class="step-number">7</div>
-                                <div class="step-content">
-                                    <h3>Access Your Gallery</h3>
-                                    <p>Go to <em>My Gallery</em> to view, download, or delete your saved photos anytime.</p>
-                                </div>
-                            </div>
+            <!-- Introduction -->
+            <div class="about-section">
+                <h2>All About PixelPop Studio</h2>
+                <p>
+                    PixelPop Studio is a state-of-the-art web-based photobooth application designed to bring
+                    professional photography experiences to your fingertips. Whether you’re capturing solo shots,
+                    group selfies, or creating fun layouts with friends, our platform combines cutting-edge web
+                    technologies with intuitive design to create memorable photo sessions. With customizable
+                    layouts, creative filters, and instant downloads, you can turn everyday moments into lasting
+                    memories—no extra apps or complicated tools required.
+                </p>
+            </div>
+
+            <!-- Instructions -->
+            <div class="about-section">
+                <h2>How to Use PixelPop Studio</h2>
+                <div class="instructions">
+                    <div class="instruction-step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h3>Login or Register</h3>
+                            <p>Sign in to unlock downloads, printing, and saving to <em>My Gallery</em>. Guests can still capture photos but cannot save them.</p>
                         </div>
                     </div>
-
-                    <!-- Features -->
-                    <div class="about-section">
-                        <h2>Features</h2>
-                        <ul class="features-list">
-                            <li><i class="fas fa-check"></i> Real-time camera preview</li>
-                            <li><i class="fas fa-check"></i> Multiple photo layouts</li>
-                            <li><i class="fas fa-check"></i> Professional filters and effects</li>
-                            <li><i class="fas fa-check"></i> Customizable borders</li>
-                            <li><i class="fas fa-check"></i> Timer functionality</li>
-                            <li><i class="fas fa-check"></i> High-quality downloads</li>
-                            <li><i class="fas fa-check"></i> Mobile-responsive design</li>
-                            <li><i class="fas fa-check"></i> Personal gallery with up to 50 saved photos</li>
-                        </ul>
+                    <div class="instruction-step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h3>Navigate to Photo Booth</h3>
+                            <p>Click on <strong>Photo Booth</strong> in the navigation menu or use the <em>Start Capturing</em> button on the home page.</p>
+                        </div>
                     </div>
-
-                    <!-- Tips -->
-                    <div class="about-section">
-                        <h2>Tips & Troubleshooting</h2>
-                        <ul class="features-list">
-                            <li><i class="fas fa-check"></i> Allow camera permission in your browser if video doesn’t start.</li>
-                            <li><i class="fas fa-check"></i> For best results, use good lighting and keep your device steady.</li>
-                            <li><i class="fas fa-check"></i> On mobile, use portrait orientation for cleaner layouts.</li>
-                            <li><i class="fas fa-check"></i> Remember: downloading, printing, and gallery saving require login.</li>
-                        </ul>
+                    <div class="instruction-step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h3>Choose Your Layout</h3>
+                            <p>Select from four options: Single, Two-Strip, Three-Strip, or Four-Strip layouts.</p>
+                        </div>
                     </div>
-
+                    <div class="instruction-step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <h3>Customize Your Photos</h3>
+                            <p>Add borders and filters to match your style before capturing.</p>
+                        </div>
+                    </div>
+                    <div class="instruction-step">
+                        <div class="step-number">5</div>
+                        <div class="step-content">
+                            <h3>Set Timer & Capture</h3>
+                            <p>Use the built-in timer to prepare, then click the camera button to take photos.</p>
+                        </div>
+                    </div>
+                    <div class="instruction-step">
+                        <div class="step-number">6</div>
+                        <div class="step-content">
+                            <h3>Save & Manage</h3>
+                            <p>After capturing, you can <strong>Download</strong>, <strong>Print</strong>, or <strong>Save to My Gallery</strong> (requires login). Each user can store up to 50 photos in their gallery.</p>
+                        </div>
+                    </div>
+                    <div class="instruction-step">
+                        <div class="step-number">7</div>
+                        <div class="step-content">
+                            <h3>Access Your Gallery</h3>
+                            <p>Go to <em>My Gallery</em> to view, download, or delete your saved photos anytime.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </section>
+
+            <!-- Features -->
+            <div class="about-section">
+                <h2>Features</h2>
+                <ul class="features-list">
+                    <li><i class="fas fa-check"></i> Real-time camera preview</li>
+                    <li><i class="fas fa-check"></i> Multiple photo layouts</li>
+                    <li><i class="fas fa-check"></i> Professional filters and effects</li>
+                    <li><i class="fas fa-check"></i> Customizable borders</li>
+                    <li><i class="fas fa-check"></i> Timer functionality</li>
+                    <li><i class="fas fa-check"></i> High-quality downloads</li>
+                    <li><i class="fas fa-check"></i> Mobile-responsive design</li>
+                    <li><i class="fas fa-check"></i> Personal gallery with up to 50 saved photos</li>
+                </ul>
+            </div>
+
+            <!-- Tips -->
+            <div class="about-section">
+                <h2>Tips & Troubleshooting</h2>
+                <ul class="features-list">
+                    <li><i class="fas fa-check"></i> Allow camera permission in your browser if video doesn’t start.</li>
+                    <li><i class="fas fa-check"></i> For best results, use good lighting and keep your device steady.</li>
+                    <li><i class="fas fa-check"></i> On mobile, use portrait orientation for cleaner layouts.</li>
+                    <li><i class="fas fa-check"></i> Remember: downloading, printing, and gallery saving require login.</li>
+                </ul>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+
+
 
         <!-- Layout/Photo Booth Page -->
         <section id="layout-page" class="page">
+            
+                
             <div class="photobooth-container">
                 <div class="photobooth-header">
                     <h1>Photo Booth Studio</h1>
@@ -337,31 +420,62 @@
                     <h3>Your Photos</h3>
                     <div class="results-container">
                         <canvas id="final-canvas"></canvas>
-
-                        <div class="download-controls">
+                       <!-- <div class="download-controls">
                             <button id="download-btn" class="primary-button" title="Log in to use this">
-                                <i class="fas fa-download"></i> Download Photos
+                                <i class="fas fa-download"></i>
+                                Download Photos
                             </button>
                             <button id="print-btn" class="secondary-button" title="Log in to use this">
-                                <i class="fas fa-print"></i> Print Photos
+                                <i class="fas fa-print"></i>
+                                Print Photos
                             </button>
-                            <button id="save-gallery-btn" class="secondary-button" title="Log in to use this">
-                                <i class="fas fa-cloud-upload-alt"></i> Save to My Gallery
-                            </button>
-                            <button id="new-session" class="secondary-button">
-                                <i class="fas fa-plus"></i> New Session
-                            </button>
-                        </div>
 
-                        <!-- QR Code Section -->
-                        <section id="qr-section" style="display:none; text-align:center; margin-top:20px;">
-                            <canvas id="qr-code"></canvas>
-                            <div><a id="qr-link" target="_blank" rel="noopener">Open image</a></div>
-                            <div id="qr-actions" style="display:none; gap:8px; margin-top:8px;">
-                                <button id="copy-link">Copy link</button>
-                                <button id="download-qr">Download QR</button>
-                            </div>
-                        </section>
+                        
+                                        <button id="save-gallery-btn" class="secondary-button" title="Log in to use this">
+                                          <i class="fas fa-cloud-upload-alt"></i> Save to My Gallery
+                                        </button>
+
+
+
+                            <button id="new-session" class="secondary-button">
+                                <i class="fas fa-plus"></i>
+                                New Session
+                            </button>
+
+                            
+                            <section id="qr-section" style="display:none; text-align:center; margin-top:20px;">
+                                <canvas id="qr-code"></canvas>
+                                <div><a id="qr-link" target="_blank" rel="noopener">Open image</a></div>
+                                <div id="qr-actions" style="display:none; gap:8px; margin-top:8px;">
+                                    <button id="copy-link">Copy link</button>
+                                    <button id="download-qr">Download QR</button>
+                                </div>
+                            </section>-->
+                            <div class="download-controls">
+    <button id="download-btn" class="primary-button" title="Log in to use this">
+        <i class="fas fa-download"></i> Download Photos
+    </button>
+    <button id="print-btn" class="secondary-button" title="Log in to use this">
+        <i class="fas fa-print"></i> Print Photos
+    </button>
+    <button id="save-gallery-btn" class="secondary-button" title="Log in to use this">
+        <i class="fas fa-cloud-upload-alt"></i> Save to My Gallery
+    </button>
+    <button id="new-session" class="secondary-button">
+        <i class="fas fa-plus"></i> New Session
+    </button>
+</div>
+
+<!-- QR Code Section separate from buttons -->
+<section id="qr-section" style="display:none; text-align:center; margin-top:20px;">
+    <canvas id="qr-code"></canvas>
+    <div><a id="qr-link" target="_blank" rel="noopener">Open image</a></div>
+    <div id="qr-actions" style="display:none; gap:8px; margin-top:8px;">
+        <button id="copy-link">Copy link</button>
+        <button id="download-qr">Download QR</button>
+    </div>
+</section>
+                        </div>
                     </div>
                 </div>
 
@@ -441,188 +555,205 @@
 
                         <button id="downloadBtn" style="margin-top:20px;display:none;" class="upload-btn" title="Log in to use this">Download Image</button>
                         <button id="printFrameBtn" style="margin-top:20px;display:none;" class="upload-btn" title="Log in to use this">Print</button>
-                        <button id="saveFrameToGalleryBtn" style="margin-top:20px;display:none;" class="upload-btn" title="Log in to use this">Save to My Gallery</button>
+                       <button id="saveFrameToGalleryBtn" style="margin-top:20px;display:none;" class="upload-btn" title="Log in to use this">Save to My Gallery</button>
 
                         <!-- Frame QR -->
                         <section id="qr-section-frame" style="display:none; text-align:center; margin-top:20px;">
-                            <canvas id="qr-code-frame" width="300" height="300"></canvas>
-                            <p><a id="qr-link-frame" href="#" target="_blank" rel="noopener noreferrer">Open / Download image</a></p>
-                            <div id="qr-actions-frame" style="display:none; gap:8px; margin-top:8px;">
-                                <button id="copy-link-frame">Copy link</button>
-                                <button id="download-qr-frame">Download QR</button>
-                            </div>
+                          <canvas id="qr-code-frame" width="300" height="300"></canvas>
+                          <p><a id="qr-link-frame" href="#" target="_blank" rel="noopener noreferrer">Open / Download image</a></p>
+                          <div id="qr-actions-frame" style="display:none; gap:8px; margin-top:8px;">
+                            <button id="copy-link-frame">Copy link</button>
+                            <button id="download-qr-frame">Download QR</button>
+                          </div>
                         </section>
                     </div>
                 </section>
             </div>
+            
         </section>
+   <!-- Gallery Page -->
+<section id="gallery-page" class="page">
+  <div class="gallery-wrap">
+    <div class="gallery-header">
+      <h1>Your Gallery</h1>
+      <p class="gallery-sub">Private to your account. Only visible when you’re logged in.</p>
 
-        <!-- Gallery Page -->
-        <section id="gallery-page" class="page">
-            <div class="gallery-wrap">
-                <div class="gallery-header">
-                    <h1>Your Gallery</h1>
-                    <p class="gallery-sub">Private to your account. Only visible when you’re logged in.</p>
+      <!-- Actions shown when logged in -->
+      <div id="gallery-actions" class="gallery-actions" style="display:none;">
+        <button id="refresh-gallery" class="secondary-button" aria-label="Refresh gallery">
+          <i class="fas fa-rotate"></i> Refresh
+        </button>
+        <button id="select-toggle" class="secondary-button" aria-label="Toggle selection mode">
+          <i class="fas fa-check-square"></i> Select
+        </button>
+        <button id="delete-selected" class="secondary-button" aria-label="Delete selected photos" disabled>
+          <i class="fas fa-trash"></i> Delete Selected
+        </button>
+        <button id="logout-from-gallery" class="secondary-button" aria-label="Log out">
+          <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+      </div>
 
-                    <!-- Actions shown when logged in -->
-                    <div id="gallery-actions" class="gallery-actions" style="display:none;">
-                        <button id="refresh-gallery" class="secondary-button" aria-label="Refresh gallery">
-                            <i class="fas fa-rotate"></i> Refresh
-                        </button>
-                        <button id="select-toggle" class="secondary-button" aria-label="Toggle selection mode">
-                            <i class="fas fa-check-square"></i> Select
-                        </button>
-                        <button id="delete-selected" class="secondary-button" aria-label="Delete selected photos" disabled>
-                            <i class="fas fa-trash"></i> Delete Selected
-                        </button>
-                        <!-- IMPORTANT: logout button unified via class -->
-                        <button class="secondary-button logout-btn" aria-label="Log out">
-                            <i class="fas fa-sign-out-alt"></i> Logout
-                        </button>
-                    </div>
+      <!-- Login hint when not authenticated -->
+      <div id="gallery-login-hint" class="gallery-hint" style="display:none;">
+        <p>Please log in on the Login page to view your private gallery.</p>
+      </div>
 
-                    <!-- Login hint when not authenticated -->
-                    <div id="gallery-login-hint" class="gallery-hint" style="display:none;">
-                        <p>Please log in on the Login page to view your private gallery.</p>
-                    </div>
+      <!-- Max photos note -->
+      <p class="gallery-sub" style="text-align:center;margin-top:.25rem;">
+        You can store up to <strong>50 photos</strong>. Delete some if you hit the limit.
+      </p>
+    </div>
 
-                    <!-- Max photos note -->
-                    <p class="gallery-sub" style="text-align:center;margin-top:.25rem;">
-                        You can store up to <strong>50 photos</strong>. Delete some if you hit the limit.
-                    </p>
-                </div>
+    <!-- Empty state -->
+    <div id="gallery-empty" class="gallery-empty" style="display:none;">
+      <i class="fas fa-images"></i>
+      <p>No photos yet. Capture something in the Photo Booth!</p>
+    </div>
 
-                <!-- Empty state -->
-                <div id="gallery-empty" class="gallery-empty" style="display:none;">
-                    <i class="fas fa-images"></i>
-                    <p>No photos yet. Capture something in the Photo Booth!</p>
-                </div>
+    <!-- Grid -->
+    <div id="gallery-grid" class="gallery-grid" role="list"></div>
+  </div>
 
-                <!-- Grid -->
-                <div id="gallery-grid" class="gallery-grid" role="list"></div>
-            </div>
+ <!-- Lightbox / Photo Viewer -->
+<div id="lightbox" class="lightbox" aria-hidden="true">
+  <button class="lb-btn lb-close" aria-label="Close (Esc)">&times;</button>
+  <button class="lb-btn lb-prev" aria-label="Previous">&#10094;</button>
+  <button class="lb-btn lb-next" aria-label="Next">&#10095;</button>
 
-            <!-- Lightbox / Photo Viewer -->
-            <div id="lightbox" class="lightbox" aria-hidden="true">
-                <button class="lb-btn lb-close" aria-label="Close (Esc)">&times;</button>
-                <button class="lb-btn lb-prev" aria-label="Previous">&#10094;</button>
-                <button class="lb-btn lb-next" aria-label="Next">&#10095;</button>
+  <div class="lightbox-stage"><img id="lightbox-img" alt=""></div>
 
-                <div class="lightbox-stage"><img id="lightbox-img" alt=""></div>
+  <div class="lightbox-meta">
+  <span id="lightbox-counter">1 / 1</span>
+  
+</div>
 
-                <div class="lightbox-meta">
-                    <span id="lightbox-counter">1 / 1</span>
-                </div>
-            </div>
-        </section>
+</div>
 
-        <!-- Login/Register Page -->
-        <section id="login-page" class="page">
-            <!-- User Profile Section (hidden until login) -->
-            <div id="user-profile" class="user-profile" style="display: none;">
-                <img id="profile-pic" src="default-avatar.png" alt="Profile Picture" class="profile-pic">
-                <h2 id="profile-name">Welcome, User!</h2>
-                <!-- IMPORTANT: unified via class -->
-                <button id="profile-logout-btn" class="btn logout-btn">Logout</button>
-            </div>
 
-            <section class="loginposition">
-                <div class="logincontainer">
-                    <!-- Login Form -->
-                    <div class="form-box login">
-                        <form id="login-form">
-                            <h1>Login</h1>
-                            <div class="input-box">
-                                <input type="text" name="identifier" placeholder="Email or Username" required>
-                                <i class='bx bxs-user'></i>
-                            </div>
-                            <div class="input-box">
-                                <input type="password" name="password" placeholder="Password" required>
-                                <i class='bx bxs-lock-alt'></i>
-                            </div>
-                            <div class="forgot-link">
-                                <a href="#" id="forgot-link">Forgot Password?</a>
-                            </div>
-                            <button type="submit" class="btn">Login</button>
+</section>
 
-                            <p>or login with</p>
-                            <!-- Google Sign-In Button -->
-                            <div class="social-icons">
-                                <div id="g_id_onload"
-                                     data-client_id="881251005658-pgve1b61c4rpvs4vuascvkhq5irkq13k.apps.googleusercontent.com"
-                                     data-callback="handleGoogleCredential"
-                                     data-auto_prompt="false"></div>
-                                <div class="g_id_signin"
-                                     data-type="standard"
-                                     data-shape="rectangular"
-                                     data-size="large"
-                                     data-theme="outline"
-                                     data-text="signin_with"
-                                     data-logo_alignment="left"></div>
-                            </div>
-                        </form>
-                    </div>
 
-                    <!-- Registration Form -->
-                    <div class="form-box register">
-                        <form id="register-form">
-                            <h1>Registration</h1>
-                            <div class="input-box">
-                                <input type="text" name="username" placeholder="Username" required>
-                                <i class='bx bxs-user'></i>
-                            </div>
-                            <div class="input-box">
-                                <input type="email" name="email" placeholder="Email" required>
-                                <i class='bx bxs-envelope'></i>
-                            </div>
-                            <div class="input-box">
-                                <input type="password" name="password" placeholder="Password" required>
-                                <i class='bx bxs-lock-alt'></i>
-                            </div>
-                            <div class="input-box">
-                                <input type="password" name="confirmPassword" placeholder="Confirm Password" required>
-                                <i class='bx bxs-lock-alt'></i>
-                            </div>
-                            <button type="submit" class="btn1">Register</button>
 
-                            <p>or register with</p>
-                            <div class="social-icons">
-                                <div class="g_id_signin"
-                                     data-type="standard"
-                                     data-shape="rectangular"
-                                     data-size="large"
-                                     data-theme="outline"
-                                     data-text="signup_with"
-                                     data-logo_alignment="left"></div>
-                            </div>
-                        </form>
-                    </div>
 
-                    <!-- Toggle Panels -->
-                    <div class="toggle-box">
-                        <div class="toggle-panel toggle-left">
-                            <h2>Hello, Welcome!</h2>
-                            <p>Don't have an account?</p>
-                            <button class="btn register-btn">Register</button>
-                        </div>
+            <!-- Login/Register stays so users can log in to unlock Download/Print -->
+<section id="login-page" class="page">
+    <!-- User Profile Section (hidden until login) -->
+  <div id="user-profile" class="user-profile" style="display: none;">
+    <h1 id="profile-title">User Profile</h1>
+    <h2 id="profile-name">Welcome, User!</h2>
+    <button id="profile-logout-btn" class="btn logout-btn">Logout</button>
+  </div>
 
-                        <div class="toggle-panel toggle-right">
-                            <h2>Welcome Back!</h2>
-                            <p>Already have an account?</p>
-                            <button class="btn login-btn">Login</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </section>
+  <section class="loginposition">
+
+    <div class="logincontainer">
+      <!-- Login Form -->
+      <div class="form-box login">
+        <form id="login-form">
+          <h1>Login</h1>
+          <div class="input-box">
+            <input type="text" name="identifier" placeholder="Email or Username" required>
+            <i class='bx bxs-user'></i>
+          </div>
+          <div class="input-box">
+            <input type="password" name="password" placeholder="Password" required>
+            <i class='bx bxs-lock-alt'></i>
+          </div>
+          <div class="forgot-link">
+            <a href="#" id="forgot-link">Forgot Password?</a>
+          </div>
+          <button type="submit" class="btn">Login</button>
+
+          <p>or login with</p>
+          <!-- Google Sign-In Button -->
+          <div class="social-icons">
+            <div id="g_id_onload"
+                 data-client_id="881251005658-pgve1b61c4rpvs4vuascvkhq5irkq13k.apps.googleusercontent.com"
+                 data-callback="handleGoogleCredential"
+                 data-auto_prompt="false"></div>
+            <div class="g_id_signin"
+                 data-type="standard"
+                 data-shape="rectangular"
+                 data-size="large"
+                 data-theme="outline"
+                 data-text="signin_with"
+                 data-logo_alignment="left"></div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Registration Form -->
+      <div class="form-box register">
+        <form id="register-form">
+          <h1>Registration</h1>
+          <div class="input-box">
+            <input type="text" name="username" placeholder="Username" required>
+            <i class='bx bxs-user'></i>
+          </div>
+          <div class="input-box">
+            <input type="email" name="email" placeholder="Email" required>
+            <i class='bx bxs-envelope'></i>
+          </div>
+          <div class="input-box">
+            <input type="password" name="password" placeholder="Password" required>
+            <i class='bx bxs-lock-alt'></i>
+          </div>
+          <div class="input-box">
+            <input type="password" name="confirmPassword" placeholder="Confirm Password" required>
+            <i class='bx bxs-lock-alt'></i>
+          </div>
+          <button type="submit" class="btn1">Register</button>
+
+          <p>or register with</p>
+          <div class="social-icons">
+            <div class="g_id_signin"
+                 data-type="standard"
+                 data-shape="rectangular"
+                 data-size="large"
+                 data-theme="outline"
+                 data-text="signup_with"
+                 data-logo_alignment="left"></div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Toggle Panels -->
+      <div class="toggle-box">
+        <div class="toggle-panel toggle-left">
+          <h2>Hello, Welcome!</h2>
+          <p>Don't have an account?</p>
+          <button class="btn register-btn">Register</button>
+        </div>
+
+        <div class="toggle-panel toggle-right">
+          <h2>Welcome Back!</h2>
+          <p>Already have an account?</p>
+          <button class="btn login-btn">Login</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- User Profile Section (hidden until login) -->
+  <div id="user-profile" class="user-profile" style="display: none;">
+    <img id="profile-pic" src="default-avatar.png" alt="Profile Picture" class="profile-pic">
+    <h2 id="profile-name">Welcome, User!</h2>
+    <button id="profile-logout-btn" class="btn logout-btn">Logout</button>
+  </div>
+</section>
+
+
+
+
     </main>
 
     <footer>
         <p>© 2025 PixelPop Studio. All rights reserved.</p>
         <div class="social-icons">
-            <a href="https://facebook.com" target="_blank" rel="noopener"><i class="fab fa-facebook"></i></a>
-            <a href="https://instagram.com" target="_blank" rel="noopener"><i class="fab fa-instagram"></i></a>
-            <a href="https://twitter.com" target="_blank" rel="noopener"><i class="fab fa-twitter"></i></a>
+            <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook"></i></a>
+            <a href="https://instagram.com" target="_blank"><i class="fab fa-instagram"></i></a>
+            <a href="https://twitter.com" target="_blank"><i class="fab fa-twitter"></i></a>
         </div>
     </footer>
 
@@ -643,8 +774,9 @@
     <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js" defer></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
-      window.API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
-    </script>
+  window.API_BASE = 'https://pixelpop-backend-fm6t.onrender.com'; // or http://localhost:5000
+</script>
+
 
     <script src="script.js"></script>
 </body>
