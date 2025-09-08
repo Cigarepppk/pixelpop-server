@@ -2406,77 +2406,82 @@ if (loginForm) {
 
 const API_BASE = window.API_BASE || 'https://pixelpop-backend-fm6t.onrender.com';
 
-/* ---------- Helpers ---------- */
+/* ---------- Tiny helpers ---------- */
+const $  = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
 function setBusy(form, busy) {
   if (!form) return;
   [...form.elements].forEach(el => (el.disabled = !!busy));
   form.dataset.busy = busy ? '1' : '';
 }
-
 function getToken() { return localStorage.getItem('token') || ''; }
 function setToken(t) { if (t) localStorage.setItem('token', t); }
+
 function authHeaders(extra = {}) {
   const t = getToken();
-  return { 'Content-Type': 'application/json', ...(t ? { 'Authorization': `Bearer ${t}` } : {}), ...extra };
+  return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}), ...extra };
 }
 
-function doPost(path, body, alts = []) {
-  const opts = {
+async function doPost(path, body) {
+  const r = await fetch(API_BASE + path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body || {})
-  };
-  return fetch(API_BASE + path, opts).then(async r => {
-    let j = {}; try { j = await r.clone().json(); } catch {}
-    r._json = j; return r;
   });
+  let j = {};
+  try { j = await r.clone().json(); } catch {}
+  r._json = j;
+  return r;
 }
 
-function doGet(path, alts = [], withAuth = false) {
-  const opts = { method: 'GET', headers: withAuth ? authHeaders() : { 'Content-Type': 'application/json' } };
-  return fetch(API_BASE + path, opts).then(async r => {
-    let j = {}; try { j = await r.clone().json(); } catch {}
-    r._json = j; return r;
+async function doGet(path, { withAuth = false } = {}) {
+  const r = await fetch(API_BASE + path, {
+    method: 'GET',
+    headers: withAuth ? authHeaders() : { 'Content-Type': 'application/json' }
   });
+  let j = {};
+  try { j = await r.clone().json(); } catch {}
+  r._json = j;
+  return r;
 }
 
 /* ---------- Elements ---------- */
-const loginForm    = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const container    = document.querySelector('.logincontainer');
-const registerBtn  = document.querySelector('.register-btn');
-const loginBtn     = document.querySelector('.login-btn');
-const forgotLink   = document.getElementById('forgot-link') || document.querySelector('.forgot-link a');
+const loginForm    = $('#login-form');
+const registerForm = $('#register-form');
+const container    = $('.logincontainer');
+const registerBtn  = $('.register-btn');
+const loginBtn     = $('.login-btn');
+const forgotLink   = $('#forgot-link') || $('.forgot-link a');
 
-const profileBox   = document.getElementById('user-profile');
-const profileName  = document.getElementById('profile-name');
-const profilePic   = document.getElementById('profile-pic');
-const profileLogoutBtn = document.getElementById('profile-logout-btn');
+// Profile box (inside login page)
+const profileBox        = $('#user-profile');
+const profileName       = $('#profile-name');
+const profilePic        = $('#profile-pic');             // optional
+const profileLogoutBtn  = $('#profile-logout-btn');      // keep different from nav logout id
 
-/* ---------- Toggle UI ---------- */
+/* ---------- Toggle between login/register cards ---------- */
 if (registerBtn) registerBtn.addEventListener('click', () => container?.classList.add('active'));
 if (loginBtn)    loginBtn.addEventListener('click', () => container?.classList.remove('active'));
 
 /* ---------- Registration ---------- */
 if (registerForm) {
-  registerForm.addEventListener('submit', async e => {
+  registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     setBusy(registerForm, true);
 
     const username = e.target.username.value.trim();
-    const email = e.target.email.value.trim();
+    const email    = e.target.email.value.trim();
     const password = e.target.password.value;
-    const confirmPassword = e.target.confirmPassword.value;
+    const confirm  = e.target.confirmPassword.value;
 
     if (!username || !email || !password) {
       alert('Please fill all fields.');
-      setBusy(registerForm, false);
-      return;
+      return setBusy(registerForm, false);
     }
-    if (password !== confirmPassword) {
+    if (password !== confirm) {
       alert('Passwords do not match!');
-      setBusy(registerForm, false);
-      return;
+      return setBusy(registerForm, false);
     }
 
     try {
@@ -2486,11 +2491,12 @@ if (registerForm) {
         container?.classList.remove('active');
         registerForm.reset();
       } else {
-        alert(`Registration failed: ${r._json?.error || r.status}`);
+        alert(`Registration failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
+        console.error('Registration failed:', r._json);
       }
     } catch (err) {
-      console.error(err);
-      alert('Registration error. Try again.');
+      console.error('Registration error:', err);
+      alert('An error occurred during registration. Please try again.');
     } finally {
       setBusy(registerForm, false);
     }
@@ -2499,16 +2505,17 @@ if (registerForm) {
 
 /* ---------- Login (email OR username) ---------- */
 if (loginForm) {
-  loginForm.addEventListener('submit', async e => {
+  loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     setBusy(loginForm, true);
 
+    // Support <input name="identifier"> or legacy <input name="username">
     const raw = (e.target.identifier?.value ?? e.target.username?.value ?? '').trim();
     const password = e.target.password.value;
+
     if (!raw || !password) {
       alert('Please enter your email/username and password.');
-      setBusy(loginForm, false);
-      return;
+      return setBusy(loginForm, false);
     }
 
     const body = raw.includes('@') ? { email: raw, password } : { username: raw, password };
@@ -2517,25 +2524,35 @@ if (loginForm) {
       const r = await doPost('/login', body);
       if (r.ok && r._json?.token) {
         setToken(r._json.token);
+
+        // Friendly display name for profile
         const displayName = r._json?.user?.username || r._json?.user?.email || raw;
         localStorage.setItem('username', displayName);
 
+        // Update app UI (nav buttons, etc.)
+        if (window.PixelPopApp?.updatePrivilegedButtonsState) {
+          window.PixelPopApp.updatePrivilegedButtonsState();
+        }
+
+        // Show profile box on login page
         showUserProfile(displayName);
 
-        if (window.PixelPopApp?.updatePrivilegedButtonsState)
-          window.PixelPopApp.updatePrivilegedButtonsState();
-
-        if (typeof window.PixelPopAppNavigate === 'function')
+        // Optional: navigate to booth after login
+        if (typeof window.PixelPopAppNavigate === 'function') {
           window.PixelPopAppNavigate('layout');
+        }
 
         loginForm.reset();
-        doGet('/api/auth/verify', [], true).catch(() => {});
+
+        // Optional: quick verify (non-blocking)
+        doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
       } else {
-        alert(`Login failed: ${r._json?.error || r.status}`);
+        alert(`Login failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
+        console.error('Login failed:', r._json);
       }
     } catch (err) {
-      console.error(err);
-      alert('Login error. Try again.');
+      console.error('Login error:', err);
+      alert('An error occurred during login. Please try again.');
     } finally {
       setBusy(loginForm, false);
     }
@@ -2544,63 +2561,94 @@ if (loginForm) {
 
 /* ---------- Forgot Password ---------- */
 if (forgotLink) {
-  forgotLink.addEventListener('click', async e => {
+  forgotLink.addEventListener('click', async (e) => {
     e.preventDefault();
-    const email = prompt('Enter your account email:');
+    const email = prompt('Enter the email on your account:');
     if (!email) return;
     try {
       const r = await doPost('/forgot-password', { email });
-      alert(r._json?.message || 'If the account exists, a reset email was sent.');
-    } catch {
-      alert('Error sending reset email. Try again.');
+      alert(r._json?.message || 'If that account exists, we sent a reset link.');
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      alert('Could not process password reset. Please try again.');
     }
   });
 }
 
-/* ---------- Google Sign-In ---------- */
+/* ---------- Google Sign-In (GIS) callback ---------- */
+/* Ensure you include the GIS script in HTML:
+   <script src="https://accounts.google.com/gsi/client" async defer></script> */
 window.handleGoogleCredential = async (response) => {
   try {
     const idToken = response?.credential;
     if (!idToken) return alert('Google sign-in failed: no credential.');
 
     const r = await doPost('/auth/google', { idToken });
-    if (!r.ok || !r._json?.token) return alert(`Google sign-in failed: ${r._json?.error || r.status}`);
+    if (!r.ok || !r._json?.token) {
+      return alert(`Google sign-in failed: ${r._json?.error || `HTTP ${r.status}`}`);
+    }
 
     setToken(r._json.token);
+
     const displayName = r._json?.user?.username || r._json?.user?.email || 'user';
     localStorage.setItem('username', displayName);
 
-    showUserProfile(displayName);
-    if (window.PixelPopApp?.updatePrivilegedButtonsState)
+    if (window.PixelPopApp?.updatePrivilegedButtonsState) {
       window.PixelPopApp.updatePrivilegedButtonsState();
-    if (typeof window.PixelPopAppNavigate === 'function')
+    }
+
+    showUserProfile(displayName);
+
+    if (typeof window.PixelPopAppNavigate === 'function') {
       window.PixelPopAppNavigate('layout');
-    doGet('/api/auth/verify', [], true).catch(() => {});
+    }
+
+    // Optional verify
+    doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
   } catch (err) {
-    console.error(err);
-    alert('Google sign-in error. Try again.');
+    console.error('Google sign-in error:', err);
+    alert('Google sign-in failed. Please try again.');
   }
 };
 
-/* ---------- Profile UI ---------- */
+/* ---------- Profile UI helpers ---------- */
 function showUserProfile(username) {
-  container?.style && (container.style.display = 'none');
-  profileBox?.style && (profileBox.style.display = 'block');
-  if (profileName) profileName.textContent = `Welcome, ${username || 'user'}!`;
+  // Hide the login form box, show the profile card
+  if (container)  container.style.display = 'none';
+  if (profileBox) profileBox.style.display  = 'block';
+  if (profileName) profileName.textContent  = `Welcome, ${username || 'user'}!`;
+  // Optionally: if you fetch user photo from backend, set profilePic.src here
 }
 
-if (profileLogoutBtn) {
-  profileLogoutBtn.addEventListener('click', () => {
-    localStorage.removeItem('username');
-    localStorage.removeItem('token');
-    if (profileBox) profileBox.style.display = 'none';
-    if (container) container.style.display = '';
-    if (window.PixelPopApp?.updatePrivilegedButtonsState)
-      window.PixelPopApp.updatePrivilegedButtonsState();
-  });
+/* ---------- Unified Logout: any .logout-btn triggers logout ---------- */
+function doLogout() {
+  localStorage.removeItem('username');
+  localStorage.removeItem('token');
+
+  // Restore login panel, hide profile card
+  if (profileBox) profileBox.style.display = 'none';
+  if (container)  container.style.display  = '';
+
+  // Let the app rebuild nav state (adds/removes nav logout)
+  if (window.PixelPopApp?.updatePrivilegedButtonsState) {
+    window.PixelPopApp.updatePrivilegedButtonsState();
+  }
+
+  // Optional: route to home
+  if (typeof window.PixelPopAppNavigate === 'function') {
+    window.PixelPopAppNavigate('home');
+  }
 }
 
-/* ---------- Auto-show Profile ---------- */
+// Delegate click for any current/future .logout-btn (nav + profile)
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.logout-btn');
+  if (!btn) return;
+  e.preventDefault();
+  doLogout();
+});
+
+/* ---------- Auto-show profile on refresh ---------- */
 window.addEventListener('DOMContentLoaded', () => {
   const username = localStorage.getItem('username');
   if (username) showUserProfile(username);
