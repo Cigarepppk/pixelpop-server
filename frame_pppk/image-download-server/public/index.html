@@ -330,6 +330,7 @@
                 <div class="camera-section">
                     <div class="camera-container">
                         <video id="camera-feed" autoplay playsinline></video>
+                        <div id="live-border" class="live-border border-none"></div>
                         <canvas id="photo-canvas" style="display: none;"></canvas>
                         <div class="camera-overlay">
                             <div class="timer-display" id="timer-display" style="display: none;">3</div>
@@ -705,6 +706,13 @@
 
             <!-- Login/Register stays so users can log in to unlock Download/Print -->
 <section id="login-page" class="page">
+    <!-- User Profile Section (hidden until login) -->
+<div id="user-profile" class="user-profile" style="display: none;">
+  <img id="profile-pic" src="default-avatar.png" alt="Profile Picture" class="profile-pic">
+  <h2 id="profile-name">Welcome, User!</h2>
+  <button id="logout-btn" class="btn logout-btn">Logout</button>
+</div>
+
   <section class="loginposition">
     <div class="logincontainer">
       <div class="form-box login">

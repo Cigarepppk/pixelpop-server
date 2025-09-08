@@ -153,7 +153,7 @@ setupLiveBackgrounds() {
     gallery:["p4.JPG","p1.JPG","p2.JPG","p3.JPG"],
     login:  ["p5.JPG","p2.JPG","p3.JPG","p4.JPG"]   // ⬅️ add this
   };
-
+this.currentBorder='none';
   this.bgIntervalMs = 7000;  // change speed here
   this._bgIntervalId = null;
   this._bgFlip = false;
@@ -452,7 +452,12 @@ navigateToPage(page) {
       cameraFeed.classList.add(`filter-${this.currentFilter}`);
     }
   }
-
+ updateLiveBorder() {
+    if (!liveBorderEl) return;
+    liveBorderEl.classList.remove('border-none','border-classic','border-modern','border-vintage');
+    const map = { none:'border-none', classic:'border-classic', modern:'border-modern', vintage:'border-vintage' };
+    liveBorderEl.classList.add(map[currentBorder] || 'border-none');
+  }
   capturePhoto() {
     if (this.isCapturing) return;
     this.isCapturing = true;
@@ -2653,6 +2658,47 @@ window.handleGoogleCredential = async (response) => {
     alert('Google sign-in failed. Please try again.');
   }
 };
+
+function showUserProfile(username) {
+  document.querySelector(".logincontainer").style.display = "none"; // Hide login form
+  const userProfile = document.getElementById("user-profile");
+  userProfile.style.display = "block";
+
+  // Set username dynamically
+  document.getElementById("profile-name").textContent = `Welcome, ${username}!`;
+
+  // If you have user photo from backend, set it here:
+  // document.getElementById("profile-pic").src = user.photoUrl;
+}
+
+// Example login simulation
+document.getElementById("login-form").addEventListener("submit", function(e) {
+  e.preventDefault();
+  const username = e.target.username.value;
+  const password = e.target.password.value;
+
+  // Simulate backend check or call your real API
+  if(username && password) {
+    localStorage.setItem("username", username); // Store user data
+    showUserProfile(username);
+  }
+});
+
+// Logout logic
+document.getElementById("logout-btn").addEventListener("click", function() {
+  localStorage.removeItem("username");
+  location.reload(); // Reset to login page
+});
+// Your PixelPopStudio class code here ...
+
+// Show profile if already logged in
+window.addEventListener("DOMContentLoaded", () => {
+  const username = localStorage.getItem("username");
+  if (username) {
+    showUserProfile(username);  // This calls the function we created earlier
+  }
+});
+
 
 /* ---------- Optional: logout helper ---------- */
 window.PixelPopLogout = function () {
