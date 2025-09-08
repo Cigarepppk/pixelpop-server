@@ -1,29 +1,37 @@
-// PixelPop Studio - Main JavaScript File (No async/await) — FULLY CORRECTED
+/* =======================================================================
+   PixelPop Studio — FULL APP JS (Unified Logout for ALL buttons)
+   ======================================================================= */
+
+/* ============================ App (Photobooth, Gallery, Live BG) ============================ */
 class PixelPopStudio {
   constructor() {
-    this.currentPage = 'home';
+    this.currentPage   = 'home';
     this.currentLayout = 'single';
     this.currentBorder = 'none';
     this.currentFilter = 'none';
     this.capturedPhotos = [];
-    this.stream = null;
-    this.isCapturing = false;
-    this.timerValue = 3;
-    this.MAX_GALLERY = 50;
-    this._galleryCount = 0;        // tracked after each refresh
-    this._selectMode = false;      // gallery selection mode
+    this.stream        = null;
+    this.isCapturing   = false;
+    this.timerValue    = 3;
 
-    // canvas render state: used to prevent saving before layout is fully drawn
+    // Gallery caps & state
+    this.MAX_GALLERY    = 50;
+    this._galleryCount  = 0;
+    this._galleryItems  = [];
+    this._selectMode    = false;
+
+    // Canvas/layout state
     this.isLayoutReady = false;
 
-    // API base for uploads + auth (point to your backend)
+    // Backend
     this.API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
 
     this.init();
   }
 
+  /* ------------------------------- Init ------------------------------- */
   init() {
-    this.setupNavigation();        // ungated navigation
+    this.setupNavigation();
     this.setupLayoutSelection();
     this.setupBorderSelection();
     this.setupFilterSelection();
@@ -32,18 +40,16 @@ class PixelPopStudio {
     this.setupPhotoControls();
     this.setupMobileMenu();
     this.setupGalleryUi();
-    this.setupLiveBackgrounds();           // create pools, timers, visibility handling
-    this.startBackgroundRotatorFor(this.currentPage); // apply an image right away
 
-}
+    // Background rotator
+    this.setupLiveBackgrounds();
+    this.startBackgroundRotatorFor(this.currentPage);
 
+    // Reflect login-gated UI controls (download/print/save/tooltips) + nav logout
+    this.updatePrivilegedButtonsState();
+  }
 
-
-  /* ────────────────────────────────────────────────────────────
-     Smart fetch with 404 fallback (helps if /api prefix differs)
-     ──────────────────────────────────────────────────────────── */
-  // Calls `${BASE}${path}`. If it 404s and the path starts with "/api/",
-  // it retries once without "/api/". You can also pass alternates.
+  /* ===================== Smart fetch with 404 fallback ===================== */
   fetchWith404Fallback(BASE, path, options, extraAlternates) {
     const tryFetch = (url) =>
       fetch(url, options).then(async (res) => {
@@ -72,7 +78,7 @@ class PixelPopStudio {
     });
   }
 
-  // ============== Auth helpers ==============
+  /* ===================== Auth helpers ===================== */
   verifyToken() {
     const token = localStorage.getItem('token');
     if (!token) return Promise.resolve(false);
@@ -80,40 +86,62 @@ class PixelPopStudio {
     return this.fetchWith404Fallback(this.API_BASE, '/api/auth/verify', {
       headers: { Authorization: 'Bearer ' + token }
     }, ['/auth/verify'])
-      .then(res => {
-        if (!res.ok) console.warn('[verifyToken]', res.status, res._json);
-        return res.ok === true;
-      })
-      .catch(err => {
-        console.error('verifyToken failed', err);
-        return false;
-      });
+    .then(res => {
+      if (!res.ok) console.warn('[verifyToken]', res.status, res._json);
+      return res.ok === true;
+    })
+    .catch(() => false);
   }
+
+  /* ===================== Unified Logout (App-side) ===================== */
+  // script.js — inside class PixelPopStudio
+logout() {
+  // Clear stored credentials
+  localStorage.removeItem('token');
+  localStorage.removeItem('username');
+
+  // Reset UI: hide profile, show login form
+  const profileBox = document.getElementById('user-profile');
+  const loginContainer = document.querySelector('.logincontainer');
+  if (profileBox) profileBox.style.display = 'none';
+  if (loginContainer) {
+    loginContainer.style.display = '';
+    // Optional: reset both login & register forms
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    if (loginForm) loginForm.reset();
+    if (registerForm) registerForm.reset();
+    loginContainer.classList.remove('active'); // default to login side
+  }
+
+  // Reset nav/logout buttons & route home
+  this.updatePrivilegedButtonsState();
+  if (typeof window.PixelPopAppNavigate === 'function') {
+    window.PixelPopAppNavigate('home');
+  }
+}
+
 
   updatePrivilegedButtonsState() {
     const hasToken = !!localStorage.getItem('token');
 
-    // Photobooth result buttons
-    const dl = document.getElementById('download-btn');
-    const pr = document.getElementById('print-btn');
-    const sv = document.getElementById('save-gallery-btn'); // Save to My Gallery
-    [dl, pr, sv].forEach(btn => {
+    // Photobooth results page (download/print/save)
+    ['download-btn','print-btn','save-gallery-btn'].forEach(id => {
+      const btn = document.getElementById(id);
       if (!btn) return;
-      if (!hasToken) btn.setAttribute('title', 'Log in to use this');
+      if (!hasToken) btn.setAttribute('title','Log in to use this');
       else btn.removeAttribute('title');
     });
 
     // Frame page buttons
-    const fdl = document.getElementById('downloadBtn');
-    const fpr = document.getElementById('printFrameBtn');
-    const fsv = document.getElementById('saveFrameToGalleryBtn'); // Save to My Gallery (frame)
-    [fdl, fpr, fsv].forEach(btn => {
+    ['downloadBtn','printFrameBtn','saveFrameToGalleryBtn'].forEach(id => {
+      const btn = document.getElementById(id);
       if (!btn) return;
-      if (!hasToken) btn.setAttribute('title', 'Log in to use this');
+      if (!hasToken) btn.setAttribute('title','Log in to use this');
       else btn.removeAttribute('title');
     });
 
-    // Logout button in nav
+    // Nav logout button (dynamic)
     const menu = document.querySelector('.nav-menu');
     if (menu) {
       let li = document.getElementById('logout-li');
@@ -121,12 +149,9 @@ class PixelPopStudio {
         if (!li) {
           li = document.createElement('li');
           li.id = 'logout-li';
-          li.innerHTML = `<button id="logout-btn" class="logout-btn">Logout</button>`;
+          // IMPORTANT: class="logout-btn" so our global delegation picks it up
+          li.innerHTML = `<button class="logout-btn">Logout</button>`;
           menu.appendChild(li);
-          document.getElementById('logout-btn').addEventListener('click', (e) => {
-            e.preventDefault();
-            this.logout();
-          });
         }
       } else {
         if (li) li.remove();
@@ -134,100 +159,86 @@ class PixelPopStudio {
     }
   }
 
-  logout() {
-    localStorage.removeItem('token');
-    this.updatePrivilegedButtonsState();
-    if (typeof window.PixelPopAppNavigate === 'function') {
-      window.PixelPopAppNavigate('home');  // stop camera by leaving layout page
-    } else {
-      window.location.replace('/');
+  /* ===================== Live rotating backgrounds ===================== */
+  setupLiveBackgrounds() {
+    this.bgPools = {
+      home:   ["p1.JPG","p2.JPG","p3.JPG","p4.JPG"],
+      about:  ["p2.JPG","p3.JPG","p4.JPG","p1.JPG"],
+      layout: ["p3.JPG","p4.JPG","p1.JPG","p2.JPG"],
+      gallery:["p4.JPG","p1.JPG","p2.JPG","p3.JPG"],
+      login:  ["p5.JPG","p2.JPG","p3.JPG","p4.JPG"]
+    };
+
+    this.bgIntervalMs = 7000;
+    this._bgIntervalId = null;
+    this._bgFlip = false;
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) this.stopBackgroundRotator();
+      else this.startBackgroundRotatorFor(this.currentPage);
+    });
+  }
+
+  startBackgroundRotatorFor(pageKey) {
+    const pageEl = document.getElementById(pageKey + "-page");
+    if (!pageEl) return;
+    this._ensureBgLayers(pageEl);
+
+    // show immediately
+    this._applyRandomBackground(pageKey, pageEl);
+
+    // then rotate
+    this._bgIntervalId = setInterval(() => {
+      this._applyRandomBackground(pageKey, pageEl);
+    }, this.bgIntervalMs);
+  }
+
+  stopBackgroundRotator() {
+    if (this._bgIntervalId) {
+      clearInterval(this._bgIntervalId);
+      this._bgIntervalId = null;
     }
   }
 
-setupLiveBackgrounds() {
-  
-   this.bgPools = {
-    home:   ["p1.JPG","p2.JPG","p3.JPG","p4.JPG"],
-    about:  ["p2.JPG","p3.JPG","p4.JPG","p1.JPG"],
-    layout: ["p3.JPG","p4.JPG","p1.JPG","p2.JPG"],
-    gallery:["p4.JPG","p1.JPG","p2.JPG","p3.JPG"],
-    login:  ["p5.JPG","p2.JPG","p3.JPG","p4.JPG"]   // ⬅️ add this
-  };
-
-  this.bgIntervalMs = 7000;  // change speed here
-  this._bgIntervalId = null;
-  this._bgFlip = false;
-
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) this.stopBackgroundRotator();
-    else this.startBackgroundRotatorFor(this.currentPage);
-  });
-}
-
-startBackgroundRotatorFor(pageKey) {
-  const pageEl = document.getElementById(pageKey + "-page");
-  if (!pageEl) return;
-  this._ensureBgLayers(pageEl);
-
-  // Apply immediately so you never see plain background
-  this._applyRandomBackground(pageKey, pageEl);
-
-  // Start interval
-  this._bgIntervalId = setInterval(() => {
-    this._applyRandomBackground(pageKey, pageEl);
-  }, this.bgIntervalMs);
-}
-
-stopBackgroundRotator() {
-  if (this._bgIntervalId) {
-    clearInterval(this._bgIntervalId);
-    this._bgIntervalId = null;
+  _ensureBgLayers(pageEl) {
+    if (pageEl.querySelector(".bg-layer")) return;
+    const a = document.createElement("div");
+    const b = document.createElement("div");
+    a.className = "bg-layer show";
+    b.className = "bg-layer";
+    pageEl.prepend(b);
+    pageEl.prepend(a);
   }
-}
 
-_ensureBgLayers(pageEl) {
-  if (pageEl.querySelector(".bg-layer")) return;
-  const a = document.createElement("div");
-  const b = document.createElement("div");
-  a.className = "bg-layer show"; // visible first
-  b.className = "bg-layer";      // hidden
-  pageEl.prepend(b);
-  pageEl.prepend(a);
-}
+  _applyRandomBackground(pageKey, pageEl) {
+    const pool = this.bgPools[pageKey] || this.bgPools.home || [];
+    if (!pool.length) return;
 
-_applyRandomBackground(pageKey, pageEl) {
-  const pool = this.bgPools[pageKey] || this.bgPools.home || [];
-  if (!pool.length) return;
-  const nextSrc = pool[Math.floor(Math.random() * pool.length)];
+    const nextSrc = pool[Math.floor(Math.random() * pool.length)];
+    const layers = pageEl.querySelectorAll(".bg-layer");
+    if (layers.length < 2) return;
 
-  const layers = pageEl.querySelectorAll(".bg-layer");
-  if (layers.length < 2) return;
+    this._bgFlip = !this._bgFlip;
+    const showLayer = layers[this._bgFlip ? 1 : 0];
+    const hideLayer = layers[this._bgFlip ? 0 : 1];
 
-  this._bgFlip = !this._bgFlip;
-  const showLayer = layers[this._bgFlip ? 1 : 0];
-  const hideLayer = layers[this._bgFlip ? 0 : 1];
+    showLayer.style.backgroundImage = `url(${nextSrc})`;
+    showLayer.classList.add("show");
+    hideLayer.classList.remove("show");
+  }
 
-  showLayer.style.backgroundImage = `url(${nextSrc})`;
-  showLayer.classList.add("show");
-  hideLayer.classList.remove("show");
-}
-
-
-
-
-  // ============== Navigation (UNGATED) ==============
+  /* ===================== Navigation ===================== */
   setupNavigation() {
-    const navLinks = document.querySelectorAll('.nav-link');
+    const navLinks  = document.querySelectorAll('.nav-link');
     const ctaButton = document.querySelector('.cta-button');
 
-    for (let i = 0; i < navLinks.length; i++) {
-      const link = navLinks[i];
+    navLinks.forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
         const page = e.currentTarget.dataset.page;
         this.navigateToPage(page);
       });
-    }
+    });
 
     if (ctaButton) {
       ctaButton.addEventListener('click', (e) => {
@@ -237,55 +248,46 @@ _applyRandomBackground(pageKey, pageEl) {
     }
   }
 
-navigateToPage(page) {
-  // Stop live background on previous page
-  this.stopBackgroundRotator();
+  navigateToPage(page) {
+    // Stop previous page rotator
+    this.stopBackgroundRotator();
 
-  // Hide all pages
-  const pages = document.querySelectorAll('.page');
-  for (let i = 0; i < pages.length; i++) pages[i].classList.remove('active');
+    // Switch page
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const targetPage = document.getElementById(page + '-page');
+    if (targetPage) {
+      targetPage.classList.add('active', 'fade-in');
+      this._ensureBgLayers(targetPage);
+    }
 
-  // Show target page
-  const targetPage = document.getElementById(page + '-page');
-  if (targetPage) {
-    targetPage.classList.add('active', 'fade-in');
+    this.currentPage = page;
+    this.startBackgroundRotatorFor(page);
 
-    // Ensure cross-fade layers exist for this page
-    this._ensureBgLayers(targetPage);
+    // Gallery refresh
+    if (page === 'gallery') this.refreshGallery?.();
+
+    // Active nav link highlight
+    document.querySelectorAll('.nav-link').forEach(l => {
+      l.classList.toggle('active', l.dataset.page === page);
+    });
+
+    // Camera lifecycle
+    if (page === 'layout') this.initializeCamera?.();
+    else if (this.stream) this.stopCamera?.();
+
+    // Close mobile menu if open
+    const navMenu   = document.querySelector('.nav-menu');
+    const hamburger = document.querySelector('.hamburger');
+    if (navMenu && navMenu.classList.contains('active')) {
+      navMenu.classList.remove('active');
+      if (hamburger) hamburger.classList.remove('active');
+    }
   }
 
-  this.currentPage = page;
-
-  // Start live background on the new active page (applies one image immediately)
-  this.startBackgroundRotatorFor(page);
-
-  // load private gallery when user opens it
-  if (page === 'gallery') this.refreshGallery();
-
-  // Update nav state
-  const links = document.querySelectorAll('.nav-link');
-  for (let j = 0; j < links.length; j++) {
-    const l = links[j];
-    l.classList.toggle('active', l.dataset.page === page);
-  }
-
-  // Camera lifecycle
-  if (page === 'layout') this.initializeCamera();
-  else if (this.stream) this.stopCamera();
-
-  // Close mobile menu if open
-  const navMenu = document.querySelector('.nav-menu');
-  const hamburger = document.querySelector('.hamburger');
-  if (navMenu && navMenu.classList.contains('active')) {
-    navMenu.classList.remove('active');
-    if (hamburger) hamburger.classList.remove('active');
-  }
-}
-
-
+  /* ===================== Mobile Menu ===================== */
   setupMobileMenu() {
     const hamburger = document.querySelector('.hamburger');
-    const navMenu = document.querySelector('.nav-menu');
+    const navMenu   = document.querySelector('.nav-menu');
     if (hamburger && navMenu) {
       hamburger.addEventListener('click', function () {
         navMenu.classList.toggle('active');
@@ -294,7 +296,7 @@ navigateToPage(page) {
     }
   }
 
-  // ============== UI selections ==============
+  /* ===================== UI selections (kept) ===================== */
   setupLayoutSelection() {
     const layoutOptions = document.querySelectorAll('.layout-option');
     layoutOptions.forEach(option => {
@@ -302,7 +304,7 @@ navigateToPage(page) {
         layoutOptions.forEach(opt => opt.classList.remove('active'));
         option.classList.add('active');
         this.currentLayout = option.dataset.layout;
-        this.resetSession();
+        this.resetSession?.();
       });
     });
   }
@@ -325,31 +327,24 @@ navigateToPage(page) {
         filterOptions.forEach(opt => opt.classList.remove('active'));
         option.classList.add('active');
         this.currentFilter = option.dataset.filter;
-        this.applyLiveFilter();
+        this.applyLiveFilter?.();
       });
     });
   }
 
-  // ============== Camera & capture ==============
+  /* ===================== Camera (kept from your version) ===================== */
   setupCameraControls() {
-    const captureBtn = document.getElementById('capture-btn');
-    theStart: { /* avoid accidental label collisions */ }
+    const captureBtn      = document.getElementById('capture-btn');
     const startSessionBtn = document.getElementById('start-session');
     const resetSessionBtn = document.getElementById('reset-session');
 
     if (captureBtn) {
       captureBtn.addEventListener('click', () => {
-        if (!this.isCapturing) this.capturePhoto();
+        if (!this.isCapturing) this.capturePhoto?.();
       });
     }
-
-    if (startSessionBtn) {
-      startSessionBtn.addEventListener('click', () => this.startPhotoSession());
-    }
-
-    if (resetSessionBtn) {
-      resetSessionBtn.addEventListener('click', () => this.resetSession());
-    }
+    if (startSessionBtn) startSessionBtn.addEventListener('click', () => this.startPhotoSession?.());
+    if (resetSessionBtn) resetSessionBtn.addEventListener('click', () => this.resetSession?.());
   }
 
   setupTimerControls() {
@@ -361,17 +356,16 @@ navigateToPage(page) {
     }
   }
 
-  // ============== Photobooth result controls (LOGIN-GATED) ==============
+  /* ===================== Photobooth result controls (login-gated) ===================== */
   setupPhotoControls() {
     const downloadBtn   = document.getElementById('download-btn');
     const printBtn      = document.getElementById('print-btn');
     const newSessionBtn = document.getElementById('new-session');
-    const saveBtn       = document.getElementById('save-gallery-btn'); // Save to My Gallery
+    const saveBtn       = document.getElementById('save-gallery-btn');
 
     const requireLogin = () =>
       this.verifyToken().then(ok => {
         if (!ok) {
-          console.warn('[PixelPop] verifyToken=false → showing alert');
           alert('Please log in to continue.');
           return false;
         }
@@ -381,29 +375,28 @@ navigateToPage(page) {
     if (downloadBtn) {
       downloadBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        requireLogin().then(ok => { if (ok) this.downloadPhotos(); });
+        requireLogin().then(ok => { if (ok) this.downloadPhotos?.(); });
       });
     }
 
     if (printBtn) {
       printBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        requireLogin().then(ok => { if (ok) this.printPhotos(); });
+        requireLogin().then(ok => { if (ok) this.printPhotos?.(); });
       });
     }
 
     if (newSessionBtn) {
       newSessionBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        this.startNewSession();
+        this.startNewSession?.();
       });
     }
 
-    // Manual save to gallery (non-mirrored, HD) + jump to Gallery
     if (saveBtn) {
       saveBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        requireLogin().then(ok => { if (ok) this.saveFinalToGallery(); });
+        requireLogin().then(ok => { if (ok) this.saveFinalToGallery?.(); });
       });
     }
   }
@@ -962,353 +955,6 @@ navigateToPage(page) {
     });
   }
 
-  /* ───────────── Gallery (login-gated) ───────────── */
-
-// List current user's photos
-/*listMyPhotos() {
-  const token = localStorage.getItem('token');
-  if (!token) return Promise.resolve({ ok: false, items: [], error: 'no-token' });
-
-  return this.fetchWith404Fallback(this.API_BASE, '/api/gallery/mine', {
-    headers: { Authorization: 'Bearer ' + token }
-  }, ['/gallery/mine'])
-  .then(res => {
-    const d = res._json || {};
-    return { ok: res.ok, items: d.items || [], error: d.error || (!res.ok ? `HTTP ${res.status}` : '') };
-  })
-  .catch(e => ({ ok: false, items: [], error: String(e) }));
-}
-
-// Save one image (dataURL) into user's private gallery
-savePhotoToGallery(dataURL) {
-  const token = localStorage.getItem('token');
-  if (!token) return Promise.resolve({ ok: false, error: 'no-token' });
-
-  return this.fetchWith404Fallback(this.API_BASE, '/api/gallery', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + token
-    },
-    body: JSON.stringify({
-      imageData: dataURL,
-      visibility: 'private',
-      fileName: `pixelpop-${Date.now()}.jpg`
-    })
-  }, ['/gallery'])
-  .then(res => {
-    const d = res._json || {};
-    const errorMsg = d.error || d.message || (res.ok ? '' : `HTTP ${res.status}`);
-    if (!res.ok) console.warn('[gallery POST] failed', { status: res.status, body: d });
-    return { ok: res.ok, item: d.item, error: errorMsg };
-  })
-  .catch(e => ({ ok: false, error: String(e) }));
-}
-
-deletePhoto(photoId) {
-  const token = localStorage.getItem('token');
-  if (!token) return Promise.resolve(false);
-
-  return this.fetchWith404Fallback(this.API_BASE, `/api/gallery/${photoId}`, {
-    method: 'DELETE',
-    headers: { Authorization: 'Bearer ' + token }
-  }, [`/gallery/${photoId}`])
-  .then(res => res.ok)
-  .catch(() => false);
-}
-
-// Build a gallery card DOM node (reused)
-buildGalleryCard(it) {
-  if (!it || !it.url) return null;
-
-  const card = document.createElement('div');
-  card.className = 'gallery-card';
-  if (it.id) card.dataset.id = it.id;
-
-  const img = document.createElement('img');
-  img.src = it.url;
-  img.alt = 'Your photo';
-
-  // Tap image to toggle selection when in select mode (iPhone-like)
-  img.addEventListener('click', () => {
-    if (this._selectMode) card.classList.toggle('selected');
-  });
-
-  const meta = document.createElement('div');
-  meta.className = 'meta';
-
-  const span = document.createElement('span');
-  const time = new Date(it.createdAt || Date.now()).toLocaleString();
-  span.textContent = time;
-
-  const del = document.createElement('button');
-  del.innerHTML = '<i class="fas fa-trash"></i>';
-  del.addEventListener('click', () => {
-    if (!confirm('Delete this photo?')) return;
-    this.deletePhoto(it.id).then(ok => {
-      if (ok) {
-        card.remove();
-        // keep local count in sync
-        this._galleryCount = Math.max(0, (this._galleryCount || 0) - 1);
-      }
-    });
-  });
-
-  meta.appendChild(span);
-  meta.appendChild(del);
-  card.appendChild(img);
-  card.appendChild(meta);
-  return card;
-}
-
-// Navigate to Gallery and insert a just-saved item at the top
-goToGalleryAndShow(item) {
-  this.navigateToPage('gallery');
-
-  const grid  = document.getElementById('gallery-grid');
-  const empty = document.getElementById('gallery-empty');
-
-  // If grid exists, insert immediately; else just refresh
-  if (grid) {
-    if (empty) empty.style.display = 'none';
-    const card = this.buildGalleryCard(item);
-    if (card) {
-      if (grid.firstChild) grid.insertBefore(card, grid.firstChild);
-      else grid.appendChild(card);
-      // increment local count when we show a newly added item
-      this._galleryCount = Math.min((this._galleryCount || 0) + 1, this.MAX_GALLERY);
-    } else {
-      this.refreshGallery();
-    }
-  } else {
-    this.refreshGallery();
-  }
-}
-
-// Render gallery page
-refreshGallery() {
-  const hint    = document.getElementById('gallery-login-hint');
-  const grid    = document.getElementById('gallery-grid');
-  const empty   = document.getElementById('gallery-empty');
-  const actions = document.getElementById('gallery-actions');
-
-  if (!(grid && empty && hint)) return;
-  grid.innerHTML = '';
-
-  // Ensure config/state exist even if constructor wasn't patched yet
-  if (typeof this.MAX_GALLERY === 'undefined') this.MAX_GALLERY = 50;
-  if (typeof this._galleryCount === 'undefined') this._galleryCount = 0;
-  if (typeof this._selectMode === 'undefined') this._selectMode = false;
-
-  this.verifyToken().then(isAuthed => {
-    if (!isAuthed) {
-      hint.style.display = 'block';
-      if (actions) actions.style.display = 'none';
-      empty.style.display = 'none';
-      return;
-    }
-
-    hint.style.display = 'none';
-    if (actions) actions.style.display = 'flex';
-
-    this.listMyPhotos().then(({ ok, items }) => {
-      if (!ok || !items || items.length === 0) { empty.style.display = 'block'; return; }
-      empty.style.display = 'none';
-
-      // Track count + show newest first
-      this._galleryCount = items.length;
-      items
-        .slice()
-        .sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0))
-        .forEach(it => {
-          const card = this.buildGalleryCard(it);
-          if (card) grid.appendChild(card);
-        });
-    });
-
-  });
-}
-
-// Wire up gallery page buttons
-setupGalleryUi() {
-  const refresh = document.getElementById('refresh-gallery');
-  const logout  = document.getElementById('logout-from-gallery');
-  const select  = document.getElementById('select-toggle');
-  const delSel  = document.getElementById('delete-selected');
-
-  if (refresh) refresh.addEventListener('click', () => this.refreshGallery());
-  if (logout)  logout.addEventListener('click', (e) => {
-    e.preventDefault();
-    this.logout();
-    this.refreshGallery();
-  });
-
-  // Ensure config/state exist
-  if (typeof this.MAX_GALLERY === 'undefined') this.MAX_GALLERY = 50;
-  if (typeof this._galleryCount === 'undefined') this._galleryCount = 0;
-  if (typeof this._selectMode === 'undefined') this._selectMode = false;
-
-  // Selection mode toggle
-  if (select) select.addEventListener('click', () => {
-    this._selectMode = !this._selectMode;
-    document.body.classList.toggle('gallery-select-mode', this._selectMode);
-    select.textContent = this._selectMode ? 'Cancel' : 'Select';
-
-    // Clear any previous selections when leaving select mode
-    if (!this._selectMode) {
-      document.querySelectorAll('.gallery-card.selected')
-        .forEach(el => el.classList.remove('selected'));
-    }
-    if (delSel) delSel.disabled = !this._selectMode;
-  });
-
-  // Delete selected
-  if (delSel) delSel.addEventListener('click', async () => {
-    if (!this._selectMode) return;
-    const chosen = Array.from(document.querySelectorAll('.gallery-card.selected'));
-    if (chosen.length === 0) return;
-    if (!confirm(`Delete ${chosen.length} photo(s)?`)) return;
-
-    for (const card of chosen) {
-      const id = card.dataset.id;
-      const ok = await this.deletePhoto(id);
-      if (ok) {
-        card.remove();
-        this._galleryCount = Math.max(0, this._galleryCount - 1);
-      }
-    }
-  });
-}
-
-// Silently save final canvas to the user's gallery (if logged in)
-maybeAutosaveToGallery() {
-  this.verifyToken()
-    .then(isAuthed => {
-      if (!isAuthed) return;
-
-      // wait for layout to finish rendering
-      if (this.isLayoutReady) return this._doAutosave();
-      const once = () => this._doAutosave();
-      document.addEventListener('pixelpop:layout-ready', once, { once: true });
-    })
-    .catch(e => console.warn('Autosave failed:', e));
-}
-
-// actual autosave logic split out so we can wait for readiness
-_doAutosave() {
-  const finalCanvas = document.getElementById('final-canvas');
-  if (!finalCanvas) return;
-
-  // Enforce 50-photo cap
-  if ((this._galleryCount || 0) >= this.MAX_GALLERY) {
-    alert('Gallery is full (50 photos). Please delete some photos first.');
-    return;
-  }
-
-  const scale = 2;
-  const tmp = document.createElement('canvas');
-  tmp.width  = finalCanvas.width * scale;
-  tmp.height = finalCanvas.height * scale;
-  const ctx = tmp.getContext('2d');
-
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, tmp.width, tmp.height);
-
-  ctx.save();
-  ctx.scale(scale, scale);
-  ctx.drawImage(finalCanvas, 0, 0);
-  if (ctx.restore) ctx.restore();
-
-  const dataURL = tmp.toDataURL('image/jpeg', 0.95);
-  return this.savePhotoToGallery(dataURL);
-}
-
-// Manual save from Photobooth results — then jump to Gallery and show it
-saveFinalToGallery() {
-  const btn = document.getElementById('save-gallery-btn');
-
-  const setBusy = (busy) => {
-    if (!btn) return;
-    if (busy) {
-      btn.disabled = true;
-      btn.dataset._old = btn.innerHTML;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-    } else {
-      btn.disabled = false;
-      btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery';
-    }
-  };
-
-  const finalCanvas = document.getElementById('final-canvas');
-  if (!finalCanvas) {
-    alert('No photo to save yet.');
-    return;
-  }
-  if (!this.isLayoutReady) {
-    alert('Hang on — still rendering your photo…');
-    return;
-  }
-
-  // Enforce 50-photo cap BEFORE doing work
-  if ((this._galleryCount || 0) >= this.MAX_GALLERY) {
-    alert('Gallery is full (50 photos). Please delete some photos first.');
-    return;
-  }
-
-  setBusy(true);
-
-  const scale = 2;
-  const tmp = document.createElement('canvas');
-  tmp.width  = finalCanvas.width * scale;
-  tmp.height = finalCanvas.height * scale;
-  const ctx = tmp.getContext('2d');
-
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, tmp.width, tmp.height);
-
-  ctx.save();
-  ctx.scale(scale, scale);
-  ctx.drawImage(finalCanvas, 0, 0);
-  if (ctx.restore) ctx.restore();
-
-  const dataURL = tmp.toDataURL('image/jpeg', 0.95);
-
-  this.savePhotoToGallery(dataURL)
-    .then(({ ok, item, error }) => {
-      if (ok) {
-        const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString() };
-        alert('Saved to your private gallery!');
-        this.goToGalleryAndShow(added);
-      } else {
-        alert('Save failed: ' + (error || 'Unknown error'));
-      }
-    })
-    .catch(err => {
-      console.warn('Save to gallery failed:', err);
-      alert('Save failed. Please try again.');
-    })
-    .finally(() => setBusy(false));
-}
-}
-*/
-
-
-
-/* ────────────────────────────────────────────────────────────
-   ERROR HANDLING UI
-   ──────────────────────────────────────────────────────────── */
-/*function showError(message) {
-  const errorModal = document.getElementById('error-modal');
-  const errorMessage = document.getElementById('error-message');
-  if (errorModal && errorMessage) {
-    errorMessage.textContent = message;
-    errorModal.style.display = 'flex';
-  }
-}
-function closeErrorModal() {
-  const errorModal = document.getElementById('error-modal');
-  if (errorModal) errorModal.style.display = 'none';
-}*/
 
 /* ========= API ========= */
 listMyPhotos() {
@@ -1860,18 +1506,27 @@ saveFinalToGallery() {
 }
 }
 
-/* ────────────────────────────────────────────────────────────
-   Initialize application + expose helpers
-   ──────────────────────────────────────────────────────────── */
+/* =======================================================================
+   Initialize application + expose helpers  (and attach unified logout)
+   ======================================================================= */
 document.addEventListener('DOMContentLoaded', () => {
   const app = new PixelPopStudio();
-  window.PixelPopAppNavigate = (page) => app.navigateToPage(page);
-  window.PixelPopApp = app; // expose so frame section can call verifyToken()
 
-  // reflect login state on privileged buttons immediately
+  // Expose lightweight API for other sections (frame page, etc.)
+  window.PixelPopAppNavigate = (page) => app.navigateToPage(page);
+  window.PixelPopApp = app;
+
+  // 🔴 One global listener to make ALL logout buttons do the same thing
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.logout-btn');
+    if (!btn) return;
+    e.preventDefault();
+    app.logout();
+  });
+
+  // Reflect current auth state on load (adds/removes nav logout button)
   app.updatePrivilegedButtonsState();
 });
-
 /* ────────────────────────────────────────────────────────────
    Frame page (Download + Print + QR) - Promise version
    ──────────────────────────────────────────────────────────── */
@@ -2266,9 +1921,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setActionsVisibility();
 });
 
-/* ────────────────────────────────────────────────────────────
-   Auth UI + API glue (login/register/forgot/google) + Profile
-   ──────────────────────────────────────────────────────────── */
+/* =======================================================================
+   Auth UI (Login/Register/Forgot/Google) + Profile Card (Login Page)
+   ======================================================================= */
 
 const API_BASE = window.API_BASE || 'https://pixelpop-backend-fm6t.onrender.com';
 
@@ -2283,7 +1938,6 @@ function setBusy(form, busy) {
 }
 function getToken() { return localStorage.getItem('token') || ''; }
 function setToken(t) { if (t) localStorage.setItem('token', t); }
-
 function authHeaders(extra = {}) {
   const t = getToken();
   return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}), ...extra };
@@ -2300,7 +1954,6 @@ async function doPost(path, body) {
   r._json = j;
   return r;
 }
-
 async function doGet(path, { withAuth = false } = {}) {
   const r = await fetch(API_BASE + path, {
     method: 'GET',
@@ -2323,10 +1976,9 @@ const forgotLink   = $('#forgot-link') || $('.forgot-link a');
 // Profile box (inside login page)
 const profileBox        = $('#user-profile');
 const profileName       = $('#profile-name');
-const profilePic        = $('#profile-pic');             // optional
-const profileLogoutBtn  = $('#profile-logout-btn');      // keep different from nav logout id
+const profilePic        = $('#profile-pic'); // optional
 
-/* ---------- Toggle between login/register cards ---------- */
+/* ---------- Toggle cards ---------- */
 if (registerBtn) registerBtn.addEventListener('click', () => container?.classList.add('active'));
 if (loginBtn)    loginBtn.addEventListener('click', () => container?.classList.remove('active'));
 
@@ -2358,10 +2010,8 @@ if (registerForm) {
         registerForm.reset();
       } else {
         alert(`Registration failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
-        console.error('Registration failed:', r._json);
       }
     } catch (err) {
-      console.error('Registration error:', err);
       alert('An error occurred during registration. Please try again.');
     } finally {
       setBusy(registerForm, false);
@@ -2375,7 +2025,6 @@ if (loginForm) {
     e.preventDefault();
     setBusy(loginForm, true);
 
-    // Support <input name="identifier"> or legacy <input name="username">
     const raw = (e.target.identifier?.value ?? e.target.username?.value ?? '').trim();
     const password = e.target.password.value;
 
@@ -2391,33 +2040,29 @@ if (loginForm) {
       if (r.ok && r._json?.token) {
         setToken(r._json.token);
 
-        // Friendly display name for profile
         const displayName = r._json?.user?.username || r._json?.user?.email || raw;
         localStorage.setItem('username', displayName);
 
-        // Update app UI (nav buttons, etc.)
+        // Update app UI (adds nav logout, tooltips)
         if (window.PixelPopApp?.updatePrivilegedButtonsState) {
           window.PixelPopApp.updatePrivilegedButtonsState();
         }
 
-        // Show profile box on login page
+        // Show profile UI on login page (optional)
         showUserProfile(displayName);
 
-        // Optional: navigate to booth after login
+        // Optionally route into booth
         if (typeof window.PixelPopAppNavigate === 'function') {
           window.PixelPopAppNavigate('layout');
         }
 
         loginForm.reset();
-
-        // Optional: quick verify (non-blocking)
+        // Optional verify (non-blocking)
         doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
       } else {
         alert(`Login failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
-        console.error('Login failed:', r._json);
       }
     } catch (err) {
-      console.error('Login error:', err);
       alert('An error occurred during login. Please try again.');
     } finally {
       setBusy(loginForm, false);
@@ -2434,16 +2079,14 @@ if (forgotLink) {
     try {
       const r = await doPost('/forgot-password', { email });
       alert(r._json?.message || 'If that account exists, we sent a reset link.');
-    } catch (err) {
-      console.error('Forgot password error:', err);
+    } catch {
       alert('Could not process password reset. Please try again.');
     }
   });
 }
 
-/* ---------- Google Sign-In (GIS) callback ---------- */
-/* Ensure you include the GIS script in HTML:
-   <script src="https://accounts.google.com/gsi/client" async defer></script> */
+/* ---------- Google Sign-In callback ---------- */
+// <script src="https://accounts.google.com/gsi/client" async defer></script>
 window.handleGoogleCredential = async (response) => {
   try {
     const idToken = response?.credential;
@@ -2469,50 +2112,24 @@ window.handleGoogleCredential = async (response) => {
       window.PixelPopAppNavigate('layout');
     }
 
-    // Optional verify
     doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
-  } catch (err) {
-    console.error('Google sign-in error:', err);
+  } catch {
     alert('Google sign-in failed. Please try again.');
   }
 };
 
 /* ---------- Profile UI helpers ---------- */
 function showUserProfile(username) {
-  // Hide the login form box, show the profile card
+  const container = $('.logincontainer');
+  const profileBox = $('#user-profile');
+  const profileName = $('#profile-name');
+
   if (container)  container.style.display = 'none';
-  if (profileBox) profileBox.style.display  = 'block';
-  if (profileName) profileName.textContent  = `Welcome, ${username || 'user'}!`;
-  // Optionally: if you fetch user photo from backend, set profilePic.src here
+  if (profileBox) profileBox.style.display = 'block';
+  if (profileName) profileName.textContent = `Welcome, ${username || 'user'}!`;
+
+  // TIP: ensure the profile page’s logout control has class="logout-btn"
 }
-
-/* ---------- Unified Logout: any .logout-btn triggers logout ---------- */
-function doLogout() {
-  localStorage.removeItem('username');
-  localStorage.removeItem('token');
-
-  // Restore login panel, hide profile card
-  if (profileBox) profileBox.style.display = 'none';
-  if (container)  container.style.display  = '';
-
-  // Let the app rebuild nav state (adds/removes nav logout)
-  if (window.PixelPopApp?.updatePrivilegedButtonsState) {
-    window.PixelPopApp.updatePrivilegedButtonsState();
-  }
-
-  // Optional: route to home
-  if (typeof window.PixelPopAppNavigate === 'function') {
-    window.PixelPopAppNavigate('home');
-  }
-}
-
-// Delegate click for any current/future .logout-btn (nav + profile)
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.logout-btn');
-  if (!btn) return;
-  e.preventDefault();
-  doLogout();
-});
 
 /* ---------- Auto-show profile on refresh ---------- */
 window.addEventListener('DOMContentLoaded', () => {

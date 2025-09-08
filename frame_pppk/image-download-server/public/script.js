@@ -363,14 +363,14 @@ logout() {
     const newSessionBtn = document.getElementById('new-session');
     const saveBtn       = document.getElementById('save-gallery-btn');
 
-    const requireLogin = () =>
-      this.verifyToken().then(ok => {
-        if (!ok) {
-          alert('Please log in to continue.');
-          return false;
-        }
-        return true;
-      });
+   const requireLogin = () =>
+  this.verifyToken().then(ok => {
+    if (!ok) {
+      this.showLoginAlertAndRedirect(); // alert + go to Login
+      return false;
+    }
+    return true;
+  });
 
     if (downloadBtn) {
       downloadBtn.addEventListener('click', (e) => {
@@ -2136,3 +2136,123 @@ window.addEventListener('DOMContentLoaded', () => {
   const username = localStorage.getItem('username');
   if (username) showUserProfile(username);
 });
+
+/* ─────────────────────────────────────────────────────────────
+   LOGIN ALERT + REDIRECT — DROP-IN PATCH (paste at end of file)
+   This augments your existing PixelPopStudio class safely.
+   ───────────────────────────────────────────────────────────── */
+(function attachLoginAlertPatch() {
+  // Wait until PixelPopStudio is defined
+  if (typeof window.PixelPopStudio !== 'function') {
+    // Try again after DOM is ready (in case scripts load in different order)
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', attachLoginAlertPatch, { once: true });
+    }
+    return;
+  }
+
+  const proto = window.PixelPopStudio.prototype;
+
+  /* 1) Common helper: show alert then go to Login page */
+  if (typeof proto.showLoginAlertAndRedirect !== 'function') {
+    proto.showLoginAlertAndRedirect = function () {
+      try {
+        alert('Please log in first');
+      } finally {
+        if (typeof this.navigateToPage === 'function') {
+          this.navigateToPage('login'); // uses your SPA router to show #login-page
+        }
+      }
+    };
+  }
+
+  /* 2) Global login guard for many UI targets */
+  if (typeof proto.setupGlobalLoginGuard !== 'function') {
+    proto.setupGlobalLoginGuard = function () {
+      // Add or remove selectors you want to protect behind login
+      const protectedSelectors = [
+        // Nav items that should require login:
+        '.nav-link[data-page="layout"]',
+        '.nav-link[data-page="gallery"]',
+
+        // Home hero CTA button:
+        '.cta-button',
+
+        // Photobooth actions:
+        '#start-session',
+        '#capture-btn',
+        '#download-btn',
+        '#print-btn',
+        '#save-gallery-btn'
+      ];
+
+      const selector = protectedSelectors.join(', ');
+
+      // Capture clicks high in the capture phase so we can guard before default handlers
+      document.addEventListener('click', (e) => {
+        const el = e.target.closest(selector);
+        if (!el) return;
+
+        // Prevent infinite loop when we re-dispatch the click after passing guard
+        if (el.dataset.skipGuard === '1') return;
+
+        // We need to async-check login; block the original action now
+        e.preventDefault();
+        e.stopPropagation();
+
+        const check = (this && typeof this.verifyToken === 'function')
+          ? this.verifyToken()
+          : Promise.resolve(false);
+
+        check.then((ok) => {
+          if (!ok) {
+            // Not logged in → alert then go to Login page
+            this.showLoginAlertAndRedirect && this.showLoginAlertAndRedirect();
+          } else {
+            // Logged in → replay the click once (bypass guard to avoid recursion)
+            el.dataset.skipGuard = '1';
+            setTimeout(() => {
+              try { el.click(); } finally { delete el.dataset.skipGuard; }
+            }, 0);
+          }
+        }).catch(() => {
+          // On any error, fall back to login alert
+          this.showLoginAlertAndRedirect && this.showLoginAlertAndRedirect();
+        });
+      }, true);
+    };
+  }
+
+  /* 3) Wrap init(): keep your original, then add guard + on-load alert+redirect */
+  if (!proto.___initWrappedForLoginGuard) {
+    const originalInit = proto.init;
+    proto.init = function () {
+      // Call your original init
+      if (typeof originalInit === 'function') {
+        originalInit.apply(this, arguments);
+      }
+
+      // Turn on the global guard for many buttons/links
+      if (typeof this.setupGlobalLoginGuard === 'function') {
+        this.setupGlobalLoginGuard();
+      }
+
+      // On first load: if not logged in → alert + route to Login page
+      // (Uses your verifyToken() to check the stored token with backend)
+      if (typeof this.verifyToken === 'function') {
+        this.verifyToken().then((ok) => {
+          if (!ok) {
+            this.showLoginAlertAndRedirect && this.showLoginAlertAndRedirect();
+          }
+        }).catch(() => {
+          // If verification fails, still prompt login
+          this.showLoginAlertAndRedirect && this.showLoginAlertAndRedirect();
+        });
+      } else {
+        // If verifyToken isn’t available (should be), still show login
+        this.showLoginAlertAndRedirect && this.showLoginAlertAndRedirect();
+      }
+    };
+    proto.___initWrappedForLoginGuard = true;
+  }
+})();
