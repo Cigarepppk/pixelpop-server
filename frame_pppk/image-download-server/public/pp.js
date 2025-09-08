@@ -363,14 +363,17 @@ logout() {
     const newSessionBtn = document.getElementById('new-session');
     const saveBtn       = document.getElementById('save-gallery-btn');
 
-    const requireLogin = () =>
-      this.verifyToken().then(ok => {
-        if (!ok) {
-          alert('Please log in to continue.');
-          return false;
-        }
-        return true;
-      });
+   // inside setupPhotoControls()
+const requireLogin = () =>
+  this.verifyToken().then(ok => {
+    if (!ok) {
+      alert('Please log in to continue.');   // user clicks OK…
+      this.navigateToPage('login');          // …then we route to Login
+      return false;
+    }
+    return true;
+  });
+
 
     if (downloadBtn) {
       downloadBtn.addEventListener('click', (e) => {
@@ -1748,17 +1751,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Helper to check login on frame page with fallback (Promise-based)
   const requireLoginFrame = () => {
-    const hasFn = window.PixelPopApp && typeof window.PixelPopApp.verifyToken === 'function';
-    const p = hasFn ? window.PixelPopApp.verifyToken() : Promise.resolve(!!localStorage.getItem('token'));
-    return p.then(ok => {
-      if (!ok) {
-        console.warn('[PixelPop Frame] verifyToken=false → showing alert');
-        alert('Please log in to continue.');
-        return false;
-      }
-      return true;
-    });
-  };
+  const hasFn = window.PixelPopApp && typeof window.PixelPopApp.verifyToken === 'function';
+  const p = hasFn ? window.PixelPopApp.verifyToken() : Promise.resolve(!!localStorage.getItem('token'));
+  return p.then(ok => {
+    if (!ok) {
+      alert('Please log in to continue.');
+      window.PixelPopAppNavigate('login');  // redirect to login page
+      return false;
+    }
+    return true;
+  });
+};
+
 
   // Download + QR (LOGIN REQUIRED)
   if (downloadBtn) {
@@ -1993,10 +1997,26 @@ if (registerForm) {
     const password = e.target.password.value;
     const confirm  = e.target.confirmPassword.value;
 
-    if (!username || !email || !password) {
-      alert('Please fill all fields.');
+    // Check required fields
+    if (!username || !email || !password || !confirm) {
+      alert('Please fill in all fields.');
       return setBusy(registerForm, false);
     }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      alert('Please enter a valid email address.');
+      return setBusy(registerForm, false);
+    }
+
+    // Validate password strength
+    if (password.length < 6) {
+      alert('Password must be at least 6 characters long.');
+      return setBusy(registerForm, false);
+    }
+
+    // Validate confirm password
     if (password !== confirm) {
       alert('Passwords do not match!');
       return setBusy(registerForm, false);
@@ -2006,18 +2026,20 @@ if (registerForm) {
       const r = await doPost('/signup', { username, email, password });
       if (r.ok) {
         alert('Registration successful! Please log in.');
-        container?.classList.remove('active');
+        container?.classList.remove('active'); // Switch back to login
         registerForm.reset();
       } else {
         alert(`Registration failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
       }
     } catch (err) {
+      console.error(err);
       alert('An error occurred during registration. Please try again.');
     } finally {
       setBusy(registerForm, false);
     }
   });
 }
+
 
 /* ---------- Login (email OR username) ---------- */
 if (loginForm) {
@@ -2028,15 +2050,35 @@ if (loginForm) {
     const raw = (e.target.identifier?.value ?? e.target.username?.value ?? '').trim();
     const password = e.target.password.value;
 
-    if (!raw || !password) {
-      alert('Please enter your email/username and password.');
+    // Validate username/email
+    if (!raw) {
+      alert("Please enter your email or username.");
       return setBusy(loginForm, false);
     }
 
-    const body = raw.includes('@') ? { email: raw, password } : { username: raw, password };
+    // If it's an email, validate format
+    if (raw.includes('@')) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(raw)) {
+        alert("Please enter a valid email address.");
+        return setBusy(loginForm, false);
+      }
+    }
+
+    // Validate password
+    if (!password || password.length < 6) {
+      alert("Password must be at least 6 characters.");
+      return setBusy(loginForm, false);
+    }
+
+    // Prepare request body
+    const body = raw.includes('@')
+      ? { email: raw, password }
+      : { username: raw, password };
 
     try {
       const r = await doPost('/login', body);
+
       if (r.ok && r._json?.token) {
         setToken(r._json.token);
 
@@ -2048,7 +2090,7 @@ if (loginForm) {
           window.PixelPopApp.updatePrivilegedButtonsState();
         }
 
-        // Show profile UI on login page (optional)
+        // Show profile UI on login page
         showUserProfile(displayName);
 
         // Optionally route into booth
@@ -2057,12 +2099,14 @@ if (loginForm) {
         }
 
         loginForm.reset();
+
         // Optional verify (non-blocking)
         doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
       } else {
         alert(`Login failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
       }
     } catch (err) {
+      console.error(err);
       alert('An error occurred during login. Please try again.');
     } finally {
       setBusy(loginForm, false);
@@ -2074,16 +2118,27 @@ if (loginForm) {
 if (forgotLink) {
   forgotLink.addEventListener('click', async (e) => {
     e.preventDefault();
+
     const email = prompt('Enter the email on your account:');
-    if (!email) return;
+    if (!email) return; // user cancelled
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      alert("Please enter a valid email address.");
+      return;
+    }
+
     try {
-      const r = await doPost('/forgot-password', { email });
+      const r = await doPost('/forgot-password', { email: email.trim() });
       alert(r._json?.message || 'If that account exists, we sent a reset link.');
-    } catch {
+    } catch (err) {
+      console.error(err);
       alert('Could not process password reset. Please try again.');
     }
   });
 }
+
 
 /* ---------- Google Sign-In callback ---------- */
 // <script src="https://accounts.google.com/gsi/client" async defer></script>

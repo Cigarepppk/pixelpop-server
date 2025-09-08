@@ -363,14 +363,17 @@ logout() {
     const newSessionBtn = document.getElementById('new-session');
     const saveBtn       = document.getElementById('save-gallery-btn');
 
-    const requireLogin = () =>
-      this.verifyToken().then(ok => {
-        if (!ok) {
-          alert('Please log in to continue.');
-          return false;
-        }
-        return true;
-      });
+   // inside setupPhotoControls()
+const requireLogin = () =>
+  this.verifyToken().then(ok => {
+    if (!ok) {
+      alert('Please log in to continue.');   // user clicks OK…
+      this.navigateToPage('login');          // …then we route to Login
+      return false;
+    }
+    return true;
+  });
+
 
     if (downloadBtn) {
       downloadBtn.addEventListener('click', (e) => {
@@ -1247,6 +1250,14 @@ setupGalleryUi() {
   const logout  = document.getElementById('logout-from-gallery');
   const select  = document.getElementById('select-toggle');
   const delSel  = document.getElementById('delete-selected');
+  const goLogin = document.getElementById('go-login-btn');
+if (goLogin) {
+  goLogin.addEventListener('click', (e) => {
+    e.preventDefault();
+    this.navigateToPage('login');
+  });
+}
+
 
   // Inject minimal CSS: mirror grid + lightbox only when .mirrored is present
   if (!document.getElementById('gallery-mirror-css')) {
@@ -1748,17 +1759,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Helper to check login on frame page with fallback (Promise-based)
   const requireLoginFrame = () => {
-    const hasFn = window.PixelPopApp && typeof window.PixelPopApp.verifyToken === 'function';
-    const p = hasFn ? window.PixelPopApp.verifyToken() : Promise.resolve(!!localStorage.getItem('token'));
-    return p.then(ok => {
-      if (!ok) {
-        console.warn('[PixelPop Frame] verifyToken=false → showing alert');
-        alert('Please log in to continue.');
-        return false;
-      }
-      return true;
-    });
-  };
+  const hasFn = window.PixelPopApp && typeof window.PixelPopApp.verifyToken === 'function';
+  const p = hasFn ? window.PixelPopApp.verifyToken() : Promise.resolve(!!localStorage.getItem('token'));
+  return p.then(ok => {
+    if (!ok) {
+      alert('Please log in to continue.');
+      window.PixelPopAppNavigate('login');  // redirect to login page
+      return false;
+    }
+    return true;
+  });
+};
+
 
   // Download + QR (LOGIN REQUIRED)
   if (downloadBtn) {
