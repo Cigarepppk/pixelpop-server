@@ -1250,6 +1250,14 @@ setupGalleryUi() {
   const logout  = document.getElementById('logout-from-gallery');
   const select  = document.getElementById('select-toggle');
   const delSel  = document.getElementById('delete-selected');
+  const goLogin = document.getElementById('go-login-btn');
+if (goLogin) {
+  goLogin.addEventListener('click', (e) => {
+    e.preventDefault();
+    this.navigateToPage('login');
+  });
+}
+
 
   // Inject minimal CSS: mirror grid + lightbox only when .mirrored is present
   if (!document.getElementById('gallery-mirror-css')) {
