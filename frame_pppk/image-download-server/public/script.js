@@ -2077,38 +2077,30 @@ if (loginForm) {
     try {
       const r = await doPost('/login', body);
 
-      if (r.ok && r._json?.token) {
-        setToken(r._json.token);
+     if (r.ok && r._json?.token) {
+  setToken(r._json.token);
 
-        const u = r._json?.user || {};
-        const displayName = u.username || u.email || raw;
-        const email = u.email || '';
-        const avatar = u.avatarUrl || u.photo || '';
+  // accept both shapes: {username,email} (your /login) and {user:{...}} (Google route)
+  const u = r._json?.user || {};
+  const displayName = r._json.username || u.username || u.email || raw;
+  const email       = r._json.email    || u.email    || '';
+  const avatar      = u.avatarUrl || u.photo || ''; // none from /login, ok to be empty
 
-        localStorage.setItem('username', displayName);
-        if (email)  localStorage.setItem('email', email);
-        if (avatar) localStorage.setItem('avatarUrl', avatar);
+  localStorage.setItem('username', displayName);
+  if (email)  localStorage.setItem('email', email);
+  if (avatar) localStorage.setItem('avatarUrl', avatar);
 
-        // reflect app UI (adds nav logout, tooltips)
-        if (window.PixelPopApp?.updatePrivilegedButtonsState) {
-          window.PixelPopApp.updatePrivilegedButtonsState();
-        }
+  window.PixelPopApp?.updatePrivilegedButtonsState?.();
+  showUserProfile(displayName, email, avatar);
+  window.PixelPopAppNavigate?.('layout');
 
-        // show profile card
-        showUserProfile(displayName, email, avatar);
+  loginForm.reset();
 
-        // optional: route into booth
-        if (typeof window.PixelPopAppNavigate === 'function') {
-          window.PixelPopAppNavigate('layout');
-        }
+  doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
+} else {
+  alert(`Login failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
+}
 
-        loginForm.reset();
-
-        // non-blocking verification ping
-        doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
-      } else {
-        alert(`Login failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
-      }
     } catch (err) {
       console.error(err);
       alert('An error occurred during login. Please try again.');
