@@ -1985,12 +1985,13 @@ const registerBtn  = $('.register-btn');
 const loginBtn     = $('.login-btn');
 const forgotLink   = $('#forgot-link') || $('.forgot-link a');
 
-// Profile box (inside login page)
-const profileBox        = $('#user-profile');
-const profileName       = $('#profile-name');
-const profilePic        = $('#profile-pic'); // optional
+// Profile card (inside login page)
+const profileBox   = $('#user-profile');
+const profileName  = $('#profile-name');
+const profileEmail = $('#profile-email'); // make sure this exists in HTML
+const profilePic   = $('#profile-pic');   // default to default-avatar.png
 
-/* ---------- Toggle cards ---------- */
+/* ---------- Toggle panels ---------- */
 if (registerBtn) registerBtn.addEventListener('click', () => container?.classList.add('active'));
 if (loginBtn)    loginBtn.addEventListener('click', () => container?.classList.remove('active'));
 
@@ -2005,26 +2006,22 @@ if (registerForm) {
     const password = e.target.password.value;
     const confirm  = e.target.confirmPassword.value;
 
-    // Check required fields
     if (!username || !email || !password || !confirm) {
       alert('Please fill in all fields.');
       return setBusy(registerForm, false);
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       alert('Please enter a valid email address.');
       return setBusy(registerForm, false);
     }
 
-    // Validate password strength
     if (password.length < 6) {
       alert('Password must be at least 6 characters long.');
       return setBusy(registerForm, false);
     }
 
-    // Validate confirm password
     if (password !== confirm) {
       alert('Passwords do not match!');
       return setBusy(registerForm, false);
@@ -2034,7 +2031,7 @@ if (registerForm) {
       const r = await doPost('/signup', { username, email, password });
       if (r.ok) {
         alert('Registration successful! Please log in.');
-        container?.classList.remove('active'); // Switch back to login
+        container?.classList.remove('active'); // back to login
         registerForm.reset();
       } else {
         alert(`Registration failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
@@ -2048,7 +2045,6 @@ if (registerForm) {
   });
 }
 
-
 /* ---------- Login (email OR username) ---------- */
 if (loginForm) {
   loginForm.addEventListener('submit', async (e) => {
@@ -2058,61 +2054,53 @@ if (loginForm) {
     const raw = (e.target.identifier?.value ?? e.target.username?.value ?? '').trim();
     const password = e.target.password.value;
 
-    // Validate username/email
     if (!raw) {
-      alert("Please enter your email or username.");
+      alert('Please enter your email or username.');
       return setBusy(loginForm, false);
     }
 
-    // If it's an email, validate format
     if (raw.includes('@')) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(raw)) {
-        alert("Please enter a valid email address.");
+        alert('Please enter a valid email address.');
         return setBusy(loginForm, false);
       }
     }
 
-    // Validate password
     if (!password || password.length < 6) {
-      alert("Password must be at least 6 characters.");
+      alert('Password must be at least 6 characters.');
       return setBusy(loginForm, false);
     }
 
-    // Prepare request body
-    const body = raw.includes('@')
-      ? { email: raw, password }
-      : { username: raw, password };
+    const body = raw.includes('@') ? { email: raw, password } : { username: raw, password };
 
     try {
       const r = await doPost('/login', body);
 
-      if (r.ok && r._json?.token) {
-        setToken(r._json.token);
+     if (r.ok && r._json?.token) {
+  setToken(r._json.token);
 
-        const displayName = r._json?.user?.username || r._json?.user?.email || raw;
-        localStorage.setItem('username', displayName);
+  // accept both shapes: {username,email} (your /login) and {user:{...}} (Google route)
+  const u = r._json?.user || {};
+  const displayName = r._json.username || u.username || u.email || raw;
+  const email       = r._json.email    || u.email    || '';
+  const avatar      = u.avatarUrl || u.photo || ''; // none from /login, ok to be empty
 
-        // Update app UI (adds nav logout, tooltips)
-        if (window.PixelPopApp?.updatePrivilegedButtonsState) {
-          window.PixelPopApp.updatePrivilegedButtonsState();
-        }
+  localStorage.setItem('username', displayName);
+  if (email)  localStorage.setItem('email', email);
+  if (avatar) localStorage.setItem('avatarUrl', avatar);
 
-        // Show profile UI on login page
-        showUserProfile(displayName);
+  window.PixelPopApp?.updatePrivilegedButtonsState?.();
+  showUserProfile(displayName, email, avatar);
+  window.PixelPopAppNavigate?.('layout');
 
-        // Optionally route into booth
-        if (typeof window.PixelPopAppNavigate === 'function') {
-          window.PixelPopAppNavigate('layout');
-        }
+  loginForm.reset();
 
-        loginForm.reset();
+  doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
+} else {
+  alert(`Login failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
+}
 
-        // Optional verify (non-blocking)
-        doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
-      } else {
-        alert(`Login failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
-      }
     } catch (err) {
       console.error(err);
       alert('An error occurred during login. Please try again.');
@@ -2128,12 +2116,11 @@ if (forgotLink) {
     e.preventDefault();
 
     const email = prompt('Enter the email on your account:');
-    if (!email) return; // user cancelled
+    if (!email) return;
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
-      alert("Please enter a valid email address.");
+      alert('Please enter a valid email address.');
       return;
     }
 
@@ -2146,7 +2133,6 @@ if (forgotLink) {
     }
   });
 }
-
 
 /* ---------- Google Sign-In callback ---------- */
 // <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -2162,14 +2148,20 @@ window.handleGoogleCredential = async (response) => {
 
     setToken(r._json.token);
 
-    const displayName = r._json?.user?.username || r._json?.user?.email || 'user';
+    const u = r._json?.user || {};
+    const displayName = u.username || u.email || 'user';
+    const email = u.email || '';
+    const avatar = u.avatarUrl || u.photo || '';
+
     localStorage.setItem('username', displayName);
+    if (email)  localStorage.setItem('email', email);
+    if (avatar) localStorage.setItem('avatarUrl', avatar);
 
     if (window.PixelPopApp?.updatePrivilegedButtonsState) {
       window.PixelPopApp.updatePrivilegedButtonsState();
     }
 
-    showUserProfile(displayName);
+    showUserProfile(displayName, email, avatar);
 
     if (typeof window.PixelPopAppNavigate === 'function') {
       window.PixelPopAppNavigate('layout');
@@ -2182,20 +2174,21 @@ window.handleGoogleCredential = async (response) => {
 };
 
 /* ---------- Profile UI helpers ---------- */
-function showUserProfile(username) {
-  const container = $('.logincontainer');
-  const profileBox = $('#user-profile');
-  const profileName = $('#profile-name');
-
+function showUserProfile(username, email = '', avatarUrl = '') {
   if (container)  container.style.display = 'none';
   if (profileBox) profileBox.style.display = 'block';
-  if (profileName) profileName.textContent = `Welcome, ${username || 'user'}!`;
 
-  // TIP: ensure the profile page’s logout control has class="logout-btn"
+  if (profileName)  profileName.textContent = `Welcome, ${username || 'User'}!`;
+  if (profileEmail) profileEmail.textContent = email || '';
+  if (profilePic)   profilePic.src = avatarUrl || 'default-avatar.png';
 }
+
+
 
 /* ---------- Auto-show profile on refresh ---------- */
 window.addEventListener('DOMContentLoaded', () => {
-  const username = localStorage.getItem('username');
-  if (username) showUserProfile(username);
+  const username  = localStorage.getItem('username');
+  const email     = localStorage.getItem('email') || '';
+  const avatarUrl = localStorage.getItem('avatarUrl') || '';
+  if (username) showUserProfile(username, email, avatarUrl);
 });
