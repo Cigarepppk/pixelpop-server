@@ -96,15 +96,28 @@ class PixelPopStudio {
   /* ===================== Unified Logout (App-side) ===================== */
   // script.js — inside class PixelPopStudio
 logout() {
-  // Clear *both* items so all UIs reset consistently
+  // Clear stored credentials
   localStorage.removeItem('token');
-  localStorage.removeItem('username');   // ← add this line
+  localStorage.removeItem('username');
 
+  // Reset UI: hide profile, show login form
+  const profileBox = document.getElementById('user-profile');
+  const loginContainer = document.querySelector('.logincontainer');
+  if (profileBox) profileBox.style.display = 'none';
+  if (loginContainer) {
+    loginContainer.style.display = '';
+    // Optional: reset both login & register forms
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    if (loginForm) loginForm.reset();
+    if (registerForm) registerForm.reset();
+    loginContainer.classList.remove('active'); // default to login side
+  }
+
+  // Reset nav/logout buttons & route home
   this.updatePrivilegedButtonsState();
   if (typeof window.PixelPopAppNavigate === 'function') {
     window.PixelPopAppNavigate('home');
-  } else {
-    window.location.replace('/');
   }
 }
 
