@@ -1744,17 +1744,22 @@ body.lb-open { overflow: hidden; }
 }
 
 .user-profile {
-    color: var(--primary-pink);
+    
   text-align: center;
   margin-top: 50px;
-  background: rgba(239, 183, 183, 0.85);
+  background: rgba(250, 246, 246, 0.85);
   padding: 20px;
   
   
 }
+.profile-title {
+  
+  color: var(--primary-pink);
+  margin-bottom: 10px;
+}
 
 .profile-name {
-  font-size: 1.8rem;
+  
   color: var(--black);
   margin-bottom: 10px;
 }
