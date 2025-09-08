@@ -812,12 +812,24 @@ body {
     transform: scaleX(-1);
 }
 
-.download-controls {
+/*.download-controls {
     display: flex;
     gap: 1rem;
     flex-wrap: wrap;
     justify-content: center;
     
+}*/
+
+.download-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px; /* spacing between buttons */
+}
+
+/* Optional: add spacing for QR section */
+#qr-section {
+    margin-top: 20px;
 }
 
 /* Footer */

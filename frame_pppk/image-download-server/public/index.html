@@ -418,7 +418,7 @@
                     <h3>Your Photos</h3>
                     <div class="results-container">
                         <canvas id="final-canvas"></canvas>
-                        <div class="download-controls">
+                       <!-- <div class="download-controls">
                             <button id="download-btn" class="primary-button" title="Log in to use this">
                                 <i class="fas fa-download"></i>
                                 Download Photos
@@ -428,7 +428,7 @@
                                 Print Photos
                             </button>
 
-                        <!-- inside .download-controls -->
+                        
                                         <button id="save-gallery-btn" class="secondary-button" title="Log in to use this">
                                           <i class="fas fa-cloud-upload-alt"></i> Save to My Gallery
                                         </button>
@@ -440,7 +440,7 @@
                                 New Session
                             </button>
 
-                            <!-- QR Code Section -->
+                            
                             <section id="qr-section" style="display:none; text-align:center; margin-top:20px;">
                                 <canvas id="qr-code"></canvas>
                                 <div><a id="qr-link" target="_blank" rel="noopener">Open image</a></div>
@@ -448,7 +448,31 @@
                                     <button id="copy-link">Copy link</button>
                                     <button id="download-qr">Download QR</button>
                                 </div>
-                            </section>
+                            </section>-->
+                            <div class="download-controls">
+    <button id="download-btn" class="primary-button" title="Log in to use this">
+        <i class="fas fa-download"></i> Download Photos
+    </button>
+    <button id="print-btn" class="secondary-button" title="Log in to use this">
+        <i class="fas fa-print"></i> Print Photos
+    </button>
+    <button id="save-gallery-btn" class="secondary-button" title="Log in to use this">
+        <i class="fas fa-cloud-upload-alt"></i> Save to My Gallery
+    </button>
+    <button id="new-session" class="secondary-button">
+        <i class="fas fa-plus"></i> New Session
+    </button>
+</div>
+
+<!-- QR Code Section separate from buttons -->
+<section id="qr-section" style="display:none; text-align:center; margin-top:20px;">
+    <canvas id="qr-code"></canvas>
+    <div><a id="qr-link" target="_blank" rel="noopener">Open image</a></div>
+    <div id="qr-actions" style="display:none; gap:8px; margin-top:8px;">
+        <button id="copy-link">Copy link</button>
+        <button id="download-qr">Download QR</button>
+    </div>
+</section>
                         </div>
                     </div>
                 </div>
