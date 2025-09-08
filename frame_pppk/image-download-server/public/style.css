@@ -1752,13 +1752,13 @@ body.lb-open { overflow: hidden; }
   
   
 }
-.profile-title {
+#profile-title {
   
   color: var(--primary-pink);
   margin-bottom: 10px;
 }
 
-.profile-name {
+#profile-name {
   
   color: var(--black);
   margin-bottom: 10px;
