@@ -26,12 +26,12 @@
                 <li><a href="#" data-page="layout" class="nav-link">Photo Booth</a></li>
                 <li><a href="#" data-page="gallery" class="nav-link">Gallery</a></li>
                 <li><a href="#" data-page="login" class="nav-link">Login</a></li>
-
-                <li id="logout-item" style="display:none">
-                  <a href="#" id="logout-link" class="nav-link">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                  </a>
-                </li>
+<li id="logout-item" style="display:none">
+  <a href="#" id="logout-link" class="nav-link logout-btn">
+    <i class="fas fa-sign-out-alt"></i> Logout
+  </a>
+</li>
+               
             </ul>
             <div class="hamburger">
                 <span></span>
@@ -45,77 +45,6 @@
     <main class="main-content">
         <!-- Home Page -->
         <section id="home-page" class="page active">
-            <!-- Login/Register stays so users can log in to unlock Download/Print 
-            <section id="login-page" class="login-page">
-                <div class="logincontainer">
-                    <div class="form-box login">
-                        <form id="login-form">
-                            <h1>Login</h1>
-                            <div class="input-box">
-                                <input type="text" name="username" placeholder="Username" required>
-                                <i class='bx bxs-user'></i>
-                            </div>
-                            <div class="input-box">
-                                <input type="password" name="password" placeholder="Password" required>
-                                <i class='bx bxs-lock-alt'></i>
-                            </div>
-                            <div class="forgot-link">
-                                <a href="#">Forgot Password?</a>
-                            </div>
-                            <button type="submit" class="btn">Login</button>
-                            <p>or login with social platforms</p>
-                            <div class="social-icons">
-                                <a href="https://accounts.google.com"><i class='bx bxl-google'></i></a>
-                                <a href="https://www.facebook.com"><i class='bx bxl-facebook'></i></a>
-                                <a href="https://www.instagram.com"><i class='bx bxl-instagram'></i></a>
-                            </div>
-                        </form>
-                    </div>
-
-                    <div class="form-box register">
-                        <form id="register-form">
-                            <h1>Registration</h1>
-                            <div class="input-box">
-                                <input type="text" name="username" placeholder="Username" required>
-                                <i class='bx bxs-user'></i>
-                            </div>
-                            <div class="input-box">
-                                <input type="email" name="email" placeholder="Email" required>
-                                <i class='bx bxs-envelope'></i>
-                            </div>
-                            <div class="input-box">
-                                <input type="password" name="password" placeholder="Password" required>
-                                <i class='bx bxs-lock-alt'></i>
-                            </div>
-                            <div class="input-box">
-                                <input type="password" name="confirmPassword" placeholder="Confirm Password" required>
-                                <i class='bx bxs-lock-alt'></i>
-                            </div>
-                            <button type="submit" class="btn1">Register</button>
-                            <p>or register with social platforms</p>
-                            <div class="social-icons">
-                                <a href="https://accounts.google.com"><i class='bx bxl-google'></i></a>
-                                <a href="https://www.facebook.com"><i class='bx bxl-facebook'></i></a>
-                                <a href="https://www.instagram.com"><i class='bx bxl-instagram'></i></a>
-                            </div>
-                        </form>
-                    </div>
-
-                    <div class="toggle-box">
-                        <div class="toggle-panel toggle-left">
-                            <h2>Hello, Welcome!</h2>
-                            <p>Don't have an account?</p>
-                            <button class="btn register-btn">Register</button>
-                        </div>
-
-                        <div class="toggle-panel toggle-right">
-                            <h2>Welcome Back!</h2>
-                            <p>Already have an account?</p>
-                            <button class="btn login-btn">Login</button>
-                        </div>
-                    </div>
-                </div>
-            </section>-->
 
             <div class="hero-section">
                 <!-- Left Gallery -->
@@ -420,37 +349,7 @@
                     <h3>Your Photos</h3>
                     <div class="results-container">
                         <canvas id="final-canvas"></canvas>
-                       <!-- <div class="download-controls">
-                            <button id="download-btn" class="primary-button" title="Log in to use this">
-                                <i class="fas fa-download"></i>
-                                Download Photos
-                            </button>
-                            <button id="print-btn" class="secondary-button" title="Log in to use this">
-                                <i class="fas fa-print"></i>
-                                Print Photos
-                            </button>
-
-                        
-                                        <button id="save-gallery-btn" class="secondary-button" title="Log in to use this">
-                                          <i class="fas fa-cloud-upload-alt"></i> Save to My Gallery
-                                        </button>
-
-
-
-                            <button id="new-session" class="secondary-button">
-                                <i class="fas fa-plus"></i>
-                                New Session
-                            </button>
-
-                            
-                            <section id="qr-section" style="display:none; text-align:center; margin-top:20px;">
-                                <canvas id="qr-code"></canvas>
-                                <div><a id="qr-link" target="_blank" rel="noopener">Open image</a></div>
-                                <div id="qr-actions" style="display:none; gap:8px; margin-top:8px;">
-                                    <button id="copy-link">Copy link</button>
-                                    <button id="download-qr">Download QR</button>
-                                </div>
-                            </section>-->
+                       
                             <div class="download-controls">
     <button id="download-btn" class="primary-button" title="Log in to use this">
         <i class="fas fa-download"></i> Download Photos
@@ -589,9 +488,9 @@
         <button id="delete-selected" class="secondary-button" aria-label="Delete selected photos" disabled>
           <i class="fas fa-trash"></i> Delete Selected
         </button>
-        <button id="logout-from-gallery" class="secondary-button" aria-label="Log out">
-          <i class="fas fa-sign-out-alt"></i> Logout
-        </button>
+        <button id="logout-from-gallery" class="secondary-button logout-btn" aria-label="Log out">
+  <i class="fas fa-sign-out-alt"></i> Logout
+</button>
       </div>
 
       <!-- Login hint when not authenticated -->

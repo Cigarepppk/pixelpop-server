@@ -94,21 +94,20 @@ class PixelPopStudio {
   }
 
   /* ===================== Unified Logout (App-side) ===================== */
-  logout() {
-    // Clear auth
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
+  // script.js — inside class PixelPopStudio
+logout() {
+  // Clear *both* items so all UIs reset consistently
+  localStorage.removeItem('token');
+  localStorage.removeItem('username');   // ← add this line
 
-    // Reflect UI
-    this.updatePrivilegedButtonsState();
-
-    // Route home (also stops camera by leaving layout page)
-    if (typeof window.PixelPopAppNavigate === 'function') {
-      window.PixelPopAppNavigate('home');
-    } else {
-      this.navigateToPage?.('home');
-    }
+  this.updatePrivilegedButtonsState();
+  if (typeof window.PixelPopAppNavigate === 'function') {
+    window.PixelPopAppNavigate('home');
+  } else {
+    window.location.replace('/');
   }
+}
+
 
   updatePrivilegedButtonsState() {
     const hasToken = !!localStorage.getItem('token');
