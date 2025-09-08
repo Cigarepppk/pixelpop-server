@@ -577,7 +577,7 @@ body {
 
 
 .camera-overlay {
-    position: relative;
+    position: absolute;
     top: 0;
     left: 0;
     right: 0;
@@ -588,16 +588,6 @@ body {
     align-items: center;
     padding: 2rem;
 }
-.live-border{
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  box-sizing: border-box;   /* draw border inward */
-  z-index: 2;               /* above the video, below your buttons */
-}
-
-.live-border.border-none{border:none;}
-
 
 .timer-display {
     font-size: 4rem;
@@ -687,22 +677,24 @@ body {
     margin-bottom: 0.25rem;
 }
 
-
-.live-border.border-classic {
-
-    border: 2px solid #343a40;
+.no-border {
+    background: var(--light-gray);
 }
 
-.live-border.border-modern {
-    
-    border: 2px solid #ff69b4;
+.classic-border {
+    background: var(--light-gray);
+    border: 2px solid var(--dark-gray);
 }
 
-.live-border.border-vintage {
-    
+.modern-border {
+    background: var(--light-gray);
+    border: 2px solid var(--primary-pink);
+}
+
+.vintage-border {
+    background: var(--light-gray);
     border: 3px solid #8b4513;
-    outline:25px solid #8b4513;
-    box-shadow: inset 0 0 0 8px #fff6e6; 
+    border-style: double;
 }
 
 .normal {

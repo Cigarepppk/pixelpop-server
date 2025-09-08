@@ -153,7 +153,7 @@ setupLiveBackgrounds() {
     gallery:["p4.JPG","p1.JPG","p2.JPG","p3.JPG"],
     login:  ["p5.JPG","p2.JPG","p3.JPG","p4.JPG"]   // ⬅️ add this
   };
-this.currentBorder='none';
+
   this.bgIntervalMs = 7000;  // change speed here
   this._bgIntervalId = null;
   this._bgFlip = false;
@@ -452,12 +452,7 @@ navigateToPage(page) {
       cameraFeed.classList.add(`filter-${this.currentFilter}`);
     }
   }
- updateLiveBorder() {
-    if (!liveBorderEl) return;
-    liveBorderEl.classList.remove('border-none','border-classic','border-modern','border-vintage');
-    const map = { none:'border-none', classic:'border-classic', modern:'border-modern', vintage:'border-vintage' };
-    liveBorderEl.classList.add(map[currentBorder] || 'border-none');
-  }
+
   capturePhoto() {
     if (this.isCapturing) return;
     this.isCapturing = true;
@@ -2271,135 +2266,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setActionsVisibility();
 });
 
-/* ────────────────────────────────────────────────────────────
-   Auth UI + API glue (login/register forms)
-   ──────────────────────────────────────────────────────────── */
-/*const API_BASE = 'https://pixelpop-backend-fm6t.onrender.com';
-
-function safeJson(res) {
-  return res.text().then(text => {
-    try { return text ? JSON.parse(text) : {}; } catch { return {}; }
-  });
-}
-
-function setBusy(form, busy) {
-  if (!form) return;
-  [...form.elements].forEach(el => (el.disabled = !!busy));
-  form.dataset.busy = busy ? '1' : '';
-}
-
-// Get elements
-const loginForm    = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const container    = document.querySelector('.logincontainer');
-const registerBtn  = document.querySelector('.register-btn');
-const loginBtn     = document.querySelector('.login-btn');
-
-// Toggle UI
-if (registerBtn) registerBtn.addEventListener('click', () => container && container.classList.add('active'));
-if (loginBtn)    loginBtn.addEventListener('click', () => container && container.classList.remove('active'));
-
-// Registration (Promise version) with 404 fallback
-if (registerForm) {
-  registerForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    setBusy(registerForm, true);
-
-    const username = e.target.username.value.trim();
-    const email = e.target.email.value.trim();
-    const password = e.target.password.value;
-    const confirmPassword = e.target.confirmPassword.value;
-
-    if (password !== confirmPassword) {
-      alert('Passwords do not match!');
-      setBusy(registerForm, false);
-      return;
-    }
-
-    const doFetch = (path, alts) =>
-      (window.PixelPopApp
-        ? window.PixelPopApp.fetchWith404Fallback(API_BASE, path, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email, password })
-          }, alts)
-        : fetch(API_BASE + path, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email, password })
-          }).then(async r => { let j={}; try{j=await r.clone().json()}catch{} r._json=j; return r; })
-      );
-
-    doFetch('/signup', ['/api/signup'])
-      .then(({ ok, _json: data, status }) => {
-        if (ok) {
-          alert('Registration successful! Please log in.');
-          if (container) container.classList.remove('active');
-          if (registerForm.reset) registerForm.reset();
-        } else {
-          alert(`Registration failed: ${(data && (data.error || data.message)) || `HTTP ${status}`}`);
-          console.error('Registration failed:', data);
-        }
-      })
-      .catch(err => {
-        console.error('Error during registration:', err);
-        alert('An error occurred during registration. Please try again later.');
-      })
-      .finally(() => setBusy(registerForm, false));
-  });
-}
-
-// Login (Promise version) with 404 fallback
-if (loginForm) {
-  loginForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    setBusy(loginForm, true);
-
-    const username = e.target.username.value.trim();
-    const password = e.target.password.value;
-
-    const doFetch = (path, alts) =>
-      (window.PixelPopApp
-        ? window.PixelPopApp.fetchWith404Fallback(API_BASE, path, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-          }, alts)
-        : fetch(API_BASE + path, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-          }).then(async r => { let j={}; try{j=await r.clone().json()}catch{} r._json=j; return r; })
-      );
-
-    doFetch('/login', ['/api/login'])
-      .then(({ ok, _json: data, status }) => {
-        if (ok && data && data.token) {
-          localStorage.setItem('token', data.token);
-          alert('Login successful!');
-
-          if (window.PixelPopApp && window.PixelPopApp.updatePrivilegedButtonsState) {
-            window.PixelPopApp.updatePrivilegedButtonsState();
-          }
-
-          if (typeof window.PixelPopAppNavigate === 'function') {
-            window.PixelPopAppNavigate('layout');
-          }
-
-          if (loginForm.reset) loginForm.reset();
-        } else {
-          alert(`Login failed: ${(data && (data.error || data.message)) || `HTTP ${status}`}`);
-          console.error('Login failed:', data);
-        }
-      })
-      .catch(err => {
-        console.error('Error during login:', err);
-        alert('An error occurred during login. Please try again later.');
-      })
-      .finally(() => setBusy(loginForm, false));
-  });
-}
-*/
 /* ────────────────────────────────────────────────────────────
    Auth UI + API glue (login/register/forgot/google) + Profile
    ──────────────────────────────────────────────────────────── */
