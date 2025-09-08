@@ -1744,25 +1744,35 @@ body.lb-open { overflow: hidden; }
 }
 
 .user-profile {
-    
+  max-width: 520px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  background: var(--white);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
   text-align: center;
-  margin-top: 50px;
-  background: rgba(250, 246, 246, 0.85);
-  padding: 20px;
-  
-  
 }
-#profile-title {
-  
-  color: var(--primary-pink);
-  margin-bottom: 10px;
+
+.profile-pic {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--secondary-pink);
+  margin-bottom: .75rem;
 }
 
 #profile-name {
-  
-  color: var(--black);
-  margin-bottom: 10px;
+  color: var(--dark-gray);
+  margin-bottom: .25rem;
 }
+
+.profile-email {
+  color: var(--gray);
+  margin-bottom: 1rem;
+  word-break: break-all;
+}
+
 
 .logout-btn {
   background: var(--accent-pink);
