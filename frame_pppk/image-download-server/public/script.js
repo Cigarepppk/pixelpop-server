@@ -2401,7 +2401,7 @@ if (loginForm) {
 }
 */
 /* ────────────────────────────────────────────────────────────
-   Auth UI + API glue (login/register/forgot/google)
+   Auth UI + API glue (login/register/forgot/google) + Profile
    ──────────────────────────────────────────────────────────── */
 
 // Change this if you deploy elsewhere. You can also override by setting window.API_BASE.
@@ -2413,87 +2413,37 @@ function setBusy(form, busy) {
   [...form.elements].forEach(el => (el.disabled = !!busy));
   form.dataset.busy = busy ? '1' : '';
 }
-
-function getToken() {
-  return localStorage.getItem('token') || '';
-}
-
-function setToken(t) {
-  if (t) localStorage.setItem('token', t);
-}
-
+function getToken() { return localStorage.getItem('token') || ''; }
+function setToken(t) { if (t) localStorage.setItem('token', t); }
 function authHeaders(extra = {}) {
   const t = getToken();
-  return {
-    'Content-Type': 'application/json',
-    ...(t ? { 'Authorization': `Bearer ${t}` } : {}),
-    ...extra
-  };
+  return { 'Content-Type': 'application/json', ...(t ? { 'Authorization': `Bearer ${t}` } : {}), ...extra };
 }
-
-// Generic POST with optional 404 fallbacks.
-// Returns a Response with a parsed JSON clone on _json.
 function doPost(path, body, alts = []) {
-  const opts = {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: (body && typeof body !== 'string') ? JSON.stringify(body) : (body || '{}')
-  };
+  const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: (body && typeof body !== 'string') ? JSON.stringify(body) : (body || '{}') };
 
   if (window.PixelPopApp && typeof window.PixelPopApp.fetchWith404Fallback === 'function') {
     return window.PixelPopApp.fetchWith404Fallback(API_BASE, path, opts, alts);
   }
-
-  const tryOnce = (url) =>
-    fetch(url, opts).then(async (r) => {
-      let j = {};
-      try { j = await r.clone().json(); } catch {}
-      r._json = j;
-      return r;
-    });
-
-  // try primary, then each alt
+  const tryOnce = (url) => fetch(url, opts).then(async (r) => { let j = {}; try { j = await r.clone().json(); } catch {} r._json = j; return r; });
   return tryOnce(API_BASE + path).then(r => {
     if (r.status !== 404 || alts.length === 0) return r;
-    // chain fallbacks
     let chain = Promise.resolve(r);
-    alts.forEach((alt, i) => {
-      chain = chain.then(prev => {
-        if (prev.status !== 404 || i === alts.length) return prev;
-        return tryOnce(API_BASE + alt);
-      });
-    });
+    alts.forEach((alt, i) => { chain = chain.then(prev => (prev.status !== 404 || i === alts.length) ? prev : tryOnce(API_BASE + alt)); });
     return chain;
   });
 }
-
 function doGet(path, alts = [], withAuth = false) {
-  const opts = {
-    method: 'GET',
-    headers: withAuth ? authHeaders() : { 'Content-Type': 'application/json' }
-  };
-
+  const opts = { method: 'GET', headers: withAuth ? authHeaders() : { 'Content-Type': 'application/json' } };
   if (window.PixelPopApp && typeof window.PixelPopApp.fetchWith404Fallback === 'function') {
     return window.PixelPopApp.fetchWith404Fallback(API_BASE, path, opts, alts);
   }
-
-  const tryOnce = (url) =>
-    fetch(url, opts).then(async (r) => {
-      let j = {};
-      try { j = await r.clone().json(); } catch {}
-      r._json = j;
-      return r;
-    });
-
+  const tryOnce = (url) => fetch(url, opts).then(async (r) => { let j = {}; try { j = await r.clone().json(); } catch {} r._json = j; return r; });
   return tryOnce(API_BASE + path).then(r => {
     if (r.status !== 404 || alts.length === 0) return r;
     let chain = Promise.resolve(r);
-    alts.forEach((alt, i) => {
-      chain = chain.then(prev => {
-        if (prev.status !== 404 || i === alts.length) return prev;
-        return tryOnce(API_BASE + alt);
-      });
-    });
+    alts.forEach((alt, i) => { chain = chain.then(prev => (prev.status !== 404 || i === alts.length) ? prev : tryOnce(API_BASE + alt)); });
     return chain;
   });
 }
@@ -2504,10 +2454,14 @@ const registerForm = document.getElementById('register-form');
 const container    = document.querySelector('.logincontainer');
 const registerBtn  = document.querySelector('.register-btn');
 const loginBtn     = document.querySelector('.login-btn');
-
 // Forgot link can be #forgot-link or first .forgot-link a
-const forgotLink   = document.getElementById('forgot-link') ||
-                     document.querySelector('.forgot-link a');
+const forgotLink   = document.getElementById('forgot-link') || document.querySelector('.forgot-link a');
+
+// Optional profile UI (must exist in your login page HTML)
+const profileBox   = document.getElementById('user-profile');
+const profileName  = document.getElementById('profile-name');
+const profilePic   = document.getElementById('profile-pic');
+const profileLogoutBtn = document.getElementById('profile-logout-btn'); // different id than nav logout
 
 /* ---------- Toggle UI ---------- */
 if (registerBtn) registerBtn.addEventListener('click', () => container && container.classList.add('active'));
@@ -2546,10 +2500,7 @@ if (registerForm) {
           console.error('Registration failed:', data);
         }
       })
-      .catch(err => {
-        console.error('Error during registration:', err);
-        alert('An error occurred during registration. Please try again later.');
-      })
+      .catch(err => { console.error('Error during registration:', err); alert('An error occurred during registration. Please try again later.'); })
       .finally(() => setBusy(registerForm, false));
   });
 }
@@ -2576,27 +2527,35 @@ if (loginForm) {
       .then(({ ok, _json: data, status }) => {
         if (ok && data && data.token) {
           setToken(data.token);
-          alert('Login successful!');
 
+          // Save a friendly display name for the profile box
+          const displayName = (data?.user?.username || data?.user?.email || raw);
+          localStorage.setItem('username', displayName);
+
+          // Update privileged buttons (your app’s existing helper)
           if (window.PixelPopApp?.updatePrivilegedButtonsState) {
-            window.PixelPopApp.updatePrivilegedButtonsState();
+            window.PixelPopApp.updatePrivilegedButtonsState(); // builds nav logout dynamically:contentReference[oaicite:2]{index=2}
           }
+
+          // Show profile if we're on the login page
+          showUserProfile(displayName);
+
+          // Navigate if you want to jump straight to the booth (optional)
           if (typeof window.PixelPopAppNavigate === 'function') {
             window.PixelPopAppNavigate('layout');
           }
+
           if (loginForm.reset) loginForm.reset();
 
           // Optional: verify token quickly (does not block UI)
           doGet('/api/auth/verify', [], true).catch(() => {});
+
         } else {
           alert(`Login failed: ${(data && (data.error || data.message)) || `HTTP ${status}`}`);
           console.error('Login failed:', data);
         }
       })
-      .catch(err => {
-        console.error('Error during login:', err);
-        alert('An error occurred during login. Please try again later.');
-      })
+      .catch(err => { console.error('Error during login:', err); alert('An error occurred during login. Please try again later.'); })
       .finally(() => setBusy(loginForm, false));
   });
 }
@@ -2612,23 +2571,11 @@ if (forgotLink) {
       .then(({ _json: data }) => {
         alert((data && data.message) || 'If that account exists, we sent an email with a reset link.');
       })
-      .catch(err => {
-        console.error('Forgot password error:', err);
-        alert('Could not process password reset. Please try again.');
-      });
+      .catch(err => { console.error('Forgot password error:', err); alert('Could not process password reset. Please try again.'); });
   });
 }
 
-/* ---------- Google Sign-In (GIS) ----------
-   Your HTML must include:
-   <script src="https://accounts.google.com/gsi/client" async defer></script>
-   And a container:
-   <div id="g_id_onload"
-        data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-        data-callback="handleGoogleCredential"
-        data-auto_prompt="false"></div>
-   <div class="g_id_signin" data-type="standard" ...></div>
-*/
+/* ---------- Google Sign-In (GIS) ---------- */
 window.handleGoogleCredential = async (response) => {
   try {
     const idToken = response?.credential;
@@ -2642,11 +2589,15 @@ window.handleGoogleCredential = async (response) => {
     }
 
     setToken(data.token);
-    alert(`Welcome, ${data?.user?.username || 'user'}!`);
+
+    // Save a display name for profile
+    const displayName = (data?.user?.username || data?.user?.email || 'user');
+    localStorage.setItem('username', displayName);
 
     if (window.PixelPopApp?.updatePrivilegedButtonsState) {
       window.PixelPopApp.updatePrivilegedButtonsState();
     }
+    showUserProfile(displayName);
     if (typeof window.PixelPopAppNavigate === 'function') {
       window.PixelPopAppNavigate('layout');
     }
@@ -2659,52 +2610,41 @@ window.handleGoogleCredential = async (response) => {
   }
 };
 
+/* ---------- Profile UI helpers ---------- */
 function showUserProfile(username) {
-  document.querySelector(".logincontainer").style.display = "none"; // Hide login form
-  const userProfile = document.getElementById("user-profile");
-  userProfile.style.display = "block";
-
-  // Set username dynamically
-  document.getElementById("profile-name").textContent = `Welcome, ${username}!`;
-
-  // If you have user photo from backend, set it here:
-  // document.getElementById("profile-pic").src = user.photoUrl;
+  // hide login form, show profile card (if present)
+  if (container) container.style.display = 'none';
+  if (profileBox) profileBox.style.display = 'block';
+  if (profileName) profileName.textContent = `Welcome, ${username || 'user'}!`;
+  // You can also set profilePic.src from backend: if (profilePic && userPhotoUrl) profilePic.src = userPhotoUrl;
 }
 
-// Example login simulation
-document.getElementById("login-form").addEventListener("submit", function(e) {
-  e.preventDefault();
-  const username = e.target.username.value;
-  const password = e.target.password.value;
-
-  // Simulate backend check or call your real API
-  if(username && password) {
-    localStorage.setItem("username", username); // Store user data
-    showUserProfile(username);
-  }
-});
-
-// Logout logic
-document.getElementById("logout-btn").addEventListener("click", function() {
-  localStorage.removeItem("username");
-  location.reload(); // Reset to login page
-});
-// Your PixelPopStudio class code here ...
-
-// Show profile if already logged in
-window.addEventListener("DOMContentLoaded", () => {
-  const username = localStorage.getItem("username");
-  if (username) {
-    showUserProfile(username);  // This calls the function we created earlier
-  }
-});
-
+// Profile-specific logout (DO NOT wire the nav #logout-btn here;
+// the app already creates and wires it dynamically):contentReference[oaicite:3]{index=3}
+if (profileLogoutBtn) {
+  profileLogoutBtn.addEventListener('click', () => {
+    localStorage.removeItem('username');
+    localStorage.removeItem('token');
+    if (profileBox) profileBox.style.display = 'none';
+    if (container)   container.style.display = '';
+    if (window.PixelPopApp?.updatePrivilegedButtonsState) {
+      window.PixelPopApp.updatePrivilegedButtonsState();
+    }
+  });
+}
 
 /* ---------- Optional: logout helper ---------- */
 window.PixelPopLogout = function () {
   localStorage.removeItem('token');
+  localStorage.removeItem('username');
   if (window.PixelPopApp?.updatePrivilegedButtonsState) {
     window.PixelPopApp.updatePrivilegedButtonsState();
   }
   alert('Logged out.');
 };
+
+/* ---------- Auto-show profile on refresh ---------- */
+window.addEventListener('DOMContentLoaded', () => {
+  const username = localStorage.getItem('username');
+  if (username) showUserProfile(username);
+});
