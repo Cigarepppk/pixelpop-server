@@ -706,15 +706,13 @@
 
             <!-- Login/Register stays so users can log in to unlock Download/Print -->
 <section id="login-page" class="page">
-   
-
   <section class="loginposition">
     <div class="logincontainer">
+      <!-- Login Form -->
       <div class="form-box login">
         <form id="login-form">
           <h1>Login</h1>
           <div class="input-box">
-            <!-- can be email OR username -->
             <input type="text" name="identifier" placeholder="Email or Username" required>
             <i class='bx bxs-user'></i>
           </div>
@@ -728,7 +726,7 @@
           <button type="submit" class="btn">Login</button>
 
           <p>or login with</p>
-          <!-- Google Identity Services button mounts here -->
+          <!-- Google Sign-In Button -->
           <div class="social-icons">
             <div id="g_id_onload"
                  data-client_id="881251005658-pgve1b61c4rpvs4vuascvkhq5irkq13k.apps.googleusercontent.com"
@@ -745,6 +743,7 @@
         </form>
       </div>
 
+      <!-- Registration Form -->
       <div class="form-box register">
         <form id="register-form">
           <h1>Registration</h1>
@@ -768,7 +767,6 @@
 
           <p>or register with</p>
           <div class="social-icons">
-            <!-- Optional: Google button here too -->
             <div class="g_id_signin"
                  data-type="standard"
                  data-shape="rectangular"
@@ -780,6 +778,7 @@
         </form>
       </div>
 
+      <!-- Toggle Panels -->
       <div class="toggle-box">
         <div class="toggle-panel toggle-left">
           <h2>Hello, Welcome!</h2>
@@ -794,15 +793,16 @@
         </div>
       </div>
     </div>
-
   </section>
-   <!-- User Profile Section (hidden until login) -->
-<div id="user-profile" class="user-profile" style="display: none;">
-  <img id="profile-pic" src="default-avatar.png" alt="Profile Picture" class="profile-pic">
-  <h2 id="profile-name">Welcome, User!</h2>
-  <button id="logout-btn" class="btn logout-btn">Logout</button>
-</div>
+
+  <!-- User Profile Section (hidden until login) -->
+  <div id="user-profile" class="user-profile" style="display: none;">
+    <img id="profile-pic" src="default-avatar.png" alt="Profile Picture" class="profile-pic">
+    <h2 id="profile-name">Welcome, User!</h2>
+    <button id="profile-logout-btn" class="btn logout-btn">Logout</button>
+  </div>
 </section>
+
 
 
 
