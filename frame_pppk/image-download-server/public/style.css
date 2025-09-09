@@ -1797,6 +1797,9 @@ body.lb-open { overflow: hidden; }
   border: none;
   border-radius: var(--border-radius);
   cursor: pointer;
+  align-items: center;
+  text-align: center;
+  
 }
 
 .logout-btn:hover {
