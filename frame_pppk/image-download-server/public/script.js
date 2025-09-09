@@ -14,6 +14,8 @@ class PixelPopStudio {
     this.isCapturing   = false;
     this.timerValue    = 3;
     this.isSaving = false;  // prevents double-save spam
+    this._hasSavedCurrentLayout = false;
+
 
 
     // Gallery caps & state
@@ -361,60 +363,44 @@ logout() {
   }
 
   /* ===================== Photobooth result controls (login-gated) ===================== */
-  setupPhotoControls() {
-    const downloadBtn   = document.getElementById('download-btn');
-    const printBtn      = document.getElementById('print-btn');
-    const newSessionBtn = document.getElementById('new-session');
-    const saveBtn       = document.getElementById('save-gallery-btn');
+/* ===================== Photobooth result controls (login-gated) ===================== */
+setupPhotoControls() {
+  const downloadBtn   = document.getElementById('download-btn');
+  const printBtn      = document.getElementById('print-btn');
+  const newSessionBtn = document.getElementById('new-session');
+  const saveBtn       = document.getElementById('save-gallery-btn');
 
-   // inside setupPhotoControls()
-const requireLogin = () =>
-  this.verifyToken().then(ok => {
-    if (!ok) {
-      alert('Please log in to continue.');   // user clicks OK…
-      this.navigateToPage('login');          // …then we route to Login
-      return false;
-    }
-    return true;
-  });
-
-
-    if (downloadBtn) {
-      downloadBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        requireLogin().then(ok => { if (ok) this.downloadPhotos?.(); });
-      });
-    }
-
-    if (printBtn) {
-      printBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        requireLogin().then(ok => { if (ok) this.printPhotos?.(); });
-      });
-    }
-
-    if (newSessionBtn) {
-      newSessionBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        this.startNewSession?.();
-      });
-    }
-
-   if (saveBtn) {
-  saveBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    requireLogin().then(ok => {
-      if (!ok) return;
-             // ← block extra clicks
-                    // hard disable while saving
-
-  this.saveFinalToGallery?.();
-          
-        });
+  const requireLogin = () =>
+    this.verifyToken().then(ok => {
+      if (!ok) { alert('Please log in to continue.'); this.navigateToPage('login'); }
+      return ok;
     });
-  
+
+  // Bind each handler at most once
+  const bindOnce = (el, type, handler) => {
+    if (!el || el.dataset.bound) return;
+    el.addEventListener(type, handler);
+    el.dataset.bound = '1';
+  };
+
+  bindOnce(downloadBtn,   'click', (e) => { e.preventDefault(); requireLogin().then(ok => ok && this.downloadPhotos?.()); });
+  bindOnce(printBtn,      'click', (e) => { e.preventDefault(); requireLogin().then(ok => ok && this.printPhotos?.()); });
+  bindOnce(newSessionBtn, 'click', (e) => { e.preventDefault(); this.startNewSession?.(); });
+  bindOnce(saveBtn,       'click', (e) => {
+    e.preventDefault();
+    requireLogin().then(ok => { if (ok) this.saveFinalToGallery?.(); });
+  });
 }
-  }
+
+
+
+   
+
+          
+  
+    
+  
+  
 
   initializeCamera() {
     const loadingOverlay = document.getElementById('loading-overlay');
@@ -633,20 +619,22 @@ const requireLogin = () =>
   }
 
   createFinalLayout() {
-    const finalCanvas = document.getElementById('final-canvas');
-    if (!finalCanvas) return;
-    const ctx = finalCanvas.getContext('2d');
+  const finalCanvas = document.getElementById('final-canvas');
+  if (!finalCanvas) return;
 
-    // reset ready flag before re-render
-    this.isLayoutReady = false;
+  // reset ready + save-once flag before re-render
+  this.isLayoutReady = false;
+  this._hasSavedCurrentLayout = false;
 
-    switch (this.currentLayout) {
-      case 'single':     this.createSingleLayout(ctx, finalCanvas); break;
-      case 'twostrip':   this.createTwoStripLayout(ctx, finalCanvas); break;
-      case 'threestrip': this.createThreeStripLayout(ctx, finalCanvas); break;
-      case 'fourstrip':  this.createFourStripLayout(ctx, finalCanvas); break;
-    }
+  const ctx = finalCanvas.getContext('2d');
+  switch (this.currentLayout) {
+    case 'single': this.createSingleLayout(ctx, finalCanvas); break;
+    case 'twostrip': this.createTwoStripLayout(ctx, finalCanvas); break;
+    case 'threestrip': this.createThreeStripLayout(ctx, finalCanvas); break;
+    case 'fourstrip': this.createFourStripLayout(ctx, finalCanvas); break;
   }
+}
+
 
   createSingleLayout(ctx, canvas) {
     canvas.width = 300;
@@ -778,11 +766,13 @@ const requireLogin = () =>
   }
 
   resetSession() {
-    this.capturedPhotos = [];
-    this.isLayoutReady = false;
-    const resultsSection = document.getElementById('photo-results');
-    if (resultsSection) resultsSection.style.display = 'none';
-  }
+  this.capturedPhotos = [];
+  this.isLayoutReady = false;
+  this._hasSavedCurrentLayout = false;
+  const resultsSection = document.getElementById('photo-results');
+  if (resultsSection) resultsSection.style.display = 'none';
+}
+
 
   startNewSession() {
     this.resetSession();
@@ -1605,12 +1595,15 @@ maybeAutosaveToGallery() {
 }
 
 _doAutosave() {
+  if (this._hasSavedCurrentLayout || this.isSaving) return;   // ← also guard on isSaving
   const finalCanvas = document.getElementById('final-canvas');
   if (!finalCanvas) return;
   if ((this._galleryCount || 0) >= this.MAX_GALLERY) {
     alert('Gallery is full (50 photos). Please delete some photos first.');
     return;
   }
+
+  this.isSaving = true;                                        // ← lock while autosaving
   const scale = 2;
   const tmp = document.createElement('canvas');
   tmp.width  = finalCanvas.width * scale;
@@ -1620,13 +1613,21 @@ _doAutosave() {
   ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
   const dataURL = tmp.toDataURL('image/jpeg', 0.95);
 
-  return this.savePhotoToGallery(dataURL).then((res) => {
-    if (res && res.ok && res.item) this._rememberMirrored(res.item);
-    return res;
-  });
+  return this.savePhotoToGallery(dataURL)
+    .then((res) => {
+      if (res && res.ok) {
+        if (res.item) this._rememberMirrored(res.item);
+        this._hasSavedCurrentLayout = true;
+      }
+      return res;
+    })
+    .finally(() => { this.isSaving = false; });                // ← release lock
 }
 
-saveFinalToGallery() {
+
+
+   saveFinalToGallery() {
+  if (this._hasSavedCurrentLayout) { alert('This layout is already saved.'); return Promise.resolve(); }
   if (this.isSaving) return Promise.resolve();
 
   const btn = document.getElementById('save-gallery-btn');
@@ -1646,7 +1647,6 @@ saveFinalToGallery() {
   if (!this.isLayoutReady) { alert('Hang on — still rendering your photo…'); return Promise.resolve(); }
   if ((this._galleryCount || 0) >= this.MAX_GALLERY) { alert('Gallery is full (50 photos). Please delete some photos first.'); return Promise.resolve(); }
 
-  // start saving now that guards passed
   this.isSaving = true;
   setBusy(true);
 
@@ -1664,6 +1664,7 @@ saveFinalToGallery() {
       if (ok) {
         const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString(), fileName: `pixelpop-${Date.now()}.jpg` };
         this._rememberMirrored(added);
+        this._hasSavedCurrentLayout = true;
         alert('Saved to your private gallery!');
         this.goToGalleryAndShow(added);
       } else {
