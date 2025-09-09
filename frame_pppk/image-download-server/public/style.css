@@ -1794,13 +1794,13 @@ body.lb-open { overflow: hidden; }
 }
 
 .logout-btn {
-  background: rgb(35, 187, 187);
+  background: var(--accent-pink);
   color: white;
   padding: 10px 20px;
   border: none;
   border-radius: var(--border-radius);
   cursor: pointer;
-  margin-top: 20px; /* Space between email and logout button */
+  /* Space between email and logout button */
   text-align: center;
   display: inline-flex; /* Ensures the button content is centered */
   align-items: center;
