@@ -13,10 +13,6 @@ class PixelPopStudio {
     this.stream        = null;
     this.isCapturing   = false;
     this.timerValue    = 3;
-    this.isSaving = false;  // prevents double-save spam
-    this._hasSavedCurrentLayout = false;
-
-
 
     // Gallery caps & state
     this.MAX_GALLERY    = 50;
@@ -103,8 +99,6 @@ logout() {
   // Clear stored credentials
   localStorage.removeItem('token');
   localStorage.removeItem('username');
-  localStorage.removeItem('email');      // ← add
-  localStorage.removeItem('avatarUrl');
 
   // Reset UI: hide profile, show login form
   const profileBox = document.getElementById('user-profile');
@@ -363,44 +357,52 @@ logout() {
   }
 
   /* ===================== Photobooth result controls (login-gated) ===================== */
-/* ===================== Photobooth result controls (login-gated) ===================== */
-setupPhotoControls() {
-  const downloadBtn   = document.getElementById('download-btn');
-  const printBtn      = document.getElementById('print-btn');
-  const newSessionBtn = document.getElementById('new-session');
-  const saveBtn       = document.getElementById('save-gallery-btn');
+  setupPhotoControls() {
+    const downloadBtn   = document.getElementById('download-btn');
+    const printBtn      = document.getElementById('print-btn');
+    const newSessionBtn = document.getElementById('new-session');
+    const saveBtn       = document.getElementById('save-gallery-btn');
 
-  const requireLogin = () =>
-    this.verifyToken().then(ok => {
-      if (!ok) { alert('Please log in to continue.'); this.navigateToPage('login'); }
-      return ok;
-    });
-
-  // Bind each handler at most once
-  const bindOnce = (el, type, handler) => {
-    if (!el || el.dataset.bound) return;
-    el.addEventListener(type, handler);
-    el.dataset.bound = '1';
-  };
-
-  bindOnce(downloadBtn,   'click', (e) => { e.preventDefault(); requireLogin().then(ok => ok && this.downloadPhotos?.()); });
-  bindOnce(printBtn,      'click', (e) => { e.preventDefault(); requireLogin().then(ok => ok && this.printPhotos?.()); });
-  bindOnce(newSessionBtn, 'click', (e) => { e.preventDefault(); this.startNewSession?.(); });
-  bindOnce(saveBtn,       'click', (e) => {
-    e.preventDefault();
-    requireLogin().then(ok => { if (ok) this.saveFinalToGallery?.(); });
+   // inside setupPhotoControls()
+const requireLogin = () =>
+  this.verifyToken().then(ok => {
+    if (!ok) {
+      alert('Please log in to continue.');   // user clicks OK…
+      this.navigateToPage('login');          // …then we route to Login
+      return false;
+    }
+    return true;
   });
-}
 
 
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        requireLogin().then(ok => { if (ok) this.downloadPhotos?.(); });
+      });
+    }
 
-   
+    if (printBtn) {
+      printBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        requireLogin().then(ok => { if (ok) this.printPhotos?.(); });
+      });
+    }
 
-          
-  
-    
-  
-  
+    if (newSessionBtn) {
+      newSessionBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.startNewSession?.();
+      });
+    }
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        requireLogin().then(ok => { if (ok) this.saveFinalToGallery?.(); });
+      });
+    }
+  }
 
   initializeCamera() {
     const loadingOverlay = document.getElementById('loading-overlay');
@@ -619,22 +621,20 @@ setupPhotoControls() {
   }
 
   createFinalLayout() {
-  const finalCanvas = document.getElementById('final-canvas');
-  if (!finalCanvas) return;
+    const finalCanvas = document.getElementById('final-canvas');
+    if (!finalCanvas) return;
+    const ctx = finalCanvas.getContext('2d');
 
-  // reset ready + save-once flag before re-render
-  this.isLayoutReady = false;
-  this._hasSavedCurrentLayout = false;
+    // reset ready flag before re-render
+    this.isLayoutReady = false;
 
-  const ctx = finalCanvas.getContext('2d');
-  switch (this.currentLayout) {
-    case 'single': this.createSingleLayout(ctx, finalCanvas); break;
-    case 'twostrip': this.createTwoStripLayout(ctx, finalCanvas); break;
-    case 'threestrip': this.createThreeStripLayout(ctx, finalCanvas); break;
-    case 'fourstrip': this.createFourStripLayout(ctx, finalCanvas); break;
+    switch (this.currentLayout) {
+      case 'single':     this.createSingleLayout(ctx, finalCanvas); break;
+      case 'twostrip':   this.createTwoStripLayout(ctx, finalCanvas); break;
+      case 'threestrip': this.createThreeStripLayout(ctx, finalCanvas); break;
+      case 'fourstrip':  this.createFourStripLayout(ctx, finalCanvas); break;
+    }
   }
-}
-
 
   createSingleLayout(ctx, canvas) {
     canvas.width = 300;
@@ -766,13 +766,11 @@ setupPhotoControls() {
   }
 
   resetSession() {
-  this.capturedPhotos = [];
-  this.isLayoutReady = false;
-  this._hasSavedCurrentLayout = false;
-  const resultsSection = document.getElementById('photo-results');
-  if (resultsSection) resultsSection.style.display = 'none';
-}
-
+    this.capturedPhotos = [];
+    this.isLayoutReady = false;
+    const resultsSection = document.getElementById('photo-results');
+    if (resultsSection) resultsSection.style.display = 'none';
+  }
 
   startNewSession() {
     this.resetSession();
@@ -792,7 +790,7 @@ setupPhotoControls() {
     return this.fetchWith404Fallback(this.API_BASE, '/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageData, fileName: `pixelpop-photo-${Date.now()}.jpg` })
+      body: JSON.stringify({ imageData, fileName: `pixelpop-photo-${Date.Now?.() || Date.now()}.jpg` })
     }, ['/upload'])
     .then(response => {
       const data = response._json || {};
@@ -1595,15 +1593,12 @@ maybeAutosaveToGallery() {
 }
 
 _doAutosave() {
-  if (this._hasSavedCurrentLayout || this.isSaving) return;   // ← also guard on isSaving
   const finalCanvas = document.getElementById('final-canvas');
   if (!finalCanvas) return;
   if ((this._galleryCount || 0) >= this.MAX_GALLERY) {
     alert('Gallery is full (50 photos). Please delete some photos first.');
     return;
   }
-
-  this.isSaving = true;                                        // ← lock while autosaving
   const scale = 2;
   const tmp = document.createElement('canvas');
   tmp.width  = finalCanvas.width * scale;
@@ -1613,43 +1608,26 @@ _doAutosave() {
   ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
   const dataURL = tmp.toDataURL('image/jpeg', 0.95);
 
-  return this.savePhotoToGallery(dataURL)
-    .then((res) => {
-      if (res && res.ok) {
-        if (res.item) this._rememberMirrored(res.item);
-        this._hasSavedCurrentLayout = true;
-      }
-      return res;
-    })
-    .finally(() => { this.isSaving = false; });                // ← release lock
+  return this.savePhotoToGallery(dataURL).then((res) => {
+    if (res && res.ok && res.item) this._rememberMirrored(res.item);
+    return res;
+  });
 }
 
-
-
-   saveFinalToGallery() {
-  if (this._hasSavedCurrentLayout) { alert('This layout is already saved.'); return Promise.resolve(); }
-  if (this.isSaving) return Promise.resolve();
-
+saveFinalToGallery() {
   const btn = document.getElementById('save-gallery-btn');
   const setBusy = (busy) => {
     if (!btn) return;
-    btn.disabled = !!busy;
-    if (busy) {
-      btn.dataset._old = btn.innerHTML;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-    } else {
-      btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery';
-    }
+    if (busy) { btn.disabled = true; btn.dataset._old = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...'; }
+    else { btn.disabled = false; btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery'; }
   };
 
   const finalCanvas = document.getElementById('final-canvas');
-  if (!finalCanvas) { alert('No photo to save yet.'); return Promise.resolve(); }
-  if (!this.isLayoutReady) { alert('Hang on — still rendering your photo…'); return Promise.resolve(); }
-  if ((this._galleryCount || 0) >= this.MAX_GALLERY) { alert('Gallery is full (50 photos). Please delete some photos first.'); return Promise.resolve(); }
+  if (!finalCanvas) return alert('No photo to save yet.');
+  if (!this.isLayoutReady) return alert('Hang on — still rendering your photo…');
+  if ((this._galleryCount || 0) >= this.MAX_GALLERY) return alert('Gallery is full (50 photos). Please delete some photos first.');
 
-  this.isSaving = true;
   setBusy(true);
-
   const scale = 2;
   const tmp = document.createElement('canvas');
   tmp.width  = finalCanvas.width * scale;
@@ -1659,12 +1637,11 @@ _doAutosave() {
   ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
   const dataURL = tmp.toDataURL('image/jpeg', 0.95);
 
-  return this.savePhotoToGallery(dataURL)
+  this.savePhotoToGallery(dataURL)
     .then(({ ok, item, error }) => {
       if (ok) {
         const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString(), fileName: `pixelpop-${Date.now()}.jpg` };
         this._rememberMirrored(added);
-        this._hasSavedCurrentLayout = true;
         alert('Saved to your private gallery!');
         this.goToGalleryAndShow(added);
       } else {
@@ -1672,7 +1649,7 @@ _doAutosave() {
       }
     })
     .catch(err => { console.warn('Save to gallery failed:', err); alert('Save failed. Please try again.'); })
-    .finally(() => { this.isSaving = false; setBusy(false); });
+    .finally(() => setBusy(false));
 }
 }
 
@@ -1829,40 +1806,18 @@ function buildFramedOutput(userSrc, frameSrc) {
 
 // Frame page listeners
 document.addEventListener('DOMContentLoaded', () => {
-  // Prevent re-binding if this script runs more than once on the frame page
-  if (window.__ppFrameUIInit) return;
-  window.__ppFrameUIInit = true;
-
   const fileInput    = document.getElementById('fileInput');
   const userPhoto    = document.getElementById('userPhoto');
   const frameImage   = document.getElementById('frameImage');
   const messageBox   = document.getElementById('initialMessage');
   const downloadBtn  = document.getElementById('downloadBtn');
   const printBtn     = document.getElementById('printFrameBtn');
-  const saveFrameBtn = document.getElementById('saveFrameToGalleryBtn');
+  const saveFrameBtn = document.getElementById('saveFrameToGalleryBtn'); // Save to My Gallery (frame)
   const frameSearch  = document.getElementById('frameSearch');
   const frameItems   = Array.from(document.querySelectorAll('.frame-item'));
 
-  // ✅ these must live OUTSIDE the click handler
   let selectedFrameSrc = '';
   let userPhotoSrc     = '';
-  let isFrameSaving    = false;
-  const setFrameSaveBusy = (busy) => {
-  if (!saveFrameBtn) return;
-  saveFrameBtn.disabled = !!busy;
-  if (busy) {
-    saveFrameBtn.dataset._old = saveFrameBtn.innerHTML;
-    saveFrameBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-  } else {
-    saveFrameBtn.innerHTML = saveFrameBtn.dataset._old || 'Save to My Gallery';
-  }
-};
-
-  const bindOnce = (el, type, handler) => {
-    if (!el || el.dataset.bound) return;
-    el.addEventListener(type, handler);
-    el.dataset.bound = '1';
-  };
 
   const showMessage = (text) => {
     if (!messageBox) return;
@@ -1874,9 +1829,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const setActionsVisibility = () => {
     const ready = !!(userPhotoSrc && selectedFrameSrc);
     const hasToken = !!localStorage.getItem('token');
-    if (downloadBtn) { downloadBtn.style.display = ready ? 'inline-block' : 'none'; downloadBtn.title = hasToken ? '' : 'Log in to use this'; }
-    if (printBtn)   { printBtn.style.display   = ready ? 'inline-block' : 'none'; printBtn.title   = hasToken ? '' : 'Log in to use this'; }
-    if (saveFrameBtn){saveFrameBtn.style.display= ready ? 'inline-block' : 'none'; saveFrameBtn.title = hasToken ? '' : 'Log in to use this'; }
+
+    if (downloadBtn) {
+      downloadBtn.style.display = ready ? 'inline-block' : 'none';
+      downloadBtn.title = hasToken ? '' : 'Log in to use this';
+    }
+    if (printBtn) {
+      printBtn.style.display = ready ? 'inline-block' : 'none';
+      printBtn.title = hasToken ? '' : 'Log in to use this';
+    }
+    if (saveFrameBtn) {
+      saveFrameBtn.style.display = ready ? 'inline-block' : 'none';
+      saveFrameBtn.title = hasToken ? '' : 'Log in to use this';
+    }
   };
 
   // Upload photo
@@ -1930,102 +1895,142 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Helper to check login on frame page with fallback (Promise-based)
   const requireLoginFrame = () => {
-    const hasFn = window.PixelPopApp && typeof window.PixelPopApp.verifyToken === 'function';
-    const p = hasFn ? window.PixelPopApp.verifyToken() : Promise.resolve(!!localStorage.getItem('token'));
-    return p.then(ok => {
-      if (!ok) {
-        alert('Please log in to continue.');
-        window.PixelPopAppNavigate('login');  // redirect to login page
-        return false;
-      }
-      return true;
-    });
-  };
+  const hasFn = window.PixelPopApp && typeof window.PixelPopApp.verifyToken === 'function';
+  const p = hasFn ? window.PixelPopApp.verifyToken() : Promise.resolve(!!localStorage.getItem('token'));
+  return p.then(ok => {
+    if (!ok) {
+      alert('Please log in to continue.');
+      window.PixelPopAppNavigate('login');  // redirect to login page
+      return false;
+    }
+    return true;
+  });
+};
+
 
   // Download + QR (LOGIN REQUIRED)
-  bindOnce(downloadBtn, 'click', (e) => {
-    e.preventDefault();
-    requireLoginFrame().then(ok => {
-      if (!ok) return;
-      if (!userPhotoSrc || !selectedFrameSrc) { alert('Upload a photo and choose a frame first.'); return; }
-      buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
-        if (!out) { alert('Could not compose framed image.'); return; }
-        const a = document.createElement('a');
-        a.download = `framed-image-${Date.now()}.jpg`;
-        a.href = URL.createObjectURL(out.blob);
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 250);
-        frameUploadImageToService(out.dataURL, 'view').then(qrUrl => {
-          if (qrUrl) {
-            frameVerifyPublicUrl(qrUrl).then(() => showQRCodeFrame(qrUrl)).catch(() => showQRCodeFrame(qrUrl));
-          }
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+
+      requireLoginFrame().then(ok => {
+        if (!ok) return;
+        if (!userPhotoSrc || !selectedFrameSrc) {
+          alert('Upload a photo and choose a frame first.');
+          return;
+        }
+
+        buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
+          if (!out) { alert('Could not compose framed image.'); return; }
+
+          const a = document.createElement('a');
+          a.download = `framed-image-${Date.now()}.jpg`;
+          a.href = URL.createObjectURL(out.blob);
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 250);
+
+          frameUploadImageToService(out.dataURL, 'view').then(qrUrl => {
+            if (qrUrl) {
+              frameVerifyPublicUrl(qrUrl)
+                .then(() => showQRCodeFrame(qrUrl))
+                .catch(() => showQRCodeFrame(qrUrl));
+            }
+          });
+
+          showMessage('Image downloaded in original HD quality!');
         });
-        showMessage('Image downloaded in original HD quality!');
       });
     });
-  });
+  }
 
   // Print + QR (LOGIN REQUIRED)
-  bindOnce(printBtn, 'click', (e) => {
-    e.preventDefault();
-    requireLoginFrame().then(ok => {
-      if (!ok) return;
-      if (!userPhotoSrc || !selectedFrameSrc) { alert('Upload a photo and choose a frame first.'); return; }
-      buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
-        if (!out) { alert('Could not compose framed image.'); return; }
-        const w = window.open('', '_blank');
-        if (w) {
-          w.document.write(`
-            <html><head><title>PixelPop Framed Photo</title>
-              <meta name="viewport" content="width=device-width, initial-scale=1" />
-              <style>
-                @media print { html, body { height: 100%; } img { page-break-inside: avoid; } }
-                html, body { margin:0; }
-                body { display:flex; justify-content:center; align-items:center; min-height:100vh; background:#fff; }
-                img { max-width:100%; max-height:100vh; height:auto; }
-              </style>
-            </head>
-            <body>
-              <img src="${out.dataURL}" alt="Framed Photo"/>
-              <script>
-                const img = document.querySelector('img');
-                if (img && !img.complete) img.addEventListener('load', () => window.print());
-                else window.print();
-                window.addEventListener('afterprint', () => window.close());
-              <\/script>
-            </body></html>
-          `);
-          w.document.close();
-        } else {
-          alert('Please allow pop-ups to print.');
+  if (printBtn) {
+    printBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+
+      requireLoginFrame().then(ok => {
+        if (!ok) return;
+        if (!userPhotoSrc || !selectedFrameSrc) {
+          alert('Upload a photo and choose a frame first.');
+          return;
         }
-        frameUploadImageToService(out.dataURL, 'view').then(qrUrl => {
-          if (qrUrl) {
-            frameVerifyPublicUrl(qrUrl).then(() => showQRCodeFrame(qrUrl)).catch(() => showQRCodeFrame(qrUrl));
+
+        buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
+          if (!out) { alert('Could not compose framed image.'); return; }
+
+          const w = window.open('', '_blank');
+          if (w) {
+            w.document.write(`
+              <html>
+                <head>
+                  <title>PixelPop Framed Photo</title>
+                  <meta name="viewport" content="width=device-width, initial-scale=1" />
+                  <style>
+                    @media print { html, body { height: 100%; } img { page-break-inside: avoid; } }
+                    html, body { margin:0; }
+                    body { display:flex; justify-content:center; align-items:center; min-height:100vh; background:#fff; }
+                    img { max-width:100%; max-height:100vh; height:auto; }
+                  </style>
+                </head>
+                <body>
+                  <img src="${out.dataURL}" alt="Framed Photo"/>
+                  <script>
+                    const img = document.querySelector('img');
+                    if (img && !img.complete) img.addEventListener('load', () => window.print());
+                    else window.print();
+                    window.addEventListener('afterprint', () => window.close());
+                  <\/script>
+                </body>
+              </html>
+            `);
+            w.document.close();
+          } else {
+            alert('Please allow pop-ups to print.');
           }
+
+          frameUploadImageToService(out.dataURL, 'view').then(qrUrl => {
+            if (qrUrl) {
+              frameVerifyPublicUrl(qrUrl)
+                .then(() => showQRCodeFrame(qrUrl))
+                .catch(() => showQRCodeFrame(qrUrl));
+            }
+          });
+
+          showMessage('Ready to print. QR generated!');
         });
-        showMessage('Ready to print. QR generated!');
       });
     });
-  });
+  }
 
-  // ✅ Save to My Gallery (one-time bind + duplicate-fire guard)
-  bindOnce(saveFrameBtn, 'click', (e) => {
-    e.preventDefault();
-    if (isFrameSaving) return;
+  // Save framed output directly to gallery (LOGIN REQUIRED) + jump to Gallery
+  if (saveFrameBtn) {
+    saveFrameBtn.addEventListener('click', (e) => {
+      e.preventDefault();
 
-    requireLoginFrame().then(ok => {
-      if (!ok) return;
-      if (!userPhotoSrc || !selectedFrameSrc) { alert('Upload a photo and choose a frame first.'); return; }
+      requireLoginFrame().then(ok => {
+        if (!ok) return;
+        if (!userPhotoSrc || !selectedFrameSrc) {
+          alert('Upload a photo and choose a frame first.');
+          return;
+        }
 
-      isFrameSaving = true;
-      setFrameSaveBusy(true);
+        const setBusy = (busy) => {
+          if (!saveFrameBtn) return;
+          if (busy) {
+            saveFrameBtn.disabled = true;
+            saveFrameBtn.dataset._old = saveFrameBtn.innerHTML;
+            saveFrameBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+          } else {
+            saveFrameBtn.disabled = false;
+            saveFrameBtn.innerHTML = saveFrameBtn.dataset._old || 'Save to My Gallery';
+          }
+        };
 
-      buildFramedOutput(userPhotoSrc, selectedFrameSrc)
-        .then(out => {
-          if (!out) throw new Error('compose-failed');
+        setBusy(true);
 
-          // Prefer app’s API wrapper; fallback to direct fetch
+        buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
+          if (!out) { alert('Could not compose framed image.'); setBusy(false); return; }
+
           const attempt = (window.PixelPopApp && typeof window.PixelPopApp.savePhotoToGallery === 'function')
             ? window.PixelPopApp.savePhotoToGallery(out.dataURL)
             : fetch(FRAME_API_BASE + '/api/gallery', {
@@ -2039,29 +2044,30 @@ document.addEventListener('DOMContentLoaded', () => {
                   visibility: 'private',
                   fileName: 'pixelpop-' + Date.now() + '.jpg'
                 })
-              }).then(r => r.ok
-                ? { ok: true, item: { id: null, url: out.dataURL, createdAt: new Date().toISOString() } }
-                : Promise.reject(new Error('save-failed')));
+              }).then(r => r.ok ? { ok: true, item: { url: out.dataURL } } : Promise.reject(new Error('save-failed')));
 
-          return Promise.resolve(attempt);
-        })
-        .then((res) => {
-          if (!res || !res.ok) throw new Error('save-failed');
-          const item = res.item || { id: null, url: userPhotoSrc, createdAt: new Date().toISOString() };
-          alert('Saved to your private gallery!');
-          // Jump to Gallery and show the new item
-          window.PixelPopApp?.goToGalleryAndShow?.(item) || window.PixelPopAppNavigate?.('gallery');
-        })
-        .catch(() => alert('Could not save to gallery.'))
-        .finally(() => { isFrameSaving = false; setFrameSaveBusy(false); });
+          Promise.resolve(attempt)
+            .then((res) => {
+              const item = res && res.item ? res.item : { id: null, url: out.dataURL, createdAt: new Date().toISOString() };
+              alert('Saved to your private gallery!');
+              // show immediately in Gallery
+              if (window.PixelPopApp && typeof window.PixelPopApp.goToGalleryAndShow === 'function') {
+                window.PixelPopApp.goToGalleryAndShow(item);
+              } else {
+                if (typeof window.PixelPopAppNavigate === 'function') window.PixelPopAppNavigate('gallery');
+              }
+            })
+            .catch(() => alert('Could not save to gallery.'))
+            .finally(() => setBusy(false));
+        });
+      });
     });
-  });
+  }
 
-  // Keep your existing download/print bindings as-is
-  setActionsVisibility();
+  // init display state
   showMessage('Upload a photo to begin!');
+  setActionsVisibility();
 });
-
 
 /* =======================================================================
    Auth UI (Login / Register / Forgot / Google) + Profile Card
@@ -2392,5 +2398,5 @@ window.addEventListener('DOMContentLoaded', () => {
   const avatarUrl = localStorage.getItem('avatarUrl') || '';
   if (username) showUserProfile(username, email, avatarUrl);
 
-  
+  bindLogoutButtons();
 });
