@@ -2017,12 +2017,21 @@ if (registerForm) {
       return setBusy(registerForm, false);
     }
 
+    // Username validation: letters only or letters+numbers, not numbers-only
+    const usernameRegex = /^(?=.*[A-Za-z])[A-Za-z0-9]+$/;
+    if (!usernameRegex.test(username)) {
+      alert('Username must contain letters (letters or letters+numbers allowed, numbers only are not allowed).');
+      return setBusy(registerForm, false);
+    }
+
+    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       alert('Please enter a valid email address.');
       return setBusy(registerForm, false);
     }
 
+    // Password validation
     if (password.length < 6) {
       alert('Password must be at least 6 characters long.');
       return setBusy(registerForm, false);
@@ -2037,7 +2046,7 @@ if (registerForm) {
       const r = await doPost('/signup', { username, email, password });
       if (r.ok) {
         alert('Registration successful! Please log in.');
-        container?.classList.remove('active'); // back to login
+        container?.classList.remove('active');
         registerForm.reset();
       } else {
         alert(`Registration failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
@@ -2065,10 +2074,18 @@ if (loginForm) {
       return setBusy(loginForm, false);
     }
 
-    if (raw.includes('@')) {
+    const isEmail = raw.includes('@');
+
+    if (isEmail) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(raw)) {
         alert('Please enter a valid email address.');
+        return setBusy(loginForm, false);
+      }
+    } else {
+      const usernameRegex = /^(?=.*[A-Za-z])[A-Za-z0-9]+$/;
+      if (!usernameRegex.test(raw)) {
+        alert('Username must contain letters (letters or letters+numbers allowed, numbers only are not allowed).');
         return setBusy(loginForm, false);
       }
     }
@@ -2078,7 +2095,7 @@ if (loginForm) {
       return setBusy(loginForm, false);
     }
 
-    const body = raw.includes('@') ? { email: raw, password } : { username: raw, password };
+    const body = isEmail ? { email: raw, password } : { username: raw, password };
 
     try {
       const r = await doPost('/login', body);
@@ -2086,25 +2103,18 @@ if (loginForm) {
       if (r.ok && r._json?.token) {
         setToken(r._json.token);
 
-        // Accept both shapes:
-        //  - /login: { token, username, email }
-        //  - /auth/google: { token, user:{ username, email } }
         const u = r._json?.user || {};
         const displayName = r._json.username || u.username || u.email || raw;
         const email       = r._json.email    || u.email    || '';
-        const avatar      = u.avatarUrl || u.photo || ''; // not provided by /login, ok to be empty
+        const avatar      = u.avatarUrl || u.photo || '';
 
         localStorage.setItem('username', displayName);
         if (email)  localStorage.setItem('email', email);
         if (avatar) localStorage.setItem('avatarUrl', avatar);
 
         window.PixelPopApp?.updatePrivilegedButtonsState?.();
-
         showUserProfile(displayName, email, avatar);
-
-        // Optional: route into booth
         window.PixelPopAppNavigate?.('layout');
-
         loginForm.reset();
 
         // Non-blocking verify
@@ -2126,17 +2136,28 @@ if (forgotLink) {
   forgotLink.addEventListener('click', async (e) => {
     e.preventDefault();
 
-    const email = prompt('Enter the email on your account:');
-    if (!email) return;
+    const emailOrUsername = prompt('Enter the email or username on your account:');
+    if (!emailOrUsername) return;
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      alert('Please enter a valid email address.');
-      return;
+    const raw = emailOrUsername.trim();
+    const isEmail = raw.includes('@');
+
+    if (isEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(raw)) {
+        alert("Please enter a valid email address.");
+        return;
+      }
+    } else {
+      const usernameRegex = /^(?=.*[A-Za-z])[A-Za-z0-9]+$/;
+      if (!usernameRegex.test(raw)) {
+        alert('Username must contain letters (letters or letters+numbers allowed, numbers only are not allowed).');
+        return;
+      }
     }
 
     try {
-      const r = await doPost('/forgot-password', { email: email.trim() });
+      const r = await doPost('/forgot-password', isEmail ? { email: raw } : { username: raw });
       alert(r._json?.message || 'If that account exists, we sent a reset link.');
     } catch (err) {
       console.error(err);
@@ -2144,6 +2165,23 @@ if (forgotLink) {
     }
   });
 }
+
+/* ---------- Password Eye Toggle ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.toggle-password').forEach(toggle => {
+    toggle.addEventListener('click', () => {
+      const input = toggle.previousElementSibling;
+      if (input.type === 'password') {
+        input.type = 'text';
+        toggle.innerHTML = '<i class="bx bx-hide"></i>';
+      } else {
+        input.type = 'password';
+        toggle.innerHTML = '<i class="bx bx-show"></i>';
+      }
+    });
+  });
+});
+
 
 /* ---------- Google Sign-In callback ---------- */
 // <script src="https://accounts.google.com/gsi/client" async defer></script>

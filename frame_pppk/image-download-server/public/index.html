@@ -548,6 +548,7 @@
 
   <!-- Login / Register (shown BEFORE login) -->
   <section class="loginposition">
+
     <div class="logincontainer">
       <!-- Login Form -->
       <div class="form-box login">
@@ -559,12 +560,12 @@
           </div>
           <div class="input-box">
             <input type="password" name="password" placeholder="Password" required>
-            <i class='bx bxs-lock-alt'></i>
+            <span class="toggle-password"><i class="bx bx-show"></i></span>
           </div>
           <div class="forgot-link">
             <a href="#" id="forgot-link">Forgot Password?</a>
           </div>
-          <button type="submit" class="btn">Login</button>
+          <button type="submit" class="btn1">Login</button>
 
           <p>or login with</p>
           <!-- Google Sign-In Button -->
@@ -598,11 +599,12 @@
           </div>
           <div class="input-box">
             <input type="password" name="password" placeholder="Password" required>
-            <i class='bx bxs-lock-alt'></i>
+            <span class="toggle-password"><i class="bx bx-show"></i></span>
           </div>
           <div class="input-box">
             <input type="password" name="confirmPassword" placeholder="Confirm Password" required>
-            <i class='bx bxs-lock-alt'></i>
+            <span class="toggle-password"><i class="bx bx-show"></i></span>
+          
           </div>
           <button type="submit" class="btn1">Register</button>
 
@@ -635,10 +637,6 @@
       </div>
     </div>
   </section>
-</section>
-
-
-
 
     </main>
 
