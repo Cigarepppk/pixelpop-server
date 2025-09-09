@@ -101,6 +101,8 @@ logout() {
   // Clear stored credentials
   localStorage.removeItem('token');
   localStorage.removeItem('username');
+  localStorage.removeItem('email');      // ← add
+  localStorage.removeItem('avatarUrl');
 
   // Reset UI: hide profile, show login form
   const profileBox = document.getElementById('user-profile');
@@ -403,18 +405,14 @@ const requireLogin = () =>
     e.preventDefault();
     requireLogin().then(ok => {
       if (!ok) return;
-      if (this.isSaving) return;            // ← block extra clicks
-      this.isSaving = true;                 // lock saving
+             // ← block extra clicks
+                    // hard disable while saving
 
-      saveBtn.disabled = true;              // hard disable while saving
-
-      Promise.resolve(this.saveFinalToGallery?.())
-        .finally(() => {
-          this.isSaving = false;            // unlock
-          saveBtn.disabled = false;         // re-enable button
+  this.saveFinalToGallery?.();
+          
         });
     });
-  });
+  
 }
   }
 
@@ -804,7 +802,7 @@ const requireLogin = () =>
     return this.fetchWith404Fallback(this.API_BASE, '/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageData, fileName: `pixelpop-photo-${Date.Now?.() || Date.now()}.jpg` })
+      body: JSON.stringify({ imageData, fileName: `pixelpop-photo-${Date.now()}.jpg` })
     }, ['/upload'])
     .then(response => {
       const data = response._json || {};
@@ -1629,17 +1627,16 @@ _doAutosave() {
 }
 
 saveFinalToGallery() {
-  if (this.isSaving) return Promise.resolve();  // ← extra guard
+  if (this.isSaving) return Promise.resolve();
 
   const btn = document.getElementById('save-gallery-btn');
   const setBusy = (busy) => {
     if (!btn) return;
+    btn.disabled = !!busy;
     if (busy) {
-      btn.disabled = true;
       btn.dataset._old = btn.innerHTML;
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     } else {
-      btn.disabled = false;
       btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery';
     }
   };
@@ -1649,8 +1646,9 @@ saveFinalToGallery() {
   if (!this.isLayoutReady) { alert('Hang on — still rendering your photo…'); return Promise.resolve(); }
   if ((this._galleryCount || 0) >= this.MAX_GALLERY) { alert('Gallery is full (50 photos). Please delete some photos first.'); return Promise.resolve(); }
 
+  // start saving now that guards passed
+  this.isSaving = true;
   setBusy(true);
-  // … rest of your code unchanged …
 
   const scale = 2;
   const tmp = document.createElement('canvas');
@@ -1661,7 +1659,7 @@ saveFinalToGallery() {
   ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
   const dataURL = tmp.toDataURL('image/jpeg', 0.95);
 
-  this.savePhotoToGallery(dataURL)
+  return this.savePhotoToGallery(dataURL)
     .then(({ ok, item, error }) => {
       if (ok) {
         const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString(), fileName: `pixelpop-${Date.now()}.jpg` };
@@ -1673,7 +1671,7 @@ saveFinalToGallery() {
       }
     })
     .catch(err => { console.warn('Save to gallery failed:', err); alert('Save failed. Please try again.'); })
-    .finally(() => setBusy(false));
+    .finally(() => { this.isSaving = false; setBusy(false); });
 }
 }
 
@@ -2422,5 +2420,5 @@ window.addEventListener('DOMContentLoaded', () => {
   const avatarUrl = localStorage.getItem('avatarUrl') || '';
   if (username) showUserProfile(username, email, avatarUrl);
 
-  bindLogoutButtons();
+  
 });
