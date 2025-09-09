@@ -1479,19 +1479,31 @@ _doAutosave() {
 }
 
 saveFinalToGallery() {
+  // 🚫 prevent duplicate saves
+  if (this._hasSavedCurrentLayout) { alert('This layout is already saved.'); return Promise.resolve(); }
+  if (this.isSaving) return Promise.resolve();
+
   const btn = document.getElementById('save-gallery-btn');
   const setBusy = (busy) => {
     if (!btn) return;
-    if (busy) { btn.disabled = true; btn.dataset._old = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...'; }
-    else { btn.disabled = false; btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery'; }
+    btn.disabled = !!busy;
+    if (busy) {
+      btn.dataset._old = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    } else {
+      btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery';
+    }
   };
 
   const finalCanvas = document.getElementById('final-canvas');
-  if (!finalCanvas) return alert('No photo to save yet.');
-  if (!this.isLayoutReady) return alert('Hang on — still rendering your photo…');
-  if ((this._galleryCount || 0) >= this.MAX_GALLERY) return alert('Gallery is full (50 photos). Please delete some photos first.');
+  if (!finalCanvas) { alert('No photo to save yet.'); return Promise.resolve(); }
+  if (!this.isLayoutReady) { alert('Hang on — still rendering your photo…'); return Promise.resolve(); }
+  if ((this._galleryCount || 0) >= this.MAX_GALLERY) { alert('Gallery is full (50 photos). Please delete some photos first.'); return Promise.resolve(); }
 
+  this.isSaving = true;
   setBusy(true);
+
+  // upscale & export
   const scale = 2;
   const tmp = document.createElement('canvas');
   tmp.width  = finalCanvas.width * scale;
@@ -1501,22 +1513,32 @@ saveFinalToGallery() {
   ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
   const dataURL = tmp.toDataURL('image/jpeg', 0.95);
 
-  this.savePhotoToGallery(dataURL)
+  return this.savePhotoToGallery(dataURL)
     .then(({ ok, item, error }) => {
-      if (ok) {
-        const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString(), fileName: `pixelpop-${Date.now()}.jpg` };
-        this._rememberMirrored(added);
-        alert('Saved to your private gallery!');
-        this.goToGalleryAndShow(added);
-      } else {
-        alert('Save failed: ' + (error || 'Unknown error'));
-      }
-    })
-    .catch(err => { console.warn('Save to gallery failed:', err); alert('Save failed. Please try again.'); })
-    .finally(() => setBusy(false));
-}
-}
+      if (!ok) throw new Error(error || 'Unknown error');
 
+      const added = item || {
+        id: null,
+        url: dataURL,
+        createdAt: new Date().toISOString(),
+        fileName: `pixelpop-${Date.now()}.jpg`
+      };
+
+      this._rememberMirrored(added);
+      this._hasSavedCurrentLayout = true;   // ✅ mark as saved (prevents re-save)
+      alert('Saved to your private gallery!');
+      this.goToGalleryAndShow(added);       // ✅ jump to Gallery
+    })
+    .catch(err => {
+      console.warn('Save to gallery failed:', err);
+      alert('Save failed. Please try again.');
+    })
+    .finally(() => {
+      this.isSaving = false;                // 🔓 release the lock
+      setBusy(false);
+    });
+}
+}
 /* =======================================================================
    Initialize application + expose helpers  (and attach unified logout)
    ======================================================================= */

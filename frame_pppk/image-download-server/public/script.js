@@ -1829,18 +1829,40 @@ function buildFramedOutput(userSrc, frameSrc) {
 
 // Frame page listeners
 document.addEventListener('DOMContentLoaded', () => {
+  // Prevent re-binding if this script runs more than once on the frame page
+  if (window.__ppFrameUIInit) return;
+  window.__ppFrameUIInit = true;
+
   const fileInput    = document.getElementById('fileInput');
   const userPhoto    = document.getElementById('userPhoto');
   const frameImage   = document.getElementById('frameImage');
   const messageBox   = document.getElementById('initialMessage');
   const downloadBtn  = document.getElementById('downloadBtn');
   const printBtn     = document.getElementById('printFrameBtn');
-  const saveFrameBtn = document.getElementById('saveFrameToGalleryBtn'); // Save to My Gallery (frame)
+  const saveFrameBtn = document.getElementById('saveFrameToGalleryBtn');
   const frameSearch  = document.getElementById('frameSearch');
   const frameItems   = Array.from(document.querySelectorAll('.frame-item'));
 
+  // ✅ these must live OUTSIDE the click handler
   let selectedFrameSrc = '';
   let userPhotoSrc     = '';
+  let isFrameSaving    = false;
+  const setFrameSaveBusy = (busy) => {
+  if (!saveFrameBtn) return;
+  saveFrameBtn.disabled = !!busy;
+  if (busy) {
+    saveFrameBtn.dataset._old = saveFrameBtn.innerHTML;
+    saveFrameBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+  } else {
+    saveFrameBtn.innerHTML = saveFrameBtn.dataset._old || 'Save to My Gallery';
+  }
+};
+
+  const bindOnce = (el, type, handler) => {
+    if (!el || el.dataset.bound) return;
+    el.addEventListener(type, handler);
+    el.dataset.bound = '1';
+  };
 
   const showMessage = (text) => {
     if (!messageBox) return;
@@ -1852,19 +1874,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const setActionsVisibility = () => {
     const ready = !!(userPhotoSrc && selectedFrameSrc);
     const hasToken = !!localStorage.getItem('token');
-
-    if (downloadBtn) {
-      downloadBtn.style.display = ready ? 'inline-block' : 'none';
-      downloadBtn.title = hasToken ? '' : 'Log in to use this';
-    }
-    if (printBtn) {
-      printBtn.style.display = ready ? 'inline-block' : 'none';
-      printBtn.title = hasToken ? '' : 'Log in to use this';
-    }
-    if (saveFrameBtn) {
-      saveFrameBtn.style.display = ready ? 'inline-block' : 'none';
-      saveFrameBtn.title = hasToken ? '' : 'Log in to use this';
-    }
+    if (downloadBtn) { downloadBtn.style.display = ready ? 'inline-block' : 'none'; downloadBtn.title = hasToken ? '' : 'Log in to use this'; }
+    if (printBtn)   { printBtn.style.display   = ready ? 'inline-block' : 'none'; printBtn.title   = hasToken ? '' : 'Log in to use this'; }
+    if (saveFrameBtn){saveFrameBtn.style.display= ready ? 'inline-block' : 'none'; saveFrameBtn.title = hasToken ? '' : 'Log in to use this'; }
   };
 
   // Upload photo
@@ -1918,142 +1930,102 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Helper to check login on frame page with fallback (Promise-based)
   const requireLoginFrame = () => {
-  const hasFn = window.PixelPopApp && typeof window.PixelPopApp.verifyToken === 'function';
-  const p = hasFn ? window.PixelPopApp.verifyToken() : Promise.resolve(!!localStorage.getItem('token'));
-  return p.then(ok => {
-    if (!ok) {
-      alert('Please log in to continue.');
-      window.PixelPopAppNavigate('login');  // redirect to login page
-      return false;
-    }
-    return true;
-  });
-};
-
+    const hasFn = window.PixelPopApp && typeof window.PixelPopApp.verifyToken === 'function';
+    const p = hasFn ? window.PixelPopApp.verifyToken() : Promise.resolve(!!localStorage.getItem('token'));
+    return p.then(ok => {
+      if (!ok) {
+        alert('Please log in to continue.');
+        window.PixelPopAppNavigate('login');  // redirect to login page
+        return false;
+      }
+      return true;
+    });
+  };
 
   // Download + QR (LOGIN REQUIRED)
-  if (downloadBtn) {
-    downloadBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-
-      requireLoginFrame().then(ok => {
-        if (!ok) return;
-        if (!userPhotoSrc || !selectedFrameSrc) {
-          alert('Upload a photo and choose a frame first.');
-          return;
-        }
-
-        buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
-          if (!out) { alert('Could not compose framed image.'); return; }
-
-          const a = document.createElement('a');
-          a.download = `framed-image-${Date.now()}.jpg`;
-          a.href = URL.createObjectURL(out.blob);
-          document.body.appendChild(a); a.click(); a.remove();
-          setTimeout(() => URL.revokeObjectURL(a.href), 250);
-
-          frameUploadImageToService(out.dataURL, 'view').then(qrUrl => {
-            if (qrUrl) {
-              frameVerifyPublicUrl(qrUrl)
-                .then(() => showQRCodeFrame(qrUrl))
-                .catch(() => showQRCodeFrame(qrUrl));
-            }
-          });
-
-          showMessage('Image downloaded in original HD quality!');
+  bindOnce(downloadBtn, 'click', (e) => {
+    e.preventDefault();
+    requireLoginFrame().then(ok => {
+      if (!ok) return;
+      if (!userPhotoSrc || !selectedFrameSrc) { alert('Upload a photo and choose a frame first.'); return; }
+      buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
+        if (!out) { alert('Could not compose framed image.'); return; }
+        const a = document.createElement('a');
+        a.download = `framed-image-${Date.now()}.jpg`;
+        a.href = URL.createObjectURL(out.blob);
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 250);
+        frameUploadImageToService(out.dataURL, 'view').then(qrUrl => {
+          if (qrUrl) {
+            frameVerifyPublicUrl(qrUrl).then(() => showQRCodeFrame(qrUrl)).catch(() => showQRCodeFrame(qrUrl));
+          }
         });
+        showMessage('Image downloaded in original HD quality!');
       });
     });
-  }
+  });
 
   // Print + QR (LOGIN REQUIRED)
-  if (printBtn) {
-    printBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-
-      requireLoginFrame().then(ok => {
-        if (!ok) return;
-        if (!userPhotoSrc || !selectedFrameSrc) {
-          alert('Upload a photo and choose a frame first.');
-          return;
+  bindOnce(printBtn, 'click', (e) => {
+    e.preventDefault();
+    requireLoginFrame().then(ok => {
+      if (!ok) return;
+      if (!userPhotoSrc || !selectedFrameSrc) { alert('Upload a photo and choose a frame first.'); return; }
+      buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
+        if (!out) { alert('Could not compose framed image.'); return; }
+        const w = window.open('', '_blank');
+        if (w) {
+          w.document.write(`
+            <html><head><title>PixelPop Framed Photo</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <style>
+                @media print { html, body { height: 100%; } img { page-break-inside: avoid; } }
+                html, body { margin:0; }
+                body { display:flex; justify-content:center; align-items:center; min-height:100vh; background:#fff; }
+                img { max-width:100%; max-height:100vh; height:auto; }
+              </style>
+            </head>
+            <body>
+              <img src="${out.dataURL}" alt="Framed Photo"/>
+              <script>
+                const img = document.querySelector('img');
+                if (img && !img.complete) img.addEventListener('load', () => window.print());
+                else window.print();
+                window.addEventListener('afterprint', () => window.close());
+              <\/script>
+            </body></html>
+          `);
+          w.document.close();
+        } else {
+          alert('Please allow pop-ups to print.');
         }
-
-        buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
-          if (!out) { alert('Could not compose framed image.'); return; }
-
-          const w = window.open('', '_blank');
-          if (w) {
-            w.document.write(`
-              <html>
-                <head>
-                  <title>PixelPop Framed Photo</title>
-                  <meta name="viewport" content="width=device-width, initial-scale=1" />
-                  <style>
-                    @media print { html, body { height: 100%; } img { page-break-inside: avoid; } }
-                    html, body { margin:0; }
-                    body { display:flex; justify-content:center; align-items:center; min-height:100vh; background:#fff; }
-                    img { max-width:100%; max-height:100vh; height:auto; }
-                  </style>
-                </head>
-                <body>
-                  <img src="${out.dataURL}" alt="Framed Photo"/>
-                  <script>
-                    const img = document.querySelector('img');
-                    if (img && !img.complete) img.addEventListener('load', () => window.print());
-                    else window.print();
-                    window.addEventListener('afterprint', () => window.close());
-                  <\/script>
-                </body>
-              </html>
-            `);
-            w.document.close();
-          } else {
-            alert('Please allow pop-ups to print.');
+        frameUploadImageToService(out.dataURL, 'view').then(qrUrl => {
+          if (qrUrl) {
+            frameVerifyPublicUrl(qrUrl).then(() => showQRCodeFrame(qrUrl)).catch(() => showQRCodeFrame(qrUrl));
           }
-
-          frameUploadImageToService(out.dataURL, 'view').then(qrUrl => {
-            if (qrUrl) {
-              frameVerifyPublicUrl(qrUrl)
-                .then(() => showQRCodeFrame(qrUrl))
-                .catch(() => showQRCodeFrame(qrUrl));
-            }
-          });
-
-          showMessage('Ready to print. QR generated!');
         });
+        showMessage('Ready to print. QR generated!');
       });
     });
-  }
+  });
 
-  // Save framed output directly to gallery (LOGIN REQUIRED) + jump to Gallery
-  if (saveFrameBtn) {
-    saveFrameBtn.addEventListener('click', (e) => {
-      e.preventDefault();
+  // ✅ Save to My Gallery (one-time bind + duplicate-fire guard)
+  bindOnce(saveFrameBtn, 'click', (e) => {
+    e.preventDefault();
+    if (isFrameSaving) return;
 
-      requireLoginFrame().then(ok => {
-        if (!ok) return;
-        if (!userPhotoSrc || !selectedFrameSrc) {
-          alert('Upload a photo and choose a frame first.');
-          return;
-        }
+    requireLoginFrame().then(ok => {
+      if (!ok) return;
+      if (!userPhotoSrc || !selectedFrameSrc) { alert('Upload a photo and choose a frame first.'); return; }
 
-        const setBusy = (busy) => {
-          if (!saveFrameBtn) return;
-          if (busy) {
-            saveFrameBtn.disabled = true;
-            saveFrameBtn.dataset._old = saveFrameBtn.innerHTML;
-            saveFrameBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-          } else {
-            saveFrameBtn.disabled = false;
-            saveFrameBtn.innerHTML = saveFrameBtn.dataset._old || 'Save to My Gallery';
-          }
-        };
+      isFrameSaving = true;
+      setFrameSaveBusy(true);
 
-        setBusy(true);
+      buildFramedOutput(userPhotoSrc, selectedFrameSrc)
+        .then(out => {
+          if (!out) throw new Error('compose-failed');
 
-        buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
-          if (!out) { alert('Could not compose framed image.'); setBusy(false); return; }
-
+          // Prefer app’s API wrapper; fallback to direct fetch
           const attempt = (window.PixelPopApp && typeof window.PixelPopApp.savePhotoToGallery === 'function')
             ? window.PixelPopApp.savePhotoToGallery(out.dataURL)
             : fetch(FRAME_API_BASE + '/api/gallery', {
@@ -2067,30 +2039,29 @@ document.addEventListener('DOMContentLoaded', () => {
                   visibility: 'private',
                   fileName: 'pixelpop-' + Date.now() + '.jpg'
                 })
-              }).then(r => r.ok ? { ok: true, item: { url: out.dataURL } } : Promise.reject(new Error('save-failed')));
+              }).then(r => r.ok
+                ? { ok: true, item: { id: null, url: out.dataURL, createdAt: new Date().toISOString() } }
+                : Promise.reject(new Error('save-failed')));
 
-          Promise.resolve(attempt)
-            .then((res) => {
-              const item = res && res.item ? res.item : { id: null, url: out.dataURL, createdAt: new Date().toISOString() };
-              alert('Saved to your private gallery!');
-              // show immediately in Gallery
-              if (window.PixelPopApp && typeof window.PixelPopApp.goToGalleryAndShow === 'function') {
-                window.PixelPopApp.goToGalleryAndShow(item);
-              } else {
-                if (typeof window.PixelPopAppNavigate === 'function') window.PixelPopAppNavigate('gallery');
-              }
-            })
-            .catch(() => alert('Could not save to gallery.'))
-            .finally(() => setBusy(false));
-        });
-      });
+          return Promise.resolve(attempt);
+        })
+        .then((res) => {
+          if (!res || !res.ok) throw new Error('save-failed');
+          const item = res.item || { id: null, url: userPhotoSrc, createdAt: new Date().toISOString() };
+          alert('Saved to your private gallery!');
+          // Jump to Gallery and show the new item
+          window.PixelPopApp?.goToGalleryAndShow?.(item) || window.PixelPopAppNavigate?.('gallery');
+        })
+        .catch(() => alert('Could not save to gallery.'))
+        .finally(() => { isFrameSaving = false; setFrameSaveBusy(false); });
     });
-  }
+  });
 
-  // init display state
-  showMessage('Upload a photo to begin!');
+  // Keep your existing download/print bindings as-is
   setActionsVisibility();
+  showMessage('Upload a photo to begin!');
 });
+
 
 /* =======================================================================
    Auth UI (Login / Register / Forgot / Google) + Profile Card
