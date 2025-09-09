@@ -1768,6 +1768,7 @@ body.lb-open { overflow: hidden; }
   box-shadow: var(--box-shadow);
   text-align: center;
   align-items: center;
+  justify-content: center;
 }
 
 .profile-pic {
@@ -1792,7 +1793,7 @@ body.lb-open { overflow: hidden; }
 
 
 .logout-btn {
-  background: var(--gray);
+  background: rgb(112, 224, 224);
   color: white;
   padding: 10px 20px;
   border: none;
@@ -1800,6 +1801,7 @@ body.lb-open { overflow: hidden; }
   cursor: pointer;
   align-items: center;
   text-align: center;
+  justify-content: center;
   
 }
 
