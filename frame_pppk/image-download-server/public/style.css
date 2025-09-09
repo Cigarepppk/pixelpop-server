@@ -1766,9 +1766,11 @@ body.lb-open { overflow: hidden; }
   background: var(--white);
   border-radius: var(--border-radius);
   box-shadow: var(--box-shadow);
-  text-align: center;
-  align-items: center;
-  justify-content: center;
+  text-align: center; /* Ensures text and button are centered horizontally */
+  display: flex;
+  flex-direction: column; /* Stack items vertically */
+  align-items: center;    /* Center items horizontally */
+  justify-content: center; /* Center content vertically if needed */
 }
 
 .profile-pic {
@@ -1791,7 +1793,6 @@ body.lb-open { overflow: hidden; }
   word-break: break-all;
 }
 
-
 .logout-btn {
   background: rgb(112, 224, 224);
   color: white;
@@ -1799,15 +1800,17 @@ body.lb-open { overflow: hidden; }
   border: none;
   border-radius: var(--border-radius);
   cursor: pointer;
-  align-items: center;
+  margin-top: 20px; /* Space between email and logout button */
   text-align: center;
+  display: inline-flex; /* Ensures the button content is centered */
+  align-items: center;
   justify-content: center;
-  
 }
 
 .logout-btn:hover {
   background: var(--primary-pink);
 }
+
 
 
 
