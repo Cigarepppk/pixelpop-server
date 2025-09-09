@@ -1547,7 +1547,7 @@ form{ width: 100%; }
 .gallery-sub{ color: var(--black); }
 .gallery-actions{ display:flex; gap:.5rem; justify-content:center; margin:.75rem 0 1.25rem; }
 
-.gallery-hint{
+/*.gallery-hint{
   background: var(--white);
   border: 1px dashed var(--secondary-pink);
   border-radius: var(--border-radius);
@@ -1555,7 +1555,7 @@ form{ width: 100%; }
   color: var(--dark-gray);
   max-width: 640px;
   margin: .75rem auto 0;
-}
+}*/
 
 .gallery-grid{
   display: grid;
