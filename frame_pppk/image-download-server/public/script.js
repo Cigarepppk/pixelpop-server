@@ -2346,7 +2346,8 @@ if (loginForm) {
 
         window.PixelPopApp?.updatePrivilegedButtonsState?.();
         showUserProfile(displayName, email, avatar);
-        window.PixelPopAppNavigate?.('layout');
+        alert("login successful! Welcome, " + (displayName || 'User') + '.');
+        window.PixelPopAppNavigate?.('login');
         loginForm.reset();
 
         // Non-blocking verify
