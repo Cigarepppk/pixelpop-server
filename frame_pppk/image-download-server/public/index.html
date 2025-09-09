@@ -477,21 +477,34 @@
       <h1>Your Gallery</h1>
       <p class="gallery-sub">Private to your account. Only visible when you’re logged in.</p>
 
-      <!-- Actions shown when logged in -->
-      <div id="gallery-actions" class="gallery-actions" style="display:none;">
-        <button id="refresh-gallery" class="secondary-button" aria-label="Refresh gallery">
-          <i class="fas fa-rotate"></i> Refresh
-        </button>
-        <button id="select-toggle" class="secondary-button" aria-label="Toggle selection mode">
-          <i class="fas fa-check-square"></i> Select
-        </button>
-        <button id="delete-selected" class="secondary-button" aria-label="Delete selected photos" disabled>
-          <i class="fas fa-trash"></i> Delete Selected
-        </button>
-        <button id="logout-from-gallery" class="secondary-button logout-btn" aria-label="Log out">
-  <i class="fas fa-sign-out-alt"></i> Logout
-</button>
-      </div>
+   <!-- Actions shown when logged in -->
+<div id="gallery-actions" class="gallery-actions" style="display:none;">
+  <button id="refresh-gallery" class="secondary-button" aria-label="Refresh gallery">
+    <i class="fas fa-rotate"></i> Refresh
+  </button>
+
+  <button id="select-toggle" class="secondary-button" aria-label="Toggle selection mode">
+    <i class="fas fa-check-square"></i> Select
+  </button>
+
+  <!-- NEW: Download & Print Selected -->
+  <button id="download-selected" class="secondary-button" aria-label="Download selected photos" disabled>
+    <i class="fas fa-download"></i> Download Selected
+  </button>
+  <button id="print-selected" class="secondary-button" aria-label="Print selected photos" disabled>
+    <i class="fas fa-print"></i> Print Selected
+  </button>
+
+  <button id="delete-selected" class="secondary-button" aria-label="Delete selected photos" disabled>
+    <i class="fas fa-trash"></i> Delete Selected
+  </button>
+
+  <button id="logout-from-gallery" class="secondary-button logout-btn" aria-label="Log out">
+    <i class="fas fa-sign-out-alt"></i> Logout
+  </button>
+</div>
+
+      
 
       <!-- Login hint when not authenticated -->
       <div id="gallery-login-hint" class="gallery-hint" style="display:none;">

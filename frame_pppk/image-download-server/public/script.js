@@ -1057,6 +1057,74 @@ _downloadWithAuth(url, saveBlob, it) {
     .then(saveBlob)
     .catch(() => alert('Download failed. Please try again.'));
 }
+/* ---- Resolve a printable URL for an item (public if possible, else blob with auth) ---- */
+_toPrintableUrl(it) {
+  const abs = (u) => (!u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)));
+  const pub = abs(it.urlFull || it.originalUrl || it.urlPublic || it.url || '');
+  if (pub) return Promise.resolve(pub);
+
+  const sec = abs(it.secureUrl || it.urlFull || it.url || '');
+  const token = localStorage.getItem('token');
+  if (!sec || !token) return Promise.resolve('');
+
+  return fetch(sec, { headers: { Authorization: 'Bearer ' + token } })
+    .then(r => r.ok ? r.blob() : Promise.reject())
+    .then(blob => URL.createObjectURL(blob))
+    .catch(() => '');
+}
+
+/* ---- Print a single item ---- */
+async _printOne(it) {
+  const url = await this._toPrintableUrl(it);
+  if (!url) { alert('Unable to open image for printing.'); return; }
+  this._printImagesInNewWindow([url], this._isMirrored(it));
+}
+
+/* ---- Print many items (selected) ---- */
+async _printItems(items) {
+  const urls = [];
+  const mirrors = [];
+  for (const it of items) {
+    // build URL (public or blob) and remember mirror flag for first item
+    // (we’ll mirror all the same way for consistency)
+    const u = await this._toPrintableUrl(it);
+    if (u) { urls.push(u); mirrors.push(this._isMirrored(it)); }
+  }
+  if (!urls.length) { alert('No printable images.'); return; }
+  // If any selected is mirrored, mirror all so orientation matches your “photo results”
+  const shouldMirror = mirrors.some(Boolean);
+  this._printImagesInNewWindow(urls, shouldMirror);
+}
+
+/* ---- Open a print window (one image per page). Mirror if requested. ---- */
+_printImagesInNewWindow(urls, mirror=false) {
+  const w = window.open('', '_blank');
+  if (!w) { alert('Please allow pop-ups to print.'); return; }
+  w.document.write(`
+    <html>
+      <head>
+        <title>Print Photos — PixelPop Studio</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <style>
+          @media print { img { page-break-inside: avoid; } }
+          html, body { margin:0; padding:0; background:#fff; }
+          .page { display:flex; align-items:center; justify-content:center; min-height:100vh; }
+          img { max-width:100%; max-height:95vh; ${mirror ? 'transform:scaleX(-1); transform-origin:center;' : ''} }
+        </style>
+      </head>
+      <body>
+        ${urls.map(u => `<div class="page"><img src="${u}" /></div>`).join('')}
+        <script>
+          const imgs = Array.from(document.images);
+          Promise.all(imgs.map(i => i.complete ? 1 : new Promise(r => i.onload = r)))
+            .then(() => { window.print(); window.addEventListener('afterprint', () => window.close()); });
+        <\/script>
+      </body>
+    </html>
+  `);
+  w.document.close();
+}
+
 
 /** Mirror blob iff item is a photo-result; otherwise return original. */
 _maybeMirrorBlobForDownload(it, blob) {
@@ -1157,6 +1225,19 @@ buildGalleryCard(it, index) {
   btnDl.title = 'Download';
   btnDl.addEventListener('click', (e) => { e.stopPropagation(); this._downloadPhoto(it); });
 
+
+  // NEW: Print button
+  const btnPrint = document.createElement('button');
+  btnPrint.className = 'meta-btn';
+  btnPrint.innerHTML = '<i class="fas fa-print"></i>';
+  btnPrint.title = 'Print';
+  btnPrint.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const ok = await this.verifyToken();
+    if (!ok) { alert('Please log in to continue.'); this.navigateToPage('login'); return; }
+    this._printOne(it);
+  });
+
   const del = document.createElement('button');
   del.className = 'meta-btn danger';
   del.innerHTML = '<i class="fas fa-trash"></i>';
@@ -1173,6 +1254,8 @@ buildGalleryCard(it, index) {
 
   meta.appendChild(span);
   meta.appendChild(btnDl);
+  meta.appendChild(btnPrint);   // <-- add here
+
   meta.appendChild(del);
   card.appendChild(img);
   card.appendChild(meta);
@@ -1251,7 +1334,10 @@ setupGalleryUi() {
   const select  = document.getElementById('select-toggle');
   const delSel  = document.getElementById('delete-selected');
   const goLogin = document.getElementById('go-login-btn');
-if (goLogin) {
+  const dlSel = document.getElementById('download-selected');
+  const prSel = document.getElementById('print-selected');
+
+  if (goLogin) {
   goLogin.addEventListener('click', (e) => {
     e.preventDefault();
     this.navigateToPage('login');
@@ -1278,13 +1364,39 @@ if (goLogin) {
   if (typeof this._galleryCount === 'undefined') this._galleryCount = 0;
   if (typeof this._selectMode === 'undefined') this._selectMode = false;
 
+  // When entering/leaving select mode, enable/disable action buttons
+  const syncSelectButtons = () => {
+    const any = this._getSelectedCards().length > 0;
+    [dlSel, prSel, delSel].forEach(b => { if (b) b.disabled = !any; });
+  };
+
   if (select) select.addEventListener('click', () => {
     this._selectMode = !this._selectMode;
     document.body.classList.toggle('gallery-select-mode', this._selectMode);
     select.textContent = this._selectMode ? 'Cancel' : 'Select';
     if (!this._selectMode) document.querySelectorAll('.gallery-card.selected').forEach(el => el.classList.remove('selected'));
     if (delSel) delSel.disabled = !this._selectMode;
+    syncSelectButtons();
   });
+
+  // Download Selected
+  if (dlSel) dlSel.addEventListener('click', async () => {
+    const ok = await this.verifyToken();
+    if (!ok) { alert('Please log in to continue.'); this.navigateToPage('login'); return; }
+    const items = this._getSelectedItems();
+    if (!items.length) return alert('No photos selected.');
+    items.forEach((it, i) => this._downloadPhoto(it)); // reuse your existing downloader
+  });
+
+  // Print Selected
+  if (prSel) prSel.addEventListener('click', async () => {
+    const ok = await this.verifyToken();
+    if (!ok) { alert('Please log in to continue.'); this.navigateToPage('login'); return; }
+    const items = this._getSelectedItems();
+    if (!items.length) return alert('No photos selected.');
+    this._printItems(items);
+  });
+
 
   if (delSel) delSel.addEventListener('click', async () => {
     if (!this._selectMode) return;
@@ -1299,6 +1411,13 @@ if (goLogin) {
         this._galleryCount = Math.max(0, this._galleryCount - 1);
       }
     }
+  });
+   document.getElementById('gallery-grid')?.addEventListener('click', (e) => {
+    if (!this._selectMode) return;
+    const card = e.target.closest('.gallery-card');
+    if (!card) return;
+    card.classList.toggle('selected');
+    syncSelectButtons();
   });
 
   // Lightbox overlay + controls
@@ -1339,6 +1458,18 @@ if (goLogin) {
     if (open) this._setInitialViewFit();
   });
 }
+
+/* Get selected card nodes */
+_getSelectedCards() {
+  return Array.from(document.querySelectorAll('.gallery-card.selected'));
+}
+
+/* Map selected card nodes to their item objects (from this._galleryItems) */
+_getSelectedItems() {
+  const ids = this._getSelectedCards().map(el => el.dataset.id);
+  return (this._galleryItems || []).filter(it => ids.includes(String(it.id)));
+}
+
 
 /* ========= Lightbox core ========= */
 openLightbox(index = 0) {
