@@ -1067,6 +1067,7 @@ _toPrintableUrl(it) {
   const token = localStorage.getItem('token');
   if (!sec || !token) return Promise.resolve('');
 
+  // Fetch secure image, convert to blob URL so the print window can load it (no headers there)
   return fetch(sec, { headers: { Authorization: 'Bearer ' + token } })
     .then(r => r.ok ? r.blob() : Promise.reject())
     .then(blob => URL.createObjectURL(blob))
@@ -1085,21 +1086,20 @@ async _printItems(items) {
   const urls = [];
   const mirrors = [];
   for (const it of items) {
-    // build URL (public or blob) and remember mirror flag for first item
-    // (we’ll mirror all the same way for consistency)
     const u = await this._toPrintableUrl(it);
     if (u) { urls.push(u); mirrors.push(this._isMirrored(it)); }
   }
   if (!urls.length) { alert('No printable images.'); return; }
-  // If any selected is mirrored, mirror all so orientation matches your “photo results”
+  // If any selected item was a mirrored “photo result”, mirror all for consistent orientation
   const shouldMirror = mirrors.some(Boolean);
   this._printImagesInNewWindow(urls, shouldMirror);
 }
 
 /* ---- Open a print window (one image per page). Mirror if requested. ---- */
-_printImagesInNewWindow(urls, mirror=false) {
+_printImagesInNewWindow(urls, mirror = false) {
   const w = window.open('', '_blank');
   if (!w) { alert('Please allow pop-ups to print.'); return; }
+
   w.document.write(`
     <html>
       <head>
@@ -1115,15 +1115,45 @@ _printImagesInNewWindow(urls, mirror=false) {
       <body>
         ${urls.map(u => `<div class="page"><img src="${u}" /></div>`).join('')}
         <script>
-          const imgs = Array.from(document.images);
-          Promise.all(imgs.map(i => i.complete ? 1 : new Promise(r => i.onload = r)))
-            .then(() => { window.print(); window.addEventListener('afterprint', () => window.close()); });
+          (function(){
+            const imgs = Array.from(document.images);
+            const waitAll = Promise.all(
+              imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => img.onload = res))
+            );
+
+            function cleanup() {
+              try {
+                const openerURL = (window.opener && window.opener.URL) ? window.opener.URL : URL;
+                imgs.forEach(img => {
+                  const src = img.getAttribute('src') || '';
+                  if (src.startsWith('blob:')) openerURL.revokeObjectURL(src);
+                });
+              } catch (e) {}
+              window.close();
+            }
+
+            waitAll.then(() => {
+              window.print();
+              window.addEventListener('afterprint', cleanup, { once: true });
+              window.addEventListener('beforeunload', cleanup, { once: true });
+            });
+          })();
         <\/script>
       </body>
     </html>
   `);
   w.document.close();
 }
+
+/* ---- Selection helpers (used by bulk actions) ---- */
+_getSelectedCards() {
+  return Array.from(document.querySelectorAll('.gallery-card.selected'));
+}
+_getSelectedItems() {
+  const ids = this._getSelectedCards().map(el => el.dataset.id);
+  return (this._galleryItems || []).filter(it => ids.includes(String(it.id)));
+}
+
 
 
 /** Mirror blob iff item is a photo-result; otherwise return original. */
@@ -1364,38 +1394,43 @@ setupGalleryUi() {
   if (typeof this._galleryCount === 'undefined') this._galleryCount = 0;
   if (typeof this._selectMode === 'undefined') this._selectMode = false;
 
-  // When entering/leaving select mode, enable/disable action buttons
-  const syncSelectButtons = () => {
-    const any = this._getSelectedCards().length > 0;
-    [dlSel, prSel, delSel].forEach(b => { if (b) b.disabled = !any; });
-  };
+  // Enable/disable bulk buttons when selection changes
+const _syncBulkButtons = () => {
+  const any = document.querySelectorAll('.gallery-card.selected').length > 0;
+  [dlSel, prSel, delSel].forEach(b => { if (b) b.disabled = !any; });
+};
 
-  if (select) select.addEventListener('click', () => {
-    this._selectMode = !this._selectMode;
-    document.body.classList.toggle('gallery-select-mode', this._selectMode);
-    select.textContent = this._selectMode ? 'Cancel' : 'Select';
-    if (!this._selectMode) document.querySelectorAll('.gallery-card.selected').forEach(el => el.classList.remove('selected'));
-    if (delSel) delSel.disabled = !this._selectMode;
-    syncSelectButtons();
-  });
+// When toggling Select mode, also resync buttons
+if (select) select.addEventListener('click', () => {
+  this._selectMode = !this._selectMode;
+  document.body.classList.toggle('gallery-select-mode', this._selectMode);
+  select.textContent = this._selectMode ? 'Cancel' : 'Select';
+  if (!this._selectMode) document.querySelectorAll('.gallery-card.selected').forEach(el => el.classList.remove('selected'));
+  if (delSel) delSel.disabled = !this._selectMode;
+  _syncBulkButtons(); // NEW
+});
 
-  // Download Selected
-  if (dlSel) dlSel.addEventListener('click', async () => {
-    const ok = await this.verifyToken();
-    if (!ok) { alert('Please log in to continue.'); this.navigateToPage('login'); return; }
-    const items = this._getSelectedItems();
-    if (!items.length) return alert('No photos selected.');
-    items.forEach((it, i) => this._downloadPhoto(it)); // reuse your existing downloader
-  });
+// Toggle selection by clicking cards while in Select mode
 
-  // Print Selected
-  if (prSel) prSel.addEventListener('click', async () => {
-    const ok = await this.verifyToken();
-    if (!ok) { alert('Please log in to continue.'); this.navigateToPage('login'); return; }
-    const items = this._getSelectedItems();
-    if (!items.length) return alert('No photos selected.');
-    this._printItems(items);
-  });
+
+// Download Selected
+if (dlSel) dlSel.addEventListener('click', async () => {
+  const ok = await this.verifyToken();
+  if (!ok) { alert('Please log in to continue.'); this.navigateToPage('login'); return; }
+  const items = this._getSelectedItems();
+  if (!items.length) return alert('No photos selected.');
+  items.forEach(it => this._downloadPhoto(it)); // reuse your existing downloader
+});
+
+// Print Selected
+if (prSel) prSel.addEventListener('click', async () => {
+  const ok = await this.verifyToken();
+  if (!ok) { alert('Please log in to continue.'); this.navigateToPage('login'); return; }
+  const items = this._getSelectedItems();
+  if (!items.length) return alert('No photos selected.');
+  this._printItems(items); // defined below
+});
+
 
 
   if (delSel) delSel.addEventListener('click', async () => {
