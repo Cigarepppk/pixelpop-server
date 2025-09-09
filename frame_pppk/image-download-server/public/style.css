@@ -1792,7 +1792,7 @@ body.lb-open { overflow: hidden; }
 
 
 .logout-btn {
-  background: var(--accent-pink);
+  background: var(--gray);
   color: white;
   padding: 10px 20px;
   border: none;
