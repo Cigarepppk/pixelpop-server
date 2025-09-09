@@ -14,6 +14,11 @@ class PixelPopStudio {
     this.isCapturing   = false;
     this.timerValue    = 3;
 
+    this._saveInFlight      = false;   // blocks rapid double-clicks (results page)
+this._lastSavedHash     = null;    // dedupe guard across manual/autosave
+this._autoSavedHash     = null;    // tracks autosave's last hash
+
+
     // Gallery caps & state
     this.MAX_GALLERY    = 50;
     this._galleryCount  = 0;
@@ -768,6 +773,10 @@ const requireLogin = () =>
   resetSession() {
     this.capturedPhotos = [];
     this.isLayoutReady = false;
+    this._lastSavedHash = null;
+this._autoSavedHash = null;
+this._saveInFlight  = false;
+
     const resultsSection = document.getElementById('photo-results');
     if (resultsSection) resultsSection.style.display = 'none';
   }
@@ -1012,6 +1021,19 @@ deletePhoto(photoId) {
 }
 
 /* ========= Helpers ========= */
+async _hashDataURL(dataURL) {
+  try {
+    const b = atob((dataURL || '').split(',')[1] || '');
+    const u = new Uint8Array(b.length);
+    for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+    const digest = await crypto.subtle.digest('SHA-256', u);
+    return Array.from(new Uint8Array(digest)).map(x => x.toString(16).padStart(2,'0')).join('');
+  } catch {
+    // Fallback: include length so identical images still match most of the time
+    return `len:${(dataURL || '').length}`;
+  }
+}
+
 _buildAbsUrl(u) { return !u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)); }
 
 /* ---- Mirror helpers (persist/recall which items are "photo result") ---- */
@@ -1592,13 +1614,16 @@ maybeAutosaveToGallery() {
   }).catch(e => console.warn('Autosave failed:', e));
 }
 
-_doAutosave() {
+async _doAutosave() {
   const finalCanvas = document.getElementById('final-canvas');
   if (!finalCanvas) return;
+
   if ((this._galleryCount || 0) >= this.MAX_GALLERY) {
     alert('Gallery is full (50 photos). Please delete some photos first.');
     return;
   }
+
+  // Render @2x
   const scale = 2;
   const tmp = document.createElement('canvas');
   tmp.width  = finalCanvas.width * scale;
@@ -1608,18 +1633,36 @@ _doAutosave() {
   ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
   const dataURL = tmp.toDataURL('image/jpeg', 0.95);
 
-  return this.savePhotoToGallery(dataURL).then((res) => {
-    if (res && res.ok && res.item) this._rememberMirrored(res.item);
-    return res;
-  });
+  // DEDUPE: if we already autosaved this exact image, skip
+  const h = await this._hashDataURL(dataURL);
+  if (this._autoSavedHash && this._autoSavedHash === h) return;
+
+  // Also prevent duplicating a manual save of the same image
+  if (this._lastSavedHash && this._lastSavedHash === h) return;
+
+  const res = await this.savePhotoToGallery(dataURL).catch(e => ({ ok: false, error: String(e) }));
+  if (res && res.ok && res.item) {
+    this._rememberMirrored(res.item);
+    this._autoSavedHash = h;
+    this._lastSavedHash = h;
+  }
+  return res;
 }
 
-saveFinalToGallery() {
+async saveFinalToGallery() {
+  if (this._saveInFlight) return;                   // block double-clicks (1 click = 1 save)
   const btn = document.getElementById('save-gallery-btn');
+
   const setBusy = (busy) => {
     if (!btn) return;
-    if (busy) { btn.disabled = true; btn.dataset._old = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...'; }
-    else { btn.disabled = false; btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery'; }
+    if (busy) {
+      btn.disabled = true;
+      btn.dataset._old = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery';
+    }
   };
 
   const finalCanvas = document.getElementById('final-canvas');
@@ -1627,29 +1670,45 @@ saveFinalToGallery() {
   if (!this.isLayoutReady) return alert('Hang on — still rendering your photo…');
   if ((this._galleryCount || 0) >= this.MAX_GALLERY) return alert('Gallery is full (50 photos). Please delete some photos first.');
 
+  this._saveInFlight = true;
   setBusy(true);
-  const scale = 2;
-  const tmp = document.createElement('canvas');
-  tmp.width  = finalCanvas.width * scale;
-  tmp.height = finalCanvas.height * scale;
-  const ctx = tmp.getContext('2d');
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, tmp.width, tmp.height);
-  ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
-  const dataURL = tmp.toDataURL('image/jpeg', 0.95);
 
-  this.savePhotoToGallery(dataURL)
-    .then(({ ok, item, error }) => {
-      if (ok) {
-        const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString(), fileName: `pixelpop-${Date.now()}.jpg` };
-        this._rememberMirrored(added);
-        alert('Saved to your private gallery!');
-        this.goToGalleryAndShow(added);
-      } else {
-        alert('Save failed: ' + (error || 'Unknown error'));
-      }
-    })
-    .catch(err => { console.warn('Save to gallery failed:', err); alert('Save failed. Please try again.'); })
-    .finally(() => setBusy(false));
+  try {
+    // Render @2x
+    const scale = 2;
+    const tmp = document.createElement('canvas');
+    tmp.width  = finalCanvas.width * scale;
+    tmp.height = finalCanvas.height * scale;
+    const ctx = tmp.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, tmp.width, tmp.height);
+    ctx.save(); ctx.scale(scale, scale); ctx.drawImage(finalCanvas, 0, 0); if (ctx.restore) ctx.restore();
+    const dataURL = tmp.toDataURL('image/jpeg', 0.95);
+
+    // DEDUPE: block saving exact same image content
+    const h = await this._hashDataURL(dataURL);
+    if (this._lastSavedHash && this._lastSavedHash === h) {
+      alert('Already saved this photo.');
+      return;
+    }
+
+    const { ok, item, error } = await this.savePhotoToGallery(dataURL);
+    if (ok) {
+      const added = item || { id: null, url: dataURL, createdAt: new Date().toISOString(), fileName: `pixelpop-${Date.now()}.jpg` };
+      this._rememberMirrored(added);
+      this._lastSavedHash = h;              // remember to prevent future duplicates
+      this._autoSavedHash = h;              // also align with autosave guard
+      alert('Saved to your private gallery!');
+      this.goToGalleryAndShow(added);
+    } else {
+      alert('Save failed: ' + (error || 'Unknown error'));
+    }
+  } catch (err) {
+    console.warn('Save to gallery failed:', err);
+    alert('Save failed. Please try again.');
+  } finally {
+    setBusy(false);
+    this._saveInFlight = false;             // allow a new click AFTER this one finishes
+  }
 }
 }
 
@@ -1803,6 +1862,22 @@ function buildFramedOutput(userSrc, frameSrc) {
     imgFrame.src = frameSrc;
   });
 }
+
+let _frameSaveInFlight = false;
+let _frameLastHash     = null;
+
+async function _hashDataURL_public(dataURL) {
+  try {
+    const b = atob((dataURL || '').split(',')[1] || '');
+    const u = new Uint8Array(b.length);
+    for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+    const d = await crypto.subtle.digest('SHA-256', u);
+    return Array.from(new Uint8Array(d)).map(x => x.toString(16).padStart(2,'0')).join('');
+  } catch {
+    return `len:${(dataURL || '').length}`;
+  }
+}
+
 
 // Frame page listeners
 document.addEventListener('DOMContentLoaded', () => {
@@ -2003,33 +2078,44 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Save framed output directly to gallery (LOGIN REQUIRED) + jump to Gallery
-  if (saveFrameBtn) {
-    saveFrameBtn.addEventListener('click', (e) => {
-      e.preventDefault();
+if (saveFrameBtn) {
+  saveFrameBtn.addEventListener('click', (e) => {
+    e.preventDefault();
 
-      requireLoginFrame().then(ok => {
-        if (!ok) return;
-        if (!userPhotoSrc || !selectedFrameSrc) {
-          alert('Upload a photo and choose a frame first.');
-          return;
+    requireLoginFrame().then(ok => {
+      if (!ok) return;
+      if (!userPhotoSrc || !selectedFrameSrc) {
+        alert('Upload a photo and choose a frame first.');
+        return;
+      }
+
+      const setBusy = (busy) => {
+        if (!saveFrameBtn) return;
+        if (busy) {
+          saveFrameBtn.disabled = true;
+          saveFrameBtn.dataset._old = saveFrameBtn.innerHTML;
+          saveFrameBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        } else {
+          saveFrameBtn.disabled = false;
+          saveFrameBtn.innerHTML = saveFrameBtn.dataset._old || 'Save to My Gallery';
         }
+      };
 
-        const setBusy = (busy) => {
-          if (!saveFrameBtn) return;
-          if (busy) {
-            saveFrameBtn.disabled = true;
-            saveFrameBtn.dataset._old = saveFrameBtn.innerHTML;
-            saveFrameBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-          } else {
-            saveFrameBtn.disabled = false;
-            saveFrameBtn.innerHTML = saveFrameBtn.dataset._old || 'Save to My Gallery';
+      setBusy(true);
+
+      buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(async (out) => {
+        if (!out) { alert('Could not compose framed image.'); setBusy(false); return; }
+
+        // DEDUPE + 1-click-1-save
+        if (_frameSaveInFlight) { setBusy(false); return; }
+        _frameSaveInFlight = true;
+
+        try {
+          const h = await _hashDataURL_public(out.dataURL);
+          if (_frameLastHash && _frameLastHash === h) {
+            alert('Already saved this photo.');
+            return;
           }
-        };
-
-        setBusy(true);
-
-        buildFramedOutput(userPhotoSrc, selectedFrameSrc).then(out => {
-          if (!out) { alert('Could not compose framed image.'); setBusy(false); return; }
 
           const attempt = (window.PixelPopApp && typeof window.PixelPopApp.savePhotoToGallery === 'function')
             ? window.PixelPopApp.savePhotoToGallery(out.dataURL)
@@ -2046,23 +2132,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
               }).then(r => r.ok ? { ok: true, item: { url: out.dataURL } } : Promise.reject(new Error('save-failed')));
 
-          Promise.resolve(attempt)
-            .then((res) => {
-              const item = res && res.item ? res.item : { id: null, url: out.dataURL, createdAt: new Date().toISOString() };
-              alert('Saved to your private gallery!');
-              // show immediately in Gallery
-              if (window.PixelPopApp && typeof window.PixelPopApp.goToGalleryAndShow === 'function') {
-                window.PixelPopApp.goToGalleryAndShow(item);
-              } else {
-                if (typeof window.PixelPopAppNavigate === 'function') window.PixelPopAppNavigate('gallery');
-              }
-            })
-            .catch(() => alert('Could not save to gallery.'))
-            .finally(() => setBusy(false));
-        });
+          const res = await Promise.resolve(attempt);
+          const item = res && res.item ? res.item : { id: null, url: out.dataURL, createdAt: new Date().toISOString() };
+
+          alert('Saved to your private gallery!');
+          _frameLastHash = h;
+
+          if (window.PixelPopApp && typeof window.PixelPopApp.goToGalleryAndShow === 'function') {
+            window.PixelPopApp.goToGalleryAndShow(item);
+          } else if (typeof window.PixelPopAppNavigate === 'function') {
+            window.PixelPopAppNavigate('gallery');
+          }
+        } catch (e) {
+          alert('Could not save to gallery.');
+        } finally {
+          _frameSaveInFlight = false;
+          setBusy(false);
+        }
       });
     });
-  }
+  });
+}
+
+
+  
+  
+
+    
 
   // init display state
   showMessage('Upload a photo to begin!');
@@ -2398,5 +2494,5 @@ window.addEventListener('DOMContentLoaded', () => {
   const avatarUrl = localStorage.getItem('avatarUrl') || '';
   if (username) showUserProfile(username, email, avatarUrl);
 
-  bindLogoutButtons();
+  
 });
