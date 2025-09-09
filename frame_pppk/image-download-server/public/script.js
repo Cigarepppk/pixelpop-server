@@ -1038,7 +1038,6 @@ _rememberMirrored(it) {
 _isMirrored(it) {
   if (!it) return false;
   if (it._mirrored || it.mirrored) return true;
-  // Heuristic: default photo-result naming pattern
   const named = typeof it.fileName === 'string' && /^pixelpop-\d+\.jpg$/i.test(it.fileName);
   if (named) return true;
   this._loadMirroredCache();
@@ -1057,6 +1056,7 @@ _downloadWithAuth(url, saveBlob, it) {
     .then(saveBlob)
     .catch(() => alert('Download failed. Please try again.'));
 }
+
 /* ---- Resolve a printable URL for an item (public if possible, else blob with auth) ---- */
 _toPrintableUrl(it) {
   const abs = (u) => (!u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)));
@@ -1090,8 +1090,7 @@ async _printItems(items) {
     if (u) { urls.push(u); mirrors.push(this._isMirrored(it)); }
   }
   if (!urls.length) { alert('No printable images.'); return; }
-  // If any selected item was a mirrored “photo result”, mirror all for consistent orientation
-  const shouldMirror = mirrors.some(Boolean);
+  const shouldMirror = mirrors.some(Boolean); // mirror all if any “photo result”
   this._printImagesInNewWindow(urls, shouldMirror);
 }
 
@@ -1154,8 +1153,6 @@ _getSelectedItems() {
   return (this._galleryItems || []).filter(it => ids.includes(String(it.id)));
 }
 
-
-
 /** Mirror blob iff item is a photo-result; otherwise return original. */
 _maybeMirrorBlobForDownload(it, blob) {
   const needsMirror = this._isMirrored(it);
@@ -1192,7 +1189,7 @@ _maybeMirrorBlobForDownload(it, blob) {
         resolve(new Blob([u8], { type: mime }));
       }
     });
-  }).catch(() => blob); // fallback: return original if mirroring fails
+  }).catch(() => blob);
 }
 
 _downloadPhoto(it) {
@@ -1236,12 +1233,10 @@ buildGalleryCard(it, index) {
   // Mirror in GRID if photo-result
   if (this._isMirrored(it)) img.classList.add('mirrored');
 
+  // Clicking image: open lightbox unless we're in select mode (selection handled by grid listener)
   img.addEventListener('click', () => {
-    if (this._selectMode) {
-      card.classList.toggle('selected');
-    } else {
-      this.openLightbox(index);
-    }
+    if (this._selectMode) return;
+    this.openLightbox(index);
   });
 
   const meta = document.createElement('div'); meta.className = 'meta';
@@ -1255,8 +1250,7 @@ buildGalleryCard(it, index) {
   btnDl.title = 'Download';
   btnDl.addEventListener('click', (e) => { e.stopPropagation(); this._downloadPhoto(it); });
 
-
-  // NEW: Print button
+  // Print button
   const btnPrint = document.createElement('button');
   btnPrint.className = 'meta-btn';
   btnPrint.innerHTML = '<i class="fas fa-print"></i>';
@@ -1284,8 +1278,7 @@ buildGalleryCard(it, index) {
 
   meta.appendChild(span);
   meta.appendChild(btnDl);
-  meta.appendChild(btnPrint);   // <-- add here
-
+  meta.appendChild(btnPrint);
   meta.appendChild(del);
   card.appendChild(img);
   card.appendChild(meta);
@@ -1364,23 +1357,21 @@ setupGalleryUi() {
   const select  = document.getElementById('select-toggle');
   const delSel  = document.getElementById('delete-selected');
   const goLogin = document.getElementById('go-login-btn');
-  const dlSel = document.getElementById('download-selected');
-  const prSel = document.getElementById('print-selected');
+  const dlSel   = document.getElementById('download-selected');
+  const prSel   = document.getElementById('print-selected');
 
   if (goLogin) {
-  goLogin.addEventListener('click', (e) => {
-    e.preventDefault();
-    this.navigateToPage('login');
-  });
-}
-
+    goLogin.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.navigateToPage('login');
+    });
+  }
 
   // Inject minimal CSS: mirror grid + lightbox only when .mirrored is present
   if (!document.getElementById('gallery-mirror-css')) {
     const style = document.createElement('style');
     style.id = 'gallery-mirror-css';
     style.textContent = `
-      /* Mirror only items tagged/detected as photo-result */
       #gallery-grid img.mirrored,
       #lightbox-img.mirrored { transform: scaleX(-1); }
     `;
@@ -1395,44 +1386,50 @@ setupGalleryUi() {
   if (typeof this._selectMode === 'undefined') this._selectMode = false;
 
   // Enable/disable bulk buttons when selection changes
-const _syncBulkButtons = () => {
-  const any = document.querySelectorAll('.gallery-card.selected').length > 0;
-  [dlSel, prSel, delSel].forEach(b => { if (b) b.disabled = !any; });
-};
+  const _syncBulkButtons = () => {
+    const any = document.querySelectorAll('.gallery-card.selected').length > 0;
+    [dlSel, prSel, delSel].forEach(b => { if (b) b.disabled = !any; });
+  };
 
-// When toggling Select mode, also resync buttons
-if (select) select.addEventListener('click', () => {
-  this._selectMode = !this._selectMode;
-  document.body.classList.toggle('gallery-select-mode', this._selectMode);
-  select.textContent = this._selectMode ? 'Cancel' : 'Select';
-  if (!this._selectMode) document.querySelectorAll('.gallery-card.selected').forEach(el => el.classList.remove('selected'));
-  if (delSel) delSel.disabled = !this._selectMode;
-  _syncBulkButtons(); // NEW
-});
+  // Toggle selection mode
+  if (select) select.addEventListener('click', () => {
+    this._selectMode = !this._selectMode;
+    document.body.classList.toggle('gallery-select-mode', this._selectMode);
+    select.textContent = this._selectMode ? 'Cancel' : 'Select';
+    if (!this._selectMode) document.querySelectorAll('.gallery-card.selected').forEach(el => el.classList.remove('selected'));
+    // Disable delete by default; other buttons will sync below
+    if (delSel) delSel.disabled = !this._selectMode;
+    _syncBulkButtons();
+  });
 
-// Toggle selection by clicking cards while in Select mode
+  // Toggle selection by clicking cards while in Select mode (works for clicks anywhere on the card)
+  document.getElementById('gallery-grid')?.addEventListener('click', (e) => {
+    if (!this._selectMode) return;
+    const card = e.target.closest('.gallery-card');
+    if (!card) return;
+    card.classList.toggle('selected');
+    _syncBulkButtons();
+  });
 
+  // Download Selected
+  if (dlSel) dlSel.addEventListener('click', async () => {
+    const ok = await this.verifyToken();
+    if (!ok) { alert('Please log in to continue.'); this.navigateToPage('login'); return; }
+    const items = this._getSelectedItems();
+    if (!items.length) return alert('No photos selected.');
+    items.forEach(it => this._downloadPhoto(it));
+  });
 
-// Download Selected
-if (dlSel) dlSel.addEventListener('click', async () => {
-  const ok = await this.verifyToken();
-  if (!ok) { alert('Please log in to continue.'); this.navigateToPage('login'); return; }
-  const items = this._getSelectedItems();
-  if (!items.length) return alert('No photos selected.');
-  items.forEach(it => this._downloadPhoto(it)); // reuse your existing downloader
-});
+  // Print Selected
+  if (prSel) prSel.addEventListener('click', async () => {
+    const ok = await this.verifyToken();
+    if (!ok) { alert('Please log in to continue.'); this.navigateToPage('login'); return; }
+    const items = this._getSelectedItems();
+    if (!items.length) return alert('No photos selected.');
+    this._printItems(items);
+  });
 
-// Print Selected
-if (prSel) prSel.addEventListener('click', async () => {
-  const ok = await this.verifyToken();
-  if (!ok) { alert('Please log in to continue.'); this.navigateToPage('login'); return; }
-  const items = this._getSelectedItems();
-  if (!items.length) return alert('No photos selected.');
-  this._printItems(items); // defined below
-});
-
-
-
+  // Delete Selected
   if (delSel) delSel.addEventListener('click', async () => {
     if (!this._selectMode) return;
     const chosen = Array.from(document.querySelectorAll('.gallery-card.selected'));
@@ -1446,13 +1443,7 @@ if (prSel) prSel.addEventListener('click', async () => {
         this._galleryCount = Math.max(0, this._galleryCount - 1);
       }
     }
-  });
-   document.getElementById('gallery-grid')?.addEventListener('click', (e) => {
-    if (!this._selectMode) return;
-    const card = e.target.closest('.gallery-card');
-    if (!card) return;
-    card.classList.toggle('selected');
-    syncSelectButtons();
+    _syncBulkButtons();
   });
 
   // Lightbox overlay + controls
@@ -1492,19 +1483,10 @@ if (prSel) prSel.addEventListener('click', async () => {
     const open = document.getElementById('lightbox')?.classList.contains('open');
     if (open) this._setInitialViewFit();
   });
-}
 
-/* Get selected card nodes */
-_getSelectedCards() {
-  return Array.from(document.querySelectorAll('.gallery-card.selected'));
+  // Initialize bulk buttons state
+  _syncBulkButtons();
 }
-
-/* Map selected card nodes to their item objects (from this._galleryItems) */
-_getSelectedItems() {
-  const ids = this._getSelectedCards().map(el => el.dataset.id);
-  return (this._galleryItems || []).filter(it => ids.includes(String(it.id)));
-}
-
 
 /* ========= Lightbox core ========= */
 openLightbox(index = 0) {
@@ -1531,7 +1513,6 @@ nextLightbox(delta = 1) {
   this.updateLightboxImage();
 }
 updateLightboxImage() {
-  // Find the lightbox image (robust to markup variations)
   const imgEl =
     document.getElementById('lightbox-img') ||
     document.querySelector('#lightbox-img, #lightbox .lightbox-stage img, #lightbox img');
@@ -1541,40 +1522,34 @@ updateLightboxImage() {
   const it = this._galleryItems[this._currentLight] || {};
   const abs = (u) => (!u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)));
 
-  // Prefer full-res if your backend provides it
   const fullPref  = abs(it.urlFull || it.originalUrl || it.urlHigh || '');
   const tryPublic = fullPref || abs(it.urlPublic || it.url || '');
   const trySecure = abs(it.secureUrl || it.urlFull || it.url || '');
 
   if (counterEl) counterEl.textContent = `${this._currentLight + 1} / ${this._galleryItems.length}`;
 
-  // Mirror ONLY if this comes from photo result
   const shouldMirror = this._isMirrored(it);
 
-  // Apply mirror *inline* so no CSS can override it
   const applyMirror = () => {
     if (shouldMirror) {
-      imgEl.classList.add('mirrored');           // optional, for consistency
-      imgEl.style.transform = 'scaleX(-1)';      // <-- hard-enforce mirror
+      imgEl.classList.add('mirrored');
+      imgEl.style.transform = 'scaleX(-1)';
       imgEl.style.transformOrigin = 'center center';
     } else {
       imgEl.classList.remove('mirrored');
-      imgEl.style.transform = '';                // normal
+      imgEl.style.transform = '';
     }
   };
 
-  // Ensure sizing then mirror after load (for both public and blob paths)
   const onLoad = () => {
     this._setInitialViewFit?.();
     applyMirror();
   };
 
-  // Set src (public first, then secure)
   imgEl.onload = onLoad;
   imgEl.src = tryPublic || trySecure || '';
   imgEl.alt = it.fileName || 'Photo';
 
-  // Auth fallback -> blob; re-apply mirror on load
   imgEl.onerror = () => {
     const token = localStorage.getItem('token');
     if (!token || !trySecure) return;
@@ -1588,26 +1563,20 @@ updateLightboxImage() {
       .catch(() => {});
   };
 
-  // Also apply immediately (covers cached image cases)
   applyMirror();
 }
 
-
-
 _setInitialViewFit() {
-  // Do NOT set 'none' here; leave inline transform alone
   const img = document.getElementById('lightbox-img') ||
               document.querySelector('#lightbox-img, #lightbox .lightbox-stage img, #lightbox img');
-  // keep your fit logic, but DON'T do: img.style.transform = 'none';
+  // keep your fit logic, but DON'T set img.style.transform = 'none';
 }
 
 _resetZoomState() {
   const img = document.getElementById('lightbox-img') ||
               document.querySelector('#lightbox-img, #lightbox .lightbox-stage img, #lightbox img');
-  // DON'T reset transform to 'none'; leave it as-is
   this._z = 1; this._tx = 0; this._ty = 0;
 }
-
 
 _applyTransform() { /* No-zoom */ }
 _setupZoomHandlers() { /* No-zoom */ }
