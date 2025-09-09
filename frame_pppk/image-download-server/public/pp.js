@@ -1934,7 +1934,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* =======================================================================
-   Auth UI (Login/Register/Forgot/Google) + Profile Card (Login Page)
+   Auth UI (Login / Register / Forgot / Google) + Profile Card
    ======================================================================= */
 
 const API_BASE = window.API_BASE || 'https://pixelpop-backend-fm6t.onrender.com';
@@ -1948,8 +1948,14 @@ function setBusy(form, busy) {
   [...form.elements].forEach(el => (el.disabled = !!busy));
   form.dataset.busy = busy ? '1' : '';
 }
-function getToken() { return localStorage.getItem('token') || ''; }
+function getToken()  { return localStorage.getItem('token') || ''; }
 function setToken(t) { if (t) localStorage.setItem('token', t); }
+function clearAuth() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('username');
+  localStorage.removeItem('email');
+  localStorage.removeItem('avatarUrl');
+}
 function authHeaders(extra = {}) {
   const t = getToken();
   return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}), ...extra };
@@ -1988,8 +1994,8 @@ const forgotLink   = $('#forgot-link') || $('.forgot-link a');
 // Profile card (inside login page)
 const profileBox   = $('#user-profile');
 const profileName  = $('#profile-name');
-const profileEmail = $('#profile-email'); // make sure this exists in HTML
-const profilePic   = $('#profile-pic');   // default to default-avatar.png
+const profileEmail = $('#profile-email'); // <p id="profile-email">
+const profilePic   = $('#profile-pic');   // <img id="profile-pic" src="profile.JPG">
 
 /* ---------- Toggle panels ---------- */
 if (registerBtn) registerBtn.addEventListener('click', () => container?.classList.add('active'));
@@ -2077,30 +2083,35 @@ if (loginForm) {
     try {
       const r = await doPost('/login', body);
 
-     if (r.ok && r._json?.token) {
-  setToken(r._json.token);
+      if (r.ok && r._json?.token) {
+        setToken(r._json.token);
 
-  // accept both shapes: {username,email} (your /login) and {user:{...}} (Google route)
-  const u = r._json?.user || {};
-  const displayName = r._json.username || u.username || u.email || raw;
-  const email       = r._json.email    || u.email    || '';
-  const avatar      = u.avatarUrl || u.photo || ''; // none from /login, ok to be empty
+        // Accept both shapes:
+        //  - /login: { token, username, email }
+        //  - /auth/google: { token, user:{ username, email } }
+        const u = r._json?.user || {};
+        const displayName = r._json.username || u.username || u.email || raw;
+        const email       = r._json.email    || u.email    || '';
+        const avatar      = u.avatarUrl || u.photo || ''; // not provided by /login, ok to be empty
 
-  localStorage.setItem('username', displayName);
-  if (email)  localStorage.setItem('email', email);
-  if (avatar) localStorage.setItem('avatarUrl', avatar);
+        localStorage.setItem('username', displayName);
+        if (email)  localStorage.setItem('email', email);
+        if (avatar) localStorage.setItem('avatarUrl', avatar);
 
-  window.PixelPopApp?.updatePrivilegedButtonsState?.();
-  showUserProfile(displayName, email, avatar);
-  window.PixelPopAppNavigate?.('layout');
+        window.PixelPopApp?.updatePrivilegedButtonsState?.();
 
-  loginForm.reset();
+        showUserProfile(displayName, email, avatar);
 
-  doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
-} else {
-  alert(`Login failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
-}
+        // Optional: route into booth
+        window.PixelPopAppNavigate?.('layout');
 
+        loginForm.reset();
+
+        // Non-blocking verify
+        doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
+      } else {
+        alert(`Login failed: ${r._json?.error || r._json?.message || `HTTP ${r.status}`}`);
+      }
     } catch (err) {
       console.error(err);
       alert('An error occurred during login. Please try again.');
@@ -2157,15 +2168,11 @@ window.handleGoogleCredential = async (response) => {
     if (email)  localStorage.setItem('email', email);
     if (avatar) localStorage.setItem('avatarUrl', avatar);
 
-    if (window.PixelPopApp?.updatePrivilegedButtonsState) {
-      window.PixelPopApp.updatePrivilegedButtonsState();
-    }
+    window.PixelPopApp?.updatePrivilegedButtonsState?.();
 
     showUserProfile(displayName, email, avatar);
 
-    if (typeof window.PixelPopAppNavigate === 'function') {
-      window.PixelPopAppNavigate('layout');
-    }
+    window.PixelPopAppNavigate?.('layout');
 
     doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
   } catch {
@@ -2179,16 +2186,43 @@ function showUserProfile(username, email = '', avatarUrl = '') {
   if (profileBox) profileBox.style.display = 'block';
 
   if (profileName)  profileName.textContent = `Welcome, ${username || 'User'}!`;
-  if (profileEmail) profileEmail.textContent = email || '';
-  if (profilePic)   profilePic.src = avatarUrl || 'default-avatar.png';
+  if (profileEmail) profileEmail.textContent = email ? `Email: ${email}` : '';
+
+  if (profilePic) {
+    // Prefer explicit avatarUrl, then stored one; otherwise keep whatever HTML already has (profile.JPG)
+    const stored = (localStorage.getItem('avatarUrl') || '').trim();
+    const next   = (avatarUrl && avatarUrl.trim()) || stored;
+
+    if (next) {
+      profilePic.src = next;
+    } else {
+      // leave existing src alone; if missing for some reason, set fallback
+      const current = profilePic.getAttribute('src');
+      if (!current) profilePic.src = 'profile.JPG';
+    }
+
+    // one-time error fallback to the site image
+    if (!profilePic.dataset.onerrorBound) {
+      profilePic.addEventListener('error', () => { profilePic.src = 'profile.JPG'; });
+      profilePic.dataset.onerrorBound = '1';
+    }
+  }
 }
 
 
 
-/* ---------- Auto-show profile on refresh ---------- */
+/* ---------- Auto-init on refresh ---------- */
 window.addEventListener('DOMContentLoaded', () => {
+  // Ensure image fallback is bound even if profile already visible
+  if (profilePic && !profilePic.dataset.onerrorBound) {
+    profilePic.addEventListener('error', () => { profilePic.src = 'profile.JPG'; });
+    profilePic.dataset.onerrorBound = '1';
+  }
+
   const username  = localStorage.getItem('username');
   const email     = localStorage.getItem('email') || '';
   const avatarUrl = localStorage.getItem('avatarUrl') || '';
   if (username) showUserProfile(username, email, avatarUrl);
+
+  bindLogoutButtons();
 });

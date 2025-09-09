@@ -94,7 +94,7 @@ body {
     gap: 0.5rem;
     font-size: 1.5rem;
     font-weight: bold;
-    color: var(--accent-pink);
+    color: var(--primary-pink);
 }
 
 .logo img {
@@ -120,7 +120,7 @@ body {
 
 .nav-link:hover,
 .nav-link.active {
-    background: var(--accent-pink);
+    background: var(--primary-pink);
     color: var(--white);
 }
 
@@ -203,7 +203,7 @@ body {
     font-size: 3rem;
     color: var(--accent-pink);
     margin-bottom: 1rem;
-    background: linear-gradient(45deg, var(--accent-pink), var(--dark-pink));
+    background: linear-gradient(45deg, var(--primary-pink), var(--accent-pink));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -216,7 +216,7 @@ body {
 }
 
 .cta-button {
-    background: linear-gradient(45deg, var(--accent-pink), var(--dark-pink));
+    background: linear-gradient(45deg, var(--primary-pink), var(--accent-pink));
     color: var(--white);
     border: none;
     padding: 1rem 2rem;
@@ -312,7 +312,7 @@ body {
 
 .feature-card i {
     font-size: 3rem;
-    color: var(--accent-pink);
+    color: var(--primary-pink);
     margin-bottom: 1rem;
 }
 
@@ -344,14 +344,14 @@ body {
 
 .about-header h1 {
     font-size: 2.5rem;
-    color: var(--accent-pink);
+    color: var(--primary-pink);
     margin-bottom: 1rem;
     text-align: center;
 }
 
 .about-intro {
     font-size: 1.2rem;
-    color: var(--black);
+    color: var(--gray);
 }
 
 .about-section {
@@ -363,7 +363,7 @@ body {
 }
 
 .about-section h2 {
-    color: var(--accent-pink);
+    color: var(--primary-pink);
     margin-bottom: 1rem;
     text-align: center;
 }
@@ -386,7 +386,7 @@ body {
 }
 
 .step-number {
-    background: var(--accent-pink);
+    background: var(--primary-pink);
     color: var(--white);
     width: 40px;
     height: 40px;
@@ -422,7 +422,7 @@ body {
 }
 
 .features-list i {
-    color: var(--accent-pink);
+    color: var(--primary-pink);
 }
 
 /* Photo Booth Page Styles */
@@ -441,11 +441,7 @@ body {
 
 .photobooth-header h1 {
     font-size: 2.5rem;
-    color: var(--accent-pink);
-}
-
-.photobooth-header p {
-    color: var(--black);
+    color: var(--primary-pink);
 }
 
 /* Layout Selection */
@@ -458,7 +454,7 @@ body {
 }
 
 .layout-selection h3 {
-    color: var(--accent-pink);
+    color: var(--primary-pink);
     margin-bottom: 1rem;
     text-align: center;
 }
@@ -485,9 +481,6 @@ body {
     border-color: var(--primary-pink);
 }
 
-.layout-option span {
-    color: var(--black);
-}
 .layout-preview {
     width: 80px;
     height: 80px;
@@ -645,7 +638,7 @@ body {
 
 .border-selection h4,
 .filter-selection h4 {
-    color: var(--accent-pink);
+    color: var(--primary-pink);
     margin-bottom: 1rem;
 }
 
@@ -666,10 +659,6 @@ body {
     cursor: pointer;
     transition: var(--transition);
     border: 2px solid transparent;
-}
-
-.border-option span {
-    color: var(--black);
 }
 
 .border-option:hover,
@@ -746,9 +735,8 @@ body {
 }
 
 .timer-controls label {
-    color: var(--accent-pink);
-    font-weight: 500; 
-    font-weight: bold;
+    color: var(--primary-pink);
+    font-weight: 500;
 }
 
 .timer-controls select {
@@ -785,7 +773,7 @@ body {
 
 .secondary-button {
     background: var(--light-gray);
-    color: var(--black);
+    color: var(--dark-gray);
     border: 2px solid var(--secondary-pink);
 }
 
@@ -805,7 +793,7 @@ body {
 }
 
 .photo-results h3 {
-    color: var(--accent-pink);
+    color: var(--primary-pink);
     margin-bottom: 2rem;
 }
 
@@ -860,13 +848,13 @@ footer {
     .social-icons a {
       margin: 0 10px;
       font-size: 24px;
-      color: var(--accent-pink); /* pink */
+      color: #ff1493; /* pink */
       text-decoration: none;
       transition: color 0.3s;
     }
 
     .social-icons a:hover {
-      color: var(--dark-pink); /* darker pink on hover */
+      color: #e01382; /* darker pink on hover */
     }
 /*
 
@@ -1301,7 +1289,7 @@ footer {
     .logincontainer h1{
         font-size: 36px;
         margin: -10px 0;
-        color: var(--accent-pink);
+        color: palevioletred;
     }
 
     .logincontainer p{
@@ -1346,7 +1334,7 @@ form{ width: 100%; }
         border: none;
         outline: none;
         font-size: 16px;
-        color: var(--accent-pink);
+        color: palevioletred;
         font-weight: 500;
     }
 
@@ -1361,7 +1349,7 @@ form{ width: 100%; }
         top: 50%;
         transform: translateY(-50%);
         font-size: 20px;
-        color: var(--accent-pink);
+        color: palevioletred;
     }
 
 .forgot-link{ margin: -15px 0 15px; }
@@ -1373,7 +1361,7 @@ form{ width: 100%; }
 .btn1{
     width: 100%;
     height: 48px;
-    background: var(--accent-pink);
+    background: palevioletred;
     border-radius: 8px;
     box-shadow: 0 0 10px rgba(0, 0, 0, .1);
     border: none;
@@ -1394,7 +1382,7 @@ form{ width: 100%; }
         border: 2px solid #ccc;
         border-radius: 8px;
         font-size: 24px;
-        color: var(--accent-pink);
+        color: palevioletred;
         margin: 0 8px;
     }
 
@@ -1410,7 +1398,7 @@ form{ width: 100%; }
         left: -250%;
         width: 300%;
         height: 100%;
-        background: var(--accent-pink);
+        background: palevioletred;
         /* border: 2px solid red; */
         border-radius: 150px;
         z-index: 2;
@@ -1542,7 +1530,7 @@ form{ width: 100%; }
   margin-bottom:1rem;
 }
 .gallery-header h1{
-  color: var(--accent-pink);
+  color: var(--primary-pink);
 }
 .gallery-sub{ color: var(--black); }
 .gallery-actions{ display:flex; gap:.5rem; justify-content:center; margin:.75rem 0 1.25rem; }
@@ -1587,10 +1575,6 @@ form{ width: 100%; }
 .gallery-empty{
   text-align:center; color: var(--gray);
   padding: 2rem 1rem;
-}
-
-.gallery-empty p {
-    color: var(--black); 
 }
 .gallery-empty i{ font-size: 2.2rem; color: var(--secondary-pink); }
 /* --- iPhone-style Gallery --- */
