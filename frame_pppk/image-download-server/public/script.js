@@ -13,6 +13,8 @@ class PixelPopStudio {
     this.stream        = null;
     this.isCapturing   = false;
     this.timerValue    = 3;
+    this.isSaving = false;  // prevents double-save spam
+
 
     // Gallery caps & state
     this.MAX_GALLERY    = 50;
@@ -396,12 +398,24 @@ const requireLogin = () =>
       });
     }
 
-    if (saveBtn) {
-      saveBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        requireLogin().then(ok => { if (ok) this.saveFinalToGallery?.(); });
-      });
-    }
+   if (saveBtn) {
+  saveBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    requireLogin().then(ok => {
+      if (!ok) return;
+      if (this.isSaving) return;            // ← block extra clicks
+      this.isSaving = true;                 // lock saving
+
+      saveBtn.disabled = true;              // hard disable while saving
+
+      Promise.resolve(this.saveFinalToGallery?.())
+        .finally(() => {
+          this.isSaving = false;            // unlock
+          saveBtn.disabled = false;         // re-enable button
+        });
+    });
+  });
+}
   }
 
   initializeCamera() {
@@ -1266,7 +1280,8 @@ buildGalleryCard(it, index) {
   del.className = 'meta-btn danger';
   del.innerHTML = '<i class="fas fa-trash"></i>';
   del.title = 'Delete';
-  del.addEventListener('click', () => {
+  del.addEventListener('click', (e) => {            // ← add (e)
+  e.stopPropagation();                            
     if (!confirm('Delete this photo?')) return;
     this.deletePhoto(it.id).then(ok => {
       if (ok) {
@@ -1614,19 +1629,29 @@ _doAutosave() {
 }
 
 saveFinalToGallery() {
+  if (this.isSaving) return Promise.resolve();  // ← extra guard
+
   const btn = document.getElementById('save-gallery-btn');
   const setBusy = (busy) => {
     if (!btn) return;
-    if (busy) { btn.disabled = true; btn.dataset._old = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...'; }
-    else { btn.disabled = false; btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery'; }
+    if (busy) {
+      btn.disabled = true;
+      btn.dataset._old = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = btn.dataset._old || '<i class="fas fa-cloud-upload-alt"></i> Save to My Gallery';
+    }
   };
 
   const finalCanvas = document.getElementById('final-canvas');
-  if (!finalCanvas) return alert('No photo to save yet.');
-  if (!this.isLayoutReady) return alert('Hang on — still rendering your photo…');
-  if ((this._galleryCount || 0) >= this.MAX_GALLERY) return alert('Gallery is full (50 photos). Please delete some photos first.');
+  if (!finalCanvas) { alert('No photo to save yet.'); return Promise.resolve(); }
+  if (!this.isLayoutReady) { alert('Hang on — still rendering your photo…'); return Promise.resolve(); }
+  if ((this._galleryCount || 0) >= this.MAX_GALLERY) { alert('Gallery is full (50 photos). Please delete some photos first.'); return Promise.resolve(); }
 
   setBusy(true);
+  // … rest of your code unchanged …
+
   const scale = 2;
   const tmp = document.createElement('canvas');
   tmp.width  = finalCanvas.width * scale;
