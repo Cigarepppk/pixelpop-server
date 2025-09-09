@@ -1767,6 +1767,7 @@ body.lb-open { overflow: hidden; }
   border-radius: var(--border-radius);
   box-shadow: var(--box-shadow);
   text-align: center;
+  align-items: center;
 }
 
 .profile-pic {
@@ -1805,4 +1806,6 @@ body.lb-open { overflow: hidden; }
 .logout-btn:hover {
   background: var(--primary-pink);
 }
+
+
 
