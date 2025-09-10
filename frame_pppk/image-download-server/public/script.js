@@ -2371,7 +2371,7 @@ if (forgotLink) {
   forgotLink.addEventListener('click', async (e) => {
     e.preventDefault();
 
-    const emailOrUsername = prompt('Enter the email or username on your account:');
+    const emailOrUsername = prompt('Enter the email of your account:');
     if (!emailOrUsername) return;
 
     const raw = emailOrUsername.trim();
