@@ -1051,6 +1051,12 @@ _invalidateRender() {
   this.isLayoutReady = false;
   this._lastSavedHash = null;
   this._autoSavedHash = null;
+  const saveBtn = document.getElementById('save-gallery-btn');
+if (saveBtn) {
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rendering…';
+}
+
 }
 
 _buildAbsUrl(u) { return !u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)); }
@@ -1663,7 +1669,7 @@ async _doAutosave() {
   if (res && res.ok && res.item) {
     this._rememberMirrored(res.item);
     this._autoSavedHash = h;
-    this._lastSavedHash = h;
+  
   }
   return res;
 }
@@ -1706,9 +1712,14 @@ async saveFinalToGallery() {
     // DEDUPE: block saving exact same image content
     const h = await this._hashDataURL(dataURL);
     if (this._lastSavedHash && this._lastSavedHash === h) {
-      alert('Already saved this photo.');
-      return;
-    }
+   alert('Already saved this photo.');
+   return;
+} // If autosave already saved this exact image, treat as success and navigate
+if (this._autoSavedHash && this._autoSavedHash === h) {
+   alert('Already auto-saved to your gallery. Opening it…');
+  // Best-effort: show latest gallery (already contains the item)
+  this.goToGalleryAndShow?.(null) || this.navigateToPage('gallery');
+  return;}
 
     const { ok, item, error } = await this.savePhotoToGallery(dataURL);
     if (ok) {

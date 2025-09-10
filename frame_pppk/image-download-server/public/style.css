@@ -1598,7 +1598,7 @@ form{ width: 100%; }
 .gallery-empty p {
     color: var(--black); 
 }
-.gallery-empty i{ font-size: 2.2rem; color: var(--secondary-pink); }
+.gallery-empty i{ font-size: 2.2rem; color: var(--accent-pink); }
 /* --- iPhone-style Gallery --- */
 .gallery-grid {
   display: grid;
