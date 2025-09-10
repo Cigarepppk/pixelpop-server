@@ -639,8 +639,13 @@ const requireLogin = () =>
   if (!finalCanvas) return;
   const ctx2 = finalCanvas.getContext('2d');
 
-  // reset ready flag before re-render
-  this._invalidateRender();            // ← add this line
+  // light re-render prep: don't touch dedupe hashes
+  this.isLayoutReady = false;
+  const saveBtn = document.getElementById('save-gallery-btn');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rendering…';
+  }
 
   switch (this.currentLayout) {
     case 'single':     this.createSingleLayout(ctx2, finalCanvas); break;
@@ -649,6 +654,7 @@ const requireLogin = () =>
     case 'fourstrip':  this.createFourStripLayout(ctx2, finalCanvas); break;
   }
 }
+
 
   createSingleLayout(ctx, canvas) {
     canvas.width = 300;
