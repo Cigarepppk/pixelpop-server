@@ -303,48 +303,39 @@ logout() {
 
   /* ===================== UI selections (kept) ===================== */
   setupLayoutSelection() {
-  const layoutOptions = document.querySelectorAll('.layout-option');
-  layoutOptions.forEach(option => {
-    option.addEventListener('click', () => {
-      layoutOptions.forEach(opt => opt.classList.remove('active'));
-      option.classList.add('active');
-      this.currentLayout = option.dataset.layout;
-      // a new layout is effectively a fresh session
-      this.resetSession?.();
+    const layoutOptions = document.querySelectorAll('.layout-option');
+    layoutOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        layoutOptions.forEach(opt => opt.classList.remove('active'));
+        option.classList.add('active');
+        this.currentLayout = option.dataset.layout;
+        this.resetSession?.();
+      });
     });
-  });
-}
+  }
 
-setupBorderSelection() {
-  const borderOptions = document.querySelectorAll('.border-option');
-  borderOptions.forEach(option => {
-    option.addEventListener('click', () => {
-      borderOptions.forEach(opt => opt.classList.remove('active'));
-      option.classList.add('active');
-      this.currentBorder = option.dataset.border;
-
-      // 🔑 new look → new image → clear dedupe + recompose if we already have shots
-      this._invalidateRender();
-      if (this.capturedPhotos.length) this.createFinalLayout();
+  setupBorderSelection() {
+    const borderOptions = document.querySelectorAll('.border-option');
+    borderOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        borderOptions.forEach(opt => opt.classList.remove('active'));
+        option.classList.add('active');
+        this.currentBorder = option.dataset.border;
+      });
     });
-  });
-}
+  }
 
-setupFilterSelection() {
-  const filterOptions = document.querySelectorAll('.filter-option');
-  filterOptions.forEach(option => {
-    option.addEventListener('click', () => {
-      filterOptions.forEach(opt => opt.classList.remove('active'));
-      option.classList.add('active');
-      this.currentFilter = option.dataset.filter;
-
-      this.applyLiveFilter?.();   // live preview on the video
-      // 🔑 new look → new image → clear dedupe + recompose if results exist
-      this._invalidateRender();
-      if (this.capturedPhotos.length) this.createFinalLayout();
+  setupFilterSelection() {
+    const filterOptions = document.querySelectorAll('.filter-option');
+    filterOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        filterOptions.forEach(opt => opt.classList.remove('active'));
+        option.classList.add('active');
+        this.currentFilter = option.dataset.filter;
+        this.applyLiveFilter?.();
+      });
     });
-  });
-}
+  }
 
   /* ===================== Camera (kept from your version) ===================== */
   setupCameraControls() {
@@ -634,27 +625,21 @@ const requireLogin = () =>
     document.dispatchEvent(new CustomEvent('pixelpop:layout-ready'));
   }
 
-  createFinalLayout(ctx, canvas) {
-  const finalCanvas = document.getElementById('final-canvas');
-  if (!finalCanvas) return;
-  const ctx2 = finalCanvas.getContext('2d');
+  createFinalLayout() {
+    const finalCanvas = document.getElementById('final-canvas');
+    if (!finalCanvas) return;
+    const ctx = finalCanvas.getContext('2d');
 
-  // light re-render prep: don't touch dedupe hashes
-  this.isLayoutReady = false;
-  const saveBtn = document.getElementById('save-gallery-btn');
-  if (saveBtn) {
-    saveBtn.disabled = true;
-    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rendering…';
+    // reset ready flag before re-render
+    this.isLayoutReady = false;
+
+    switch (this.currentLayout) {
+      case 'single':     this.createSingleLayout(ctx, finalCanvas); break;
+      case 'twostrip':   this.createTwoStripLayout(ctx, finalCanvas); break;
+      case 'threestrip': this.createThreeStripLayout(ctx, finalCanvas); break;
+      case 'fourstrip':  this.createFourStripLayout(ctx, finalCanvas); break;
+    }
   }
-
-  switch (this.currentLayout) {
-    case 'single':     this.createSingleLayout(ctx2, finalCanvas); break;
-    case 'twostrip':   this.createTwoStripLayout(ctx2, finalCanvas); break;
-    case 'threestrip': this.createThreeStripLayout(ctx2, finalCanvas); break;
-    case 'fourstrip':  this.createFourStripLayout(ctx2, finalCanvas); break;
-  }
-}
-
 
   createSingleLayout(ctx, canvas) {
     canvas.width = 300;
@@ -1036,10 +1021,6 @@ deletePhoto(photoId) {
 }
 
 /* ========= Helpers ========= */
-// Invalidate current render so the next save counts as new
-
-
-
 async _hashDataURL(dataURL) {
   try {
     const b = atob((dataURL || '').split(',')[1] || '');
@@ -1051,18 +1032,6 @@ async _hashDataURL(dataURL) {
     // Fallback: include length so identical images still match most of the time
     return `len:${(dataURL || '').length}`;
   }
-}
-
-_invalidateRender() {
-  this.isLayoutReady = false;
-  this._lastSavedHash = null;
-  this._autoSavedHash = null;
-  const saveBtn = document.getElementById('save-gallery-btn');
-if (saveBtn) {
-  saveBtn.disabled = true;
-  saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rendering…';
-}
-
 }
 
 _buildAbsUrl(u) { return !u ? '' : (u.startsWith('http') ? u : (this.API_BASE + u)); }
@@ -1675,7 +1644,7 @@ async _doAutosave() {
   if (res && res.ok && res.item) {
     this._rememberMirrored(res.item);
     this._autoSavedHash = h;
-  
+    this._lastSavedHash = h;
   }
   return res;
 }
@@ -1718,14 +1687,9 @@ async saveFinalToGallery() {
     // DEDUPE: block saving exact same image content
     const h = await this._hashDataURL(dataURL);
     if (this._lastSavedHash && this._lastSavedHash === h) {
-   alert('Already saved this photo.');
-   return;
-} // If autosave already saved this exact image, treat as success and navigate
-if (this._autoSavedHash && this._autoSavedHash === h) {
-   alert('Already auto-saved to your gallery. Opening it…');
-  // Best-effort: show latest gallery (already contains the item)
-  this.goToGalleryAndShow?.(null) || this.navigateToPage('gallery');
-  return;}
+      alert('Already saved this photo.');
+      return;
+    }
 
     const { ok, item, error } = await this.savePhotoToGallery(dataURL);
     if (ok) {
@@ -2479,7 +2443,7 @@ window.handleGoogleCredential = async (response) => {
 
     showUserProfile(displayName, email, avatar);
 
-    window.PixelPopAppNavigate?.('login');
+    window.PixelPopAppNavigate?.('layout');
 
     doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
   } catch {
