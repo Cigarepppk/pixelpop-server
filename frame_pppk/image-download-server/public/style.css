@@ -506,10 +506,22 @@ body {
     border-radius: 4px;
 }
 
-.preview-strip {
+.preview-twostrip {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
+}
+
+.strip-item {
+    width: 50px;
+    height: 10px;
+    background: var(--secondary-pink);
+    border-radius: 2px;
+}
+.preview-threestrip {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .strip-item {
@@ -519,27 +531,19 @@ body {
     border-radius: 2px;
 }
 
-.preview-collage {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    gap: 2px;
-    width: 60px;
-    height: 45px;
+.preview-fourstrip {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
-.collage-item.large {
-    grid-row: span 2;
+.strip-item {
+    width: 50px;
+    height: 10px;
     background: var(--secondary-pink);
     border-radius: 2px;
 }
-
-.collage-item.small {
-    background: var(--secondary-pink);
-    border-radius: 2px;
-}
-
-.preview-grid {
+/*.preview-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 2px;
@@ -550,7 +554,7 @@ body {
 .grid-item {
     background: var(--secondary-pink);
     border-radius: 2px;
-}
+}*/
 
 /* Camera Section */
 .camera-section {
