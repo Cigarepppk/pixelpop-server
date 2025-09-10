@@ -1687,7 +1687,9 @@ async saveFinalToGallery() {
     // DEDUPE: block saving exact same image content
     const h = await this._hashDataURL(dataURL);
     if (this._lastSavedHash && this._lastSavedHash === h) {
-      alert('Already saved this photo.');
+      alert('Save to your private gallery!');
+      this.goToGalleryAndShow(null);
+      
       return;
     }
 
