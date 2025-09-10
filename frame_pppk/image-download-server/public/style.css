@@ -805,6 +805,7 @@ body {
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow);
     text-align: center;
+    margin-bottom: 3rem;
     
 }
 
