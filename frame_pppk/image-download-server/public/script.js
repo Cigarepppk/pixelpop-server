@@ -2443,7 +2443,7 @@ window.handleGoogleCredential = async (response) => {
 
     showUserProfile(displayName, email, avatar);
 
-    window.PixelPopAppNavigate?.('layout');
+    window.PixelPopAppNavigate?.('login');
 
     doGet('/api/auth/verify', { withAuth: true }).catch(() => {});
   } catch {
